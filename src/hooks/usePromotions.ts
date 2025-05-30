@@ -1,3 +1,4 @@
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Promotion } from '@/types';
@@ -13,23 +14,30 @@ export const usePromotions = () => {
 
       if (error) throw error;
       
-      return data.map(promotion => ({
-        id: promotion.id,
-        name: promotion.name,
-        description: promotion.description,
-        type: promotion.type as 'percentage' | 'fixed',
-        value: promotion.value,
-        applicability: promotion.applicability as 'all' | 'category' | 'product',
-        targetIds: promotion.target_id ? [promotion.target_id] : undefined,
-        conditions: {
-          ...promotion.conditions,
-          startDate: promotion.conditions?.startDate ? new Date(promotion.conditions.startDate) : undefined,
-          endDate: promotion.conditions?.endDate ? new Date(promotion.conditions.endDate) : undefined,
-          minimumQuantity: promotion.minimum_quantity || undefined,
-        },
-        isActive: promotion.is_active,
-        createdAt: new Date(promotion.created_at),
-      })) as Promotion[];
+      return data.map(promotion => {
+        // Safely parse the conditions JSON
+        const conditions = promotion.conditions as any || {};
+        
+        return {
+          id: promotion.id,
+          name: promotion.name,
+          description: promotion.description,
+          type: promotion.type as 'percentage' | 'fixed',
+          value: promotion.value,
+          applicability: promotion.applicability as 'all' | 'category' | 'product',
+          targetIds: promotion.target_id ? [promotion.target_id] : undefined,
+          conditions: {
+            daysOfWeek: conditions.daysOfWeek || undefined,
+            startDate: conditions.startDate ? new Date(conditions.startDate) : undefined,
+            endDate: conditions.endDate ? new Date(conditions.endDate) : undefined,
+            paymentMethods: conditions.paymentMethods || undefined,
+            minimumPurchase: conditions.minimumPurchase || undefined,
+            minimumQuantity: promotion.minimum_quantity || undefined,
+          },
+          isActive: promotion.is_active,
+          createdAt: new Date(promotion.created_at),
+        };
+      }) as Promotion[];
     },
   });
 };
