@@ -20,11 +20,11 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
   const getPaymentMethodBadge = (method: string) => {
     switch (method) {
       case 'cash':
-        return <Badge variant="outline" className="bg-green-50 text-green-700">Efectivo</Badge>;
+        return <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">Efectivo</Badge>;
       case 'transfer':
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700">Transferencia</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 text-xs">Transferencia</Badge>;
       default:
-        return <Badge variant="outline">{method}</Badge>;
+        return <Badge variant="outline" className="text-xs">{method}</Badge>;
     }
   };
 
@@ -48,11 +48,11 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-2 sm:p-4">
       <Card>
         <CardHeader>
-          <CardTitle>Historial de Órdenes</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-lg sm:text-xl">Historial de Órdenes</CardTitle>
+          <CardDescription className="text-sm">
             Lista completa de todas las órdenes realizadas
           </CardDescription>
         </CardHeader>
@@ -62,21 +62,21 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
         {orders.length === 0 ? (
           <Card>
             <CardContent className="flex items-center justify-center h-32">
-              <p className="text-gray-500">No hay órdenes registradas</p>
+              <p className="text-gray-500 text-sm">No hay órdenes registradas</p>
             </CardContent>
           </Card>
         ) : (
           orders.map((order) => (
-            <Card key={order.id}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{order.order_number}</CardTitle>
-                    <CardDescription>
+            <Card key={order.id} className="overflow-hidden">
+              <CardHeader className="pb-2">
+                <div className="flex flex-col space-y-2 sm:flex-row sm:justify-between sm:items-start sm:space-y-0">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="text-base sm:text-lg truncate">{order.order_number}</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
                       Cliente: {order.customer_name} • {formatDate(order.created_at)}
                     </CardDescription>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2 shrink-0">
                     {getPaymentMethodBadge(order.payment_method)}
                     {order.payment_method === 'transfer' && order.photo_evidence && (
                       <Button
@@ -86,42 +86,45 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                           imageUrl: order.photo_evidence!,
                           customerName: order.customer_name
                         })}
+                        className="text-xs w-full sm:w-auto"
                       >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Ver Transferencia
+                        <Eye className="h-3 w-3 mr-1" />
+                        Ver Transf.
                       </Button>
                     )}
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="font-semibold mb-2">Productos ({order.order_items?.length || 0})</h4>
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="min-w-0">
+                    <h4 className="font-semibold mb-2 text-sm">Productos ({order.order_items?.length || 0})</h4>
                     <div className="space-y-2">
                       {order.order_items?.map((item) => {
                         const itemPromotions = parseAppliedPromotions(item.applied_promotions);
                         const hasDiscount = item.original_price && item.original_price > item.price;
                         
                         return (
-                          <div key={item.id} className="border rounded p-2 space-y-1">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <span className="font-medium">{item.quantity}x {item.product_name}</span>
-                                <div className="text-sm text-gray-600">{item.variant_name}</div>
+                          <div key={item.id} className="border rounded p-2 space-y-1 text-sm">
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-xs sm:text-sm truncate">
+                                  {item.quantity}x {item.product_name}
+                                </div>
+                                <div className="text-xs text-gray-600 truncate">{item.variant_name}</div>
                               </div>
-                              <div className="text-right">
+                              <div className="text-right shrink-0">
                                 {hasDiscount ? (
                                   <div className="space-y-1">
                                     <div className="text-xs text-gray-500 line-through">
                                       ${(item.original_price! * item.quantity).toLocaleString()}
                                     </div>
-                                    <div className="text-sm font-bold text-red-600">
+                                    <div className="text-xs sm:text-sm font-bold text-red-600">
                                       ${(item.price * item.quantity).toLocaleString()}
                                     </div>
                                   </div>
                                 ) : (
-                                  <span className="text-sm font-bold">
+                                  <span className="text-xs sm:text-sm font-bold">
                                     ${(item.price * item.quantity).toLocaleString()}
                                   </span>
                                 )}
@@ -133,7 +136,9 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                                 {itemPromotions.map((promo: any, index: number) => (
                                   <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
                                     <Tag className="h-2 w-2 mr-1" />
-                                    {promo.promotionName}: -{promo.type === 'percentage' ? `${promo.value}%` : `$${promo.value.toLocaleString()}`}
+                                    <span className="truncate max-w-24">
+                                      {promo.promotionName}: -{promo.type === 'percentage' ? `${promo.value}%` : `$${promo.value.toLocaleString()}`}
+                                    </span>
                                   </Badge>
                                 ))}
                               </div>
@@ -144,7 +149,7 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                     </div>
                   </div>
                   
-                  <div className="space-y-2">
+                  <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span>Subtotal:</span>
                       <span>${order.subtotal.toLocaleString()}</span>
@@ -158,18 +163,18 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                         <span>-${order.total_discount.toLocaleString()}</span>
                       </div>
                     )}
-                    <div className="flex justify-between font-bold text-lg border-t pt-2">
+                    <div className="flex justify-between font-bold text-base sm:text-lg border-t pt-2">
                       <span>Total:</span>
                       <span>${order.total.toLocaleString()}</span>
                     </div>
                     {order.cash_received && (
-                      <div className="flex justify-between text-sm text-gray-600">
+                      <div className="flex justify-between text-xs sm:text-sm text-gray-600">
                         <span>Efectivo recibido:</span>
                         <span>${order.cash_received.toLocaleString()}</span>
                       </div>
                     )}
                     {order.cash_received && order.cash_received > order.total && (
-                      <div className="flex justify-between text-sm text-blue-600">
+                      <div className="flex justify-between text-xs sm:text-sm text-blue-600">
                         <span>Cambio:</span>
                         <span>${(order.cash_received - order.total).toLocaleString()}</span>
                       </div>

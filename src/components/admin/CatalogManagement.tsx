@@ -385,15 +385,15 @@ const CatalogManagement = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Administración del Catálogo</h2>
-        <div>
-          <Button onClick={handleOpenCategoryDialog}>
+    <div className="space-y-4 sm:space-y-6 p-2 sm:p-4">
+      <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center">
+        <h2 className="text-xl sm:text-2xl font-bold">Administración del Catálogo</h2>
+        <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:space-x-2">
+          <Button onClick={handleOpenCategoryDialog} size="sm" className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Nueva Categoría
           </Button>
-          <Button onClick={handleOpenProductDialog} className="ml-2">
+          <Button onClick={handleOpenProductDialog} size="sm" className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Nuevo Producto
           </Button>
@@ -401,74 +401,79 @@ const CatalogManagement = () => {
       </div>
 
       <Tabs defaultValue="categories" className="w-full">
-        <TabsList className="w-full">
-          <TabsTrigger value="categories">Categorías</TabsTrigger>
-          <TabsTrigger value="products">Productos</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-2">
+          <TabsTrigger value="categories" className="text-sm">Categorías</TabsTrigger>
+          <TabsTrigger value="products" className="text-sm">Productos</TabsTrigger>
         </TabsList>
         
         <TabsContent value="categories" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Lista de Categorías</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-lg">Lista de Categorías</CardTitle>
+              <CardDescription className="text-sm">
                 Administra las categorías de tus productos.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-x-auto">
               {isCategoriesLoading ? (
                 <p>Cargando categorías...</p>
               ) : (
                 <DragDropContext onDragEnd={onDragEndCategory}>
                   <Droppable droppableId="categories">
                     {(provided) => (
-                      <Table {...provided.droppableProps} ref={provided.innerRef}>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Orden</TableHead>
-                            <TableHead>Nombre</TableHead>
-                            <TableHead>Estado</TableHead>
-                            <TableHead className="text-right">Acciones</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {categoriesState.map((category, index) => (
-                            <Draggable key={category.id} draggableId={category.id} index={index}>
-                              {(provided) => (
-                                <TableRow 
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  ref={provided.innerRef}
-                                >
-                                  <TableCell>{index + 1}</TableCell>
-                                  <TableCell>{category.name}</TableCell>
-                                  <TableCell>
-                                    {category.is_active ? "Activa" : "Inactiva"}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleEditCategory(category)}
-                                    >
-                                      <Pencil className="h-4 w-4 mr-2" />
-                                      Editar
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleDeleteCategory(category)}
-                                      className="text-red-500"
-                                    >
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Borrar
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              )}
-                            </Draggable>
-                          ))}
-                        </TableBody>
-                      </Table>
+                      <div className="min-w-full overflow-x-auto">
+                        <Table {...provided.droppableProps} ref={provided.innerRef}>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-16">Orden</TableHead>
+                              <TableHead className="min-w-32">Nombre</TableHead>
+                              <TableHead className="w-20">Estado</TableHead>
+                              <TableHead className="text-right w-32">Acciones</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {categoriesState.map((category, index) => (
+                              <Draggable key={category.id} draggableId={category.id} index={index}>
+                                {(provided) => (
+                                  <TableRow 
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    ref={provided.innerRef}
+                                  >
+                                    <TableCell className="text-sm">{index + 1}</TableCell>
+                                    <TableCell className="text-sm">{category.name}</TableCell>
+                                    <TableCell className="text-xs">
+                                      {category.is_active ? "Activa" : "Inactiva"}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleEditCategory(category)}
+                                          className="text-xs px-2"
+                                        >
+                                          <Pencil className="h-3 w-3 sm:mr-1" />
+                                          <span className="hidden sm:inline">Editar</span>
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleDeleteCategory(category)}
+                                          className="text-red-500 text-xs px-2"
+                                        >
+                                          <Trash2 className="h-3 w-3 sm:mr-1" />
+                                          <span className="hidden sm:inline">Borrar</span>
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </Draggable>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     )}
                   </Droppable>
                 </DragDropContext>
@@ -481,12 +486,12 @@ const CatalogManagement = () => {
           {categoriesState.map(category => (
             <Card key={category.id}>
               <CardHeader>
-                <CardTitle>Productos en {category.name}</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-lg">Productos en {category.name}</CardTitle>
+                <CardDescription className="text-sm">
                   Administra los productos de esta categoría.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="overflow-x-auto">
                 {isProductsLoading ? (
                   <p>Cargando productos...</p>
                 ) : (
@@ -495,58 +500,63 @@ const CatalogManagement = () => {
                   >
                     <Droppable droppableId={`products-${category.id}`}>
                       {(provided) => (
-                        <Table {...provided.droppableProps} ref={provided.innerRef}>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Orden</TableHead>
-                              <TableHead>Nombre</TableHead>
-                              <TableHead>Precio Base</TableHead>
-                              <TableHead>Estado</TableHead>
-                              <TableHead className="text-right">Acciones</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {productsState
-                              .filter(product => product.category_id === category.id)
-                              .map((product, index) => (
-                                <Draggable key={product.id} draggableId={product.id} index={index}>
-                                  {(provided) => (
-                                    <TableRow
-                                      {...provided.draggableProps}
-                                      {...provided.dragHandleProps}
-                                      ref={provided.innerRef}
-                                    >
-                                      <TableCell>{index + 1}</TableCell>
-                                      <TableCell>{product.name}</TableCell>
-                                      <TableCell>${product.base_price?.toLocaleString()}</TableCell>
-                                      <TableCell>
-                                        {product.is_active ? "Activo" : "Inactivo"}
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => handleEditProduct(product)}
-                                        >
-                                          <Pencil className="h-4 w-4 mr-2" />
-                                          Editar
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => handleDeleteProduct(product)}
-                                          className="text-red-500"
-                                        >
-                                          <Trash2 className="h-4 w-4 mr-2" />
-                                          Borrar
-                                        </Button>
-                                      </TableCell>
-                                    </TableRow>
-                                  )}
-                                </Draggable>
-                              ))}
-                          </TableBody>
-                        </Table>
+                        <div className="min-w-full overflow-x-auto">
+                          <Table {...provided.droppableProps} ref={provided.innerRef}>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-16">Orden</TableHead>
+                                <TableHead className="min-w-32">Nombre</TableHead>
+                                <TableHead className="w-24">Precio Base</TableHead>
+                                <TableHead className="w-20">Estado</TableHead>
+                                <TableHead className="text-right w-32">Acciones</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {productsState
+                                .filter(product => product.category_id === category.id)
+                                .map((product, index) => (
+                                  <Draggable key={product.id} draggableId={product.id} index={index}>
+                                    {(provided) => (
+                                      <TableRow
+                                        {...provided.draggableProps}
+                                        {...provided.dragHandleProps}
+                                        ref={provided.innerRef}
+                                      >
+                                        <TableCell className="text-sm">{index + 1}</TableCell>
+                                        <TableCell className="text-sm">{product.name}</TableCell>
+                                        <TableCell className="text-sm">${product.base_price?.toLocaleString()}</TableCell>
+                                        <TableCell className="text-xs">
+                                          {product.is_active ? "Activo" : "Inactivo"}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                          <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleEditProduct(product)}
+                                              className="text-xs px-2"
+                                            >
+                                              <Pencil className="h-3 w-3 sm:mr-1" />
+                                              <span className="hidden sm:inline">Editar</span>
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleDeleteProduct(product)}
+                                              className="text-red-500 text-xs px-2"
+                                            >
+                                              <Trash2 className="h-3 w-3 sm:mr-1" />
+                                              <span className="hidden sm:inline">Borrar</span>
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                  </Draggable>
+                                ))}
+                            </TableBody>
+                          </Table>
+                        </div>
                       )}
                     </Droppable>
                   </DragDropContext>
