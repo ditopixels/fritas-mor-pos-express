@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Store, Lock, User } from "lucide-react";
+import { Lock, User } from "lucide-react";
+import { User as UserType } from "@/types";
 
 interface LoginFormProps {
-  onLogin: (username: string, password: string) => boolean;
+  onLogin: (user: UserType) => void;
 }
 
 export const LoginForm = ({ onLogin }: LoginFormProps) => {
@@ -16,17 +17,34 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Demo users
+  const demoUsers: UserType[] = [
+    {
+      id: "1",
+      username: "admin",
+      role: "admin",
+      name: "Administrador"
+    },
+    {
+      id: "2",
+      username: "cajero",
+      role: "cashier",
+      name: "Cajero Principal"
+    }
+  ];
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
-    // Simular un pequeño delay
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    const success = onLogin(username, password);
+    const user = demoUsers.find(u => u.username === username);
     
-    if (!success) {
+    if (user && (password === "lasfritas2024" || password === "cajero123")) {
+      onLogin(user);
+    } else {
       setError("Credenciales incorrectas");
     }
     
@@ -112,10 +130,18 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500">
-              Demo: usuario: <strong>admin</strong> | contraseña: <strong>lasfritas2024</strong>
-            </p>
+          <div className="mt-6 space-y-2">
+            <div className="text-center">
+              <p className="text-xs text-gray-600 font-semibold">Demo - Usuarios disponibles:</p>
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-xs text-gray-500">
+                <strong>Administrador:</strong> usuario: <code>admin</code> | contraseña: <code>lasfritas2024</code>
+              </p>
+              <p className="text-xs text-gray-500">
+                <strong>Cajero:</strong> usuario: <code>cajero</code> | contraseña: <code>cajero123</code>
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

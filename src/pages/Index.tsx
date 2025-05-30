@@ -1,54 +1,40 @@
+
 import { useState } from "react";
 import { ProductGrid } from "@/components/pos/ProductGrid";
 import { OrderSummary } from "@/components/pos/OrderSummary";
-import { PaymentModal } from "@/components/pos/PaymentModal";
 import { OrdersHistory } from "@/components/pos/OrdersHistory";
 import { Header } from "@/components/pos/Header";
 import { LoginForm } from "@/components/pos/LoginForm";
+import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-export interface CartItem {
-  id: string;
-  productName: string;
-  variantName: string;
-  sku: string;
-  price: number;
-  quantity: number;
-  image?: string;
-}
-
-export interface Order {
-  id: string;
-  items: CartItem[];
-  total: number;
-  paymentMethod: string;
-  customerName: string;
-  cashReceived?: number;
-  photoEvidence?: string;
-  createdAt: Date;
-  status: string;
-}
+import { CartItem, Order, User } from "@/types";
 
 const Index = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState("pos");
+  const [currentView, setCurrentView] = useState("pos");
 
-  const handleLogin = (username: string, password: string) => {
-    // Demo login - en producción esto se conectaría a MedusaJS
-    if (username === "admin" && password === "lasfritas2024") {
-      setIsLoggedIn(true);
-      return true;
+  const handleLogin = (userData: User) => {
+    setUser(userData);
+    if (userData.role === 'cashier') {
+      setCurrentView('pos');
     }
-    return false;
   };
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
+    setUser(null);
     setCartItems([]);
     setActiveTab("pos");
+    setCurrentView("pos");
+  };
+
+  const handleNavigate = (view: string) => {
+    setCurrentView(view);
+    if (view === 'pos') {
+      setActiveTab("pos");
+    }
   };
 
   const addToCart = (item: Omit<CartItem, "quantity">) => {
@@ -92,10 +78,16 @@ const Index = () => {
   };
 
   const handlePayment = (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: File) => {
+    const subtotal = calculateTotal();
+    const totalDiscount = 0; // Se calculará con promociones
+    const total = subtotal - totalDiscount;
+
     const newOrder: Order = {
       id: `ORD-${Date.now()}`,
       items: [...cartItems],
-      total: calculateTotal(),
+      total,
+      subtotal,
+      totalDiscount,
       paymentMethod,
       customerName,
       cashReceived,
@@ -107,53 +99,60 @@ const Index = () => {
     setOrders(prevOrders => [newOrder, ...prevOrders]);
     clearCart();
     
-    // Aquí se enviaría la orden a MedusaJS
-    console.log("Orden enviada a MedusaJS:", newOrder);
+    console.log("Orden procesada:", newOrder);
   };
 
-  if (!isLoggedIn) {
+  if (!user) {
     return <LoginForm onLogin={handleLogin} />;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-red-50">
-      <Header onLogout={handleLogout} />
+      <Header 
+        user={user} 
+        currentView={currentView}
+        onLogout={handleLogout} 
+        onNavigate={user.role === 'admin' ? handleNavigate : undefined}
+      />
       
       <div className="container mx-auto p-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="pos" className="text-lg font-semibold">
-              Punto de Venta
-            </TabsTrigger>
-            <TabsTrigger value="orders" className="text-lg font-semibold">
-              Órdenes ({orders.length})
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="pos" className="space-y-0">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
-              <div className="lg:col-span-2">
-                <ProductGrid onAddToCart={addToCart} />
+        {currentView === 'admin' && user.role === 'admin' ? (
+          <AdminDashboard orders={orders} />
+        ) : (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="pos" className="text-lg font-semibold">
+                Punto de Venta
+              </TabsTrigger>
+              <TabsTrigger value="orders" className="text-lg font-semibold">
+                Órdenes ({orders.length})
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="pos" className="space-y-0">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+                <div className="lg:col-span-2">
+                  <ProductGrid onAddToCart={addToCart} />
+                </div>
+                
+                <div className="lg:col-span-1">
+                  <OrderSummary
+                    items={cartItems}
+                    total={calculateTotal()}
+                    onUpdateQuantity={updateQuantity}
+                    onRemoveItem={removeFromCart}
+                    onClearCart={clearCart}
+                    onProceedToPayment={handlePayment}
+                  />
+                </div>
               </div>
-              
-              <div className="lg:col-span-1">
-                <OrderSummary
-                  items={cartItems}
-                  total={calculateTotal()}
-                  onUpdateQuantity={updateQuantity}
-                  onRemoveItem={removeFromCart}
-                  onClearCart={clearCart}
-                  onProceedToPayment={handlePayment}
-                  lastOrder={orders[0]}
-                />
-              </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="orders" className="space-y-0">
-            <OrdersHistory orders={orders} />
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+            
+            <TabsContent value="orders" className="space-y-0">
+              <OrdersHistory orders={orders} />
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </div>
   );
