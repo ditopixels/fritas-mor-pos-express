@@ -2,8 +2,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Product, ProductVariant } from "@/hooks/useProducts";
 import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
@@ -14,8 +12,7 @@ interface ProductVariantSelectorProps {
 
 export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantSelectorProps) => {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
-  const [isOpen, setIsOpen] = useState(false);
-  const { calculateItemPromotions } = usePromotionCalculator();
+  const { calculateItemPromotions } = "@/hooks/usePromotionCalculator";
 
   const getPromotionBadge = (price: number) => {
     const promotions = calculateItemPromotions(product.id, product.category_id || '', price);
@@ -52,75 +49,60 @@ export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantS
     }) || [];
   };
 
-  const canAddDirectly = !product.options || product.options.length === 0;
+  const isValidSelection = () => {
+    const requiredOptions = product.options?.filter(opt => opt.is_required) || [];
+    return requiredOptions.every(opt => selectedOptions[opt.name]);
+  };
 
-  if (canAddDirectly && product.variants && product.variants.length > 0) {
-    // Producto con variantes simples sin opciones complejas
+  // Si el producto no tiene opciones y solo tiene una variante simple, permitir agregar directamente
+  if ((!product.options || product.options.length === 0) && product.variants && product.variants.length === 1) {
+    const variant = product.variants[0];
+    const finalPrice = getFinalPrice(variant.price);
+    const hasDiscount = finalPrice < variant.price;
+    
     return (
-      <div className="space-y-2 w-full">
-        {product.variants.map(variant => {
-          const finalPrice = getFinalPrice(variant.price);
-          const hasDiscount = finalPrice < variant.price;
-          
-          return (
-            <Button 
-              key={variant.id}
-              onClick={() => onAddToCart(variant, {})}
-              className="w-full relative"
-              variant="outline"
-              size="sm"
-            >
-              {getPromotionBadge(variant.price) && (
-                <div className="absolute -top-1 -right-1 z-10">
-                  {getPromotionBadge(variant.price)}
-                </div>
-              )}
-              <div className="flex justify-between items-center w-full">
-                <span>{variant.name}</span>
-                <div className="flex items-center space-x-2">
-                  {hasDiscount && (
-                    <span className="text-xs text-gray-500 line-through">
-                      ${variant.price.toLocaleString()}
-                    </span>
-                  )}
-                  <span className={`text-sm font-bold ${hasDiscount ? 'text-red-600' : ''}`}>
-                    ${finalPrice.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </Button>
-          );
-        })}
+      <div 
+        onClick={() => onAddToCart(variant, {})}
+        className="w-full cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
+      >
+        <div className="flex justify-between items-center w-full">
+          <span className="text-sm font-medium">{variant.name}</span>
+          <div className="flex items-center space-x-2">
+            {hasDiscount && (
+              <span className="text-xs text-gray-500 line-through">
+                ${variant.price.toLocaleString()}
+              </span>
+            )}
+            <span className={`text-sm font-bold ${hasDiscount ? 'text-red-600' : ''}`}>
+              ${finalPrice.toLocaleString()}
+            </span>
+            {getPromotionBadge(variant.price)}
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (product.options && product.options.length > 0) {
-    // Producto con opciones complejas
+  // Si el producto tiene múltiples variantes o opciones, mostrar selector
+  if (product.variants && product.variants.length > 1) {
     return (
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          <Button className="w-full" size="sm">
-            Personalizar
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{product.name}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
+      <div className="space-y-3 w-full">
+        {/* Mostrar opciones si las hay */}
+        {product.options && product.options.length > 0 && (
+          <div className="space-y-2">
             {product.options.map(option => (
-              <div key={option.id}>
-                <label className="text-sm font-medium">
+              <div key={option.id} className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">
                   {option.name} {option.is_required && <span className="text-red-500">*</span>}
                 </label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="grid grid-cols-2 gap-1">
                   {option.values.map(value => (
                     <Button
                       key={value}
                       variant={selectedOptions[option.name] === value ? "default" : "outline"}
                       size="sm"
                       onClick={() => handleOptionChange(option.name, value)}
+                      className="h-8 text-xs"
                     >
                       {value}
                     </Button>
@@ -128,51 +110,56 @@ export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantS
                 </div>
               </div>
             ))}
-            
-            {getAvailableVariants().length > 0 && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Variantes disponibles:</label>
-                {getAvailableVariants().map(variant => {
-                  const finalPrice = getFinalPrice(variant.price);
-                  const hasDiscount = finalPrice < variant.price;
-                  
-                  return (
-                    <Button
-                      key={variant.id}
-                      onClick={() => {
-                        onAddToCart(variant, selectedOptions);
-                        setIsOpen(false);
-                        setSelectedOptions({});
-                      }}
-                      className="w-full relative"
-                      variant="outline"
-                    >
-                      {getPromotionBadge(variant.price) && (
-                        <div className="absolute -top-1 -right-1 z-10">
-                          {getPromotionBadge(variant.price)}
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center w-full">
-                        <span>{variant.name}</span>
-                        <div className="flex items-center space-x-2">
-                          {hasDiscount && (
-                            <span className="text-xs text-gray-500 line-through">
-                              ${variant.price.toLocaleString()}
-                            </span>
-                          )}
-                          <span className={`text-sm font-bold ${hasDiscount ? 'text-red-600' : ''}`}>
-                            ${finalPrice.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </Button>
-                  );
-                })}
-              </div>
-            )}
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+        
+        {/* Mostrar variantes disponibles */}
+        <div className="space-y-2">
+          {product.variants.map(variant => {
+            // Si hay opciones, solo mostrar variantes que coincidan con la selección
+            if (product.options && product.options.length > 0) {
+              const matchesSelection = Object.entries(selectedOptions).every(([key, value]) => 
+                variant.option_values[key] === value
+              );
+              if (!matchesSelection && Object.keys(selectedOptions).length > 0) return null;
+            }
+
+            const finalPrice = getFinalPrice(variant.price);
+            const hasDiscount = finalPrice < variant.price;
+            const canAdd = !product.options || product.options.length === 0 || isValidSelection();
+            
+            return (
+              <Button 
+                key={variant.id}
+                onClick={() => canAdd && onAddToCart(variant, selectedOptions)}
+                className="w-full relative justify-between h-auto p-2"
+                variant="outline"
+                size="sm"
+                disabled={!canAdd}
+              >
+                {getPromotionBadge(variant.price) && (
+                  <div className="absolute -top-1 -right-1 z-10">
+                    {getPromotionBadge(variant.price)}
+                  </div>
+                )}
+                <div className="flex justify-between items-center w-full">
+                  <span className="text-sm">{variant.name}</span>
+                  <div className="flex items-center space-x-2">
+                    {hasDiscount && (
+                      <span className="text-xs text-gray-500 line-through">
+                        ${variant.price.toLocaleString()}
+                      </span>
+                    )}
+                    <span className={`text-sm font-bold ${hasDiscount ? 'text-red-600' : ''}`}>
+                      ${finalPrice.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </Button>
+            );
+          })}
+        </div>
+      </div>
     );
   }
 
@@ -182,7 +169,7 @@ export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantS
   const hasDiscount = finalPrice < basePrice;
 
   return (
-    <Button 
+    <div 
       onClick={() => onAddToCart({
         id: `${product.id}-default`,
         product_id: product.id,
@@ -192,16 +179,10 @@ export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantS
         option_values: {},
         is_active: true,
       }, {})}
-      className="w-full relative"
-      size="sm"
+      className="w-full cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
     >
-      {getPromotionBadge(basePrice) && (
-        <div className="absolute -top-1 -right-1 z-10">
-          {getPromotionBadge(basePrice)}
-        </div>
-      )}
       <div className="flex justify-between items-center w-full">
-        <span>Agregar</span>
+        <span className="text-sm">Agregar</span>
         <div className="flex items-center space-x-2">
           {hasDiscount && (
             <span className="text-xs text-gray-500 line-through">
@@ -211,8 +192,9 @@ export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantS
           <span className={`text-sm font-bold ${hasDiscount ? 'text-red-600' : ''}`}>
             ${finalPrice.toLocaleString()}
           </span>
+          {getPromotionBadge(basePrice)}
         </div>
       </div>
-    </Button>
+    </div>
   );
 };

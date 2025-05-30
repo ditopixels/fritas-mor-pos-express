@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye } from "lucide-react";
+import { Eye, Tag } from "lucide-react";
 import { SupabaseOrder } from "@/hooks/useOrders";
 import { TransferViewModal } from "./TransferViewModal";
 

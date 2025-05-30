@@ -1,3 +1,4 @@
+
 export interface CartItem {
   id: string;
   productName: string;
@@ -56,6 +57,7 @@ export interface Product {
   description?: string;
   categoryId: string;
   image?: string;
+  base_price?: number;
   options: ProductOption[];
   isActive: boolean;
   displayOrder: number;
