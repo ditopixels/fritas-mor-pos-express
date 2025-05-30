@@ -4,11 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tag, Plus, Edit, Trash2, Percent, DollarSign } from "lucide-react";
+import { Tag, Plus, Edit, Trash2, Percent, DollarSign, Calendar, Clock } from "lucide-react";
 import { usePromotions, useCreatePromotion, useUpdatePromotion, useDeletePromotion } from "@/hooks/usePromotions";
-import { PromotionForm } from "./PromotionForm";
+import { AdvancedPromotionForm } from "./AdvancedPromotionForm";
 import { useToast } from "@/hooks/use-toast";
 import { Promotion } from "@/types";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 export const PromotionsManagement = () => {
   const [activeTab, setActiveTab] = useState("active");
@@ -32,6 +34,7 @@ export const PromotionsManagement = () => {
         type: promotionData.type!,
         value: promotionData.value!,
         applicability: promotionData.applicability!,
+        targetIds: promotionData.targetIds,
         conditions: promotionData.conditions || {},
         isActive: promotionData.isActive ?? true,
       });
@@ -100,9 +103,24 @@ export const PromotionsManagement = () => {
     return type === "percentage" ? `${value}%` : `$${value.toLocaleString()}`;
   };
 
+  const formatDateRange = (startDate?: Date, endDate?: Date) => {
+    if (!startDate && !endDate) return null;
+    if (startDate && endDate) {
+      return `${format(startDate, "dd/MM", { locale: es })} - ${format(endDate, "dd/MM", { locale: es })}`;
+    }
+    if (startDate) return `Desde ${format(startDate, "dd/MM/yyyy", { locale: es })}`;
+    if (endDate) return `Hasta ${format(endDate, "dd/MM/yyyy", { locale: es })}`;
+  };
+
+  const formatDaysOfWeek = (days?: number[]) => {
+    if (!days || days.length === 0) return null;
+    const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    return days.map(day => dayNames[day]).join(", ");
+  };
+
   if (showForm) {
     return (
-      <PromotionForm
+      <AdvancedPromotionForm
         promotion={editingPromotion || undefined}
         onSave={editingPromotion ? handleUpdatePromotion : handleCreatePromotion}
         onCancel={() => {
@@ -124,7 +142,7 @@ export const PromotionsManagement = () => {
                 <span>Gestión de Promociones</span>
               </CardTitle>
               <CardDescription>
-                Crea y administra promociones y descuentos
+                Crea y administra promociones y descuentos avanzados
               </CardDescription>
             </div>
             <Button onClick={() => setShowForm(true)}>
@@ -167,12 +185,36 @@ export const PromotionsManagement = () => {
                               {formatValue(promotion.type, promotion.value)}
                             </Badge>
                           </div>
+                          
                           {promotion.description && (
                             <p className="text-sm text-gray-600 mb-2">{promotion.description}</p>
                           )}
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span>Aplicabilidad: {promotion.applicability === "all" ? "Todos" : promotion.applicability}</span>
-                            <span>Creada: {new Date(promotion.createdAt).toLocaleDateString()}</span>
+                          
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-2">
+                            <span>
+                              Aplicabilidad: {
+                                promotion.applicability === "all" ? "Todos" : 
+                                promotion.applicability === "category" ? "Categorías" : "Productos"
+                              }
+                            </span>
+                            
+                            {formatDateRange(promotion.conditions.startDate, promotion.conditions.endDate) && (
+                              <span className="flex items-center">
+                                <Calendar className="h-3 w-3 mr-1" />
+                                {formatDateRange(promotion.conditions.startDate, promotion.conditions.endDate)}
+                              </span>
+                            )}
+                            
+                            {formatDaysOfWeek(promotion.conditions.daysOfWeek) && (
+                              <span className="flex items-center">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {formatDaysOfWeek(promotion.conditions.daysOfWeek)}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="text-xs text-gray-400">
+                            Creada: {format(promotion.createdAt, "dd/MM/yyyy", { locale: es })}
                           </div>
                         </div>
                         <div className="flex space-x-2 ml-4">

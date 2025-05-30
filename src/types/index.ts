@@ -1,3 +1,4 @@
+
 export interface CartItem {
   id: string;
   productName: string;
@@ -78,9 +79,9 @@ export interface Promotion {
   type: 'percentage' | 'fixed';
   value: number;
   applicability: 'all' | 'category' | 'product';
-  targetId?: string;
+  targetIds?: string[]; // IDs de categorías o productos específicos
   conditions: {
-    daysOfWeek?: number[];
+    daysOfWeek?: number[]; // 0 = Domingo, 1 = Lunes, etc.
     startDate?: Date;
     endDate?: Date;
     paymentMethods?: string[];

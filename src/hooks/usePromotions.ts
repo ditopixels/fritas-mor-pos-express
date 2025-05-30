@@ -21,6 +21,7 @@ export const usePromotions = () => {
         type: promotion.type as 'percentage' | 'fixed',
         value: promotion.value,
         applicability: promotion.applicability as 'all' | 'category' | 'product',
+        targetIds: promotion.target_id ? [promotion.target_id] : undefined,
         conditions: promotion.conditions || {},
         isActive: promotion.is_active,
         createdAt: new Date(promotion.created_at),
@@ -39,6 +40,7 @@ export const useCreatePromotion = () => {
       type: 'percentage' | 'fixed';
       value: number;
       applicability: 'all' | 'category' | 'product';
+      targetIds?: string[];
       conditions: object;
       isActive: boolean;
     }) => {
@@ -50,7 +52,8 @@ export const useCreatePromotion = () => {
           type: promotionData.type,
           value: promotionData.value,
           applicability: promotionData.applicability,
-          conditions: JSON.stringify(promotionData.conditions),
+          target_id: promotionData.targetIds?.[0] || null, // Por ahora solo el primero
+          conditions: promotionData.conditions,
           is_active: promotionData.isActive,
         })
         .select()
@@ -78,7 +81,8 @@ export const useUpdatePromotion = () => {
           type: updates.type,
           value: updates.value,
           applicability: updates.applicability,
-          conditions: updates.conditions ? JSON.stringify(updates.conditions) : undefined,
+          target_id: updates.targetIds?.[0] || null,
+          conditions: updates.conditions,
           is_active: updates.isActive,
         })
         .eq('id', id)
