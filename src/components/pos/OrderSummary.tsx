@@ -1,11 +1,10 @@
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Minus, Plus } from "lucide-react";
+import { Trash2, Minus, Plus, Camera, CreditCard, DollarSign } from "lucide-react";
 import { CartItem } from "@/types";
 import { useCreateOrder } from "@/hooks/useOrders";
 import { useToast } from "@/hooks/use-toast";
@@ -30,10 +29,23 @@ export const OrderSummary = ({
   const [customerName, setCustomerName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [cashReceived, setCashReceived] = useState<number | undefined>();
+  const [photoEvidence, setPhotoEvidence] = useState<File | undefined>();
   const [isProcessing, setIsProcessing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const createOrderMutation = useCreateOrder();
   const { toast } = useToast();
+
+  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoEvidence(file);
+      toast({
+        title: "Foto capturada",
+        description: "Comprobante de transferencia guardado",
+      });
+    }
+  };
 
   const handlePayment = async () => {
     if (!customerName.trim()) {
@@ -63,13 +75,33 @@ export const OrderSummary = ({
       return;
     }
 
+    if (paymentMethod === "transfer" && !photoEvidence) {
+      toast({
+        title: "Error",
+        description: "Por favor toma una foto del comprobante de transferencia",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
+      // Convert photo to base64 if present
+      let photoBase64 = undefined;
+      if (photoEvidence) {
+        const reader = new FileReader();
+        photoBase64 = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(photoEvidence);
+        });
+      }
+
       await createOrderMutation.mutateAsync({
         customer_name: customerName.trim(),
         payment_method: paymentMethod,
         cash_received: paymentMethod === "cash" ? cashReceived : undefined,
+        photo_evidence: photoBase64,
         items,
       });
 
@@ -82,10 +114,11 @@ export const OrderSummary = ({
       setCustomerName("");
       setPaymentMethod("");
       setCashReceived(undefined);
+      setPhotoEvidence(undefined);
       onClearCart();
       
       // También llamar a la función original para mantener compatibilidad
-      onProceedToPayment(paymentMethod, customerName, cashReceived);
+      onProceedToPayment(paymentMethod, customerName, cashReceived, photoEvidence);
       
     } catch (error: any) {
       toast({
@@ -179,17 +212,26 @@ export const OrderSummary = ({
             </div>
 
             <div>
-              <Label htmlFor="payment-method">Método de Pago</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione método de pago" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Efectivo</SelectItem>
-                  <SelectItem value="card">Tarjeta</SelectItem>
-                  <SelectItem value="transfer">Transferencia</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Método de Pago</Label>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <Button
+                  variant={paymentMethod === "cash" ? "default" : "outline"}
+                  onClick={() => setPaymentMethod("cash")}
+                  className="h-16 flex flex-col space-y-1"
+                >
+                  <DollarSign className="h-5 w-5" />
+                  <span>Efectivo</span>
+                </Button>
+                
+                <Button
+                  variant={paymentMethod === "transfer" ? "default" : "outline"}
+                  onClick={() => setPaymentMethod("transfer")}
+                  className="h-16 flex flex-col space-y-1"
+                >
+                  <CreditCard className="h-5 w-5" />
+                  <span>Transferencia</span>
+                </Button>
+              </div>
             </div>
 
             {paymentMethod === "cash" && (
@@ -207,6 +249,38 @@ export const OrderSummary = ({
                     Cambio: ${change.toLocaleString()}
                   </p>
                 )}
+              </div>
+            )}
+
+            {paymentMethod === "transfer" && (
+              <div>
+                <Label>Comprobante de Transferencia</Label>
+                <div className="mt-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoCapture}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full h-16 flex flex-col space-y-1"
+                  >
+                    <Camera className="h-5 w-5" />
+                    <span>
+                      {photoEvidence ? "Foto Capturada" : "Tomar Foto"}
+                    </span>
+                  </Button>
+                  {photoEvidence && (
+                    <p className="text-sm text-green-600 mt-1">
+                      ✓ Comprobante guardado: {photoEvidence.name}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 

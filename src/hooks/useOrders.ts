@@ -90,7 +90,7 @@ export const useCreateOrder = () => {
       const orderItems = orderData.items.map(item => ({
         order_id: order.id,
         product_id: item.id,
-        variant_id: item.id, // Asumiendo que usamos el mismo ID por ahora
+        variant_id: null, // Hacer null en lugar de usar el item.id
         product_name: item.productName,
         variant_name: item.variantName,
         sku: item.sku,
