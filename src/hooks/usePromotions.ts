@@ -15,9 +15,15 @@ export const usePromotions = () => {
       if (error) throw error;
       
       return data.map(promotion => ({
-        ...promotion,
-        createdAt: new Date(promotion.created_at),
+        id: promotion.id,
+        name: promotion.name,
+        description: promotion.description,
+        type: promotion.type as 'percentage' | 'fixed',
+        value: promotion.value,
+        applicability: promotion.applicability as 'all' | 'category' | 'product',
         conditions: promotion.conditions || {},
+        isActive: promotion.is_active,
+        createdAt: new Date(promotion.created_at),
       })) as Promotion[];
     },
   });
@@ -44,7 +50,7 @@ export const useCreatePromotion = () => {
           type: promotionData.type,
           value: promotionData.value,
           applicability: promotionData.applicability,
-          conditions: promotionData.conditions,
+          conditions: JSON.stringify(promotionData.conditions),
           is_active: promotionData.isActive,
         })
         .select()
@@ -72,7 +78,7 @@ export const useUpdatePromotion = () => {
           type: updates.type,
           value: updates.value,
           applicability: updates.applicability,
-          conditions: updates.conditions,
+          conditions: updates.conditions ? JSON.stringify(updates.conditions) : undefined,
           is_active: updates.isActive,
         })
         .eq('id', id)

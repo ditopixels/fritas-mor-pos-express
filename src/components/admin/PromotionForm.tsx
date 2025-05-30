@@ -20,9 +20,9 @@ export const PromotionForm = ({ promotion, onSave, onCancel }: PromotionFormProp
   const [formData, setFormData] = useState({
     name: promotion?.name || "",
     description: promotion?.description || "",
-    type: promotion?.type || "percentage",
+    type: promotion?.type || "percentage" as "percentage" | "fixed",
     value: promotion?.value || 0,
-    applicability: promotion?.applicability || "all",
+    applicability: promotion?.applicability || "all" as "all" | "category" | "product",
     isActive: promotion?.isActive ?? true,
   });
 
