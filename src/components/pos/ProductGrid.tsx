@@ -118,13 +118,17 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-4">Productos</h2>
+      <div className="mb-4 sm:mb-6 px-2 sm:px-0">
+        <h2 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-4">Productos</h2>
         
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-3 h-auto">
             {categories.map((category) => (
-              <TabsTrigger key={category.id} value={category.id}>
+              <TabsTrigger 
+                key={category.id} 
+                value={category.id}
+                className="text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3"
+              >
                 {category.name}
               </TabsTrigger>
             ))}
@@ -132,17 +136,17 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
         </Tabs>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="space-y-4">
+      <ScrollArea className="flex-1 px-2 sm:px-0">
+        <div className="space-y-3 sm:space-y-4 pb-4">
           {products.map((product) => (
             <Card key={product.id} className="overflow-hidden">
               <CardContent className="p-0">
-                <div className="flex">
+                <div className="flex flex-col sm:flex-row">
                   {/* Content Section */}
-                  <div className="flex-1 p-4">
-                    <h3 className="text-lg font-semibold mb-1">{product.name}</h3>
+                  <div className="flex-1 p-3 sm:p-4">
+                    <h3 className="text-base sm:text-lg font-semibold mb-1">{product.name}</h3>
                     {product.description && (
-                      <p className="text-gray-600 text-sm mb-3">{product.description}</p>
+                      <p className="text-gray-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">{product.description}</p>
                     )}
 
                     {product.variants?.length > 0 && product.options?.length > 0 ? (
@@ -156,8 +160,8 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                         calculateItemPromotions={calculateItemPromotions}
                       />
                     ) : (
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-bold">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                        <span className="text-base sm:text-lg font-bold">
                           ${(product.base_price || 0).toLocaleString()}
                         </span>
                         <button
@@ -170,7 +174,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                             'Estándar',
                             product.base_price || 0
                           )}
-                          className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                          className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-sm sm:text-base w-full sm:w-auto"
                         >
                           Agregar
                         </button>

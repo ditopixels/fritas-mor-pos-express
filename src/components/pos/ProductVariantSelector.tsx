@@ -67,11 +67,11 @@ export const ProductVariantSelector = ({
   const allOptionsSelected = options.length > 0 && Object.keys(selectedOptions).length === options.length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Dynamic Option Selectors */}
       {options.map((option) => (
-        <div key={option.id} className="space-y-2 flex gap-4 items-center">
-          <label className="text-sm font-medium text-gray-700">
+        <div key={option.id} className="space-y-2">
+          <label className="text-xs sm:text-sm font-medium text-gray-700 block">
             {option.name}
             {option.isRequired && <span className="text-red-500 ml-1">*</span>}
           </label>
@@ -79,20 +79,22 @@ export const ProductVariantSelector = ({
             type="single"
             value={selectedOptions[option.name] || ""}
             onValueChange={(value) => value && handleOptionChange(option.name, value)}
-            className="flex flex-wrap gap-2"
+            className="flex flex-wrap gap-1 sm:gap-2 justify-start"
           >
             {option.values.map((optionValue, index) => (
               <ToggleGroupItem
                 key={index}
                 value={typeof optionValue === 'string' ? optionValue : optionValue.value}
-                className="border border-gray-300 hover:bg-gray-100 data-[state=on]:bg-yellow-500 data-[state=on]:text-white"
+                className="border border-gray-300 hover:bg-gray-100 data-[state=on]:bg-yellow-500 data-[state=on]:text-white text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 h-auto min-h-[32px] sm:min-h-[40px]"
               >
-                {typeof optionValue === 'string' ? optionValue : optionValue.value}
-                {typeof optionValue === 'object' && optionValue.additionalPrice && (
-                  <span className="ml-1 text-xs">
-                    (+${optionValue.additionalPrice.toLocaleString()})
-                  </span>
-                )}
+                <div className="flex flex-col items-center text-center">
+                  <span>{typeof optionValue === 'string' ? optionValue : optionValue.value}</span>
+                  {typeof optionValue === 'object' && optionValue.additionalPrice && (
+                    <span className="text-xs">
+                      (+${optionValue.additionalPrice.toLocaleString()})
+                    </span>
+                  )}
+                </div>
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
@@ -101,20 +103,20 @@ export const ProductVariantSelector = ({
 
       {/* Price and Add Button Section */}
       {allOptionsSelected && matchedVariant && (
-        <div className="space-y-3 pt-2 border-t">
-          <div className="flex items-center justify-between">
+        <div className="space-y-2 sm:space-y-3 pt-2 border-t">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center space-x-2">
               {hasPromotion ? (
                 <div className="flex items-center space-x-2">
-                  <span className="text-gray-500 line-through">
+                  <span className="text-gray-500 line-through text-sm sm:text-base">
                     ${matchedVariant.price.toLocaleString()}
                   </span>
-                  <span className="text-lg font-bold text-red-600">
+                  <span className="text-base sm:text-lg font-bold text-red-600">
                     ${discountedPrice.toLocaleString()}
                   </span>
                 </div>
               ) : (
-                <span className="text-lg font-bold">
+                <span className="text-base sm:text-lg font-bold">
                   ${matchedVariant.price.toLocaleString()}
                 </span>
               )}
@@ -122,7 +124,7 @@ export const ProductVariantSelector = ({
             
             <Button
               onClick={handleAddToCart}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-md font-medium transition-colors"
+              className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 sm:px-6 py-2 rounded-md font-medium transition-colors w-full sm:w-auto text-sm sm:text-base"
             >
               Agregar
             </Button>
@@ -147,7 +149,7 @@ export const ProductVariantSelector = ({
 
       {/* Instructions when options are not complete */}
       {options.length > 0 && !allOptionsSelected && (
-        <div className="text-sm text-gray-500 text-center py-2">
+        <div className="text-xs sm:text-sm text-gray-500 text-center py-2">
           Selecciona todas las opciones para ver el precio y agregar al carrito
         </div>
       )}

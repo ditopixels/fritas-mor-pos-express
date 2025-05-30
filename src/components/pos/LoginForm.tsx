@@ -52,25 +52,25 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-red-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-red-50 flex items-center justify-center p-2 sm:p-4">
+      <Card className="w-full max-w-md mx-2 sm:mx-0">
+        <CardHeader className="text-center px-4 sm:px-6">
+          <div className="flex justify-center mb-3 sm:mb-4">
             <img 
               src="/lovable-uploads/262726dd-04dd-473f-8565-588c74af4070.png" 
               alt="Las Fritas Mor Logo" 
-              className="h-20 w-20"
+              className="h-16 w-16 sm:h-20 sm:w-20"
             />
           </div>
-          <CardTitle className="text-2xl font-bold text-gray-800">
+          <CardTitle className="text-xl sm:text-2xl font-bold text-gray-800">
             Las Fritas Mor
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-sm sm:text-base">
             Sistema de Punto de Venta
           </CardDescription>
         </CardHeader>
         
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="username" className="text-sm font-semibold">
@@ -84,7 +84,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
                   placeholder="Ingrese su usuario"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-sm sm:text-base"
                   required
                 />
               </div>
@@ -102,7 +102,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
                   placeholder="Ingrese su contraseña"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-sm sm:text-base"
                   required
                 />
               </div>
@@ -117,7 +117,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-yellow-500 to-red-500 hover:from-yellow-600 hover:to-red-600 text-white font-bold py-3"
+              className="w-full bg-gradient-to-r from-yellow-500 to-red-500 hover:from-yellow-600 hover:to-red-600 text-white font-bold py-3 text-sm sm:text-base"
             >
               {isLoading ? (
                 <div className="flex items-center space-x-2">
@@ -130,16 +130,16 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
             </Button>
           </form>
 
-          <div className="mt-6 space-y-2">
+          <div className="mt-4 sm:mt-6 space-y-2">
             <div className="text-center">
-              <p className="text-xs text-gray-600 font-semibold">Demo - Usuarios disponibles:</p>
+              <p className="text-xs font-semibold text-gray-600">Demo - Usuarios disponibles:</p>
             </div>
             <div className="text-center space-y-1">
-              <p className="text-xs text-gray-500">
-                <strong>Administrador:</strong> usuario: <code>admin</code> | contraseña: <code>lasfritas2024</code>
+              <p className="text-xs text-gray-500 break-words">
+                <strong>Administrador:</strong> usuario: <code className="text-xs">admin</code> | contraseña: <code className="text-xs">lasfritas2024</code>
               </p>
-              <p className="text-xs text-gray-500">
-                <strong>Cajero:</strong> usuario: <code>cajero</code> | contraseña: <code>cajero123</code>
+              <p className="text-xs text-gray-500 break-words">
+                <strong>Cajero:</strong> usuario: <code className="text-xs">cajero</code> | contraseña: <code className="text-xs">cajero123</code>
               </p>
             </div>
           </div>
