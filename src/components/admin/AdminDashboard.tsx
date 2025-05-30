@@ -6,13 +6,44 @@ import { SalesMetrics } from "./SalesMetrics";
 import { CatalogManagement } from "./CatalogManagement";
 import { PromotionsManagement } from "./PromotionsManagement";
 import { SupabaseOrder } from "@/hooks/useOrders";
+import { Order } from "@/types";
 
 interface AdminDashboardProps {
   orders: SupabaseOrder[];
 }
 
+// Función para transformar SupabaseOrder a Order
+const transformSupabaseOrderToOrder = (supabaseOrder: SupabaseOrder): Order => {
+  return {
+    id: supabaseOrder.id,
+    items: supabaseOrder.order_items?.map(item => ({
+      id: item.id,
+      productName: item.product_name,
+      variantName: item.variant_name,
+      sku: item.sku,
+      price: item.price,
+      originalPrice: item.original_price || item.price,
+      quantity: item.quantity,
+      appliedPromotions: item.applied_promotions ? JSON.parse(item.applied_promotions as string) : []
+    })) || [],
+    total: supabaseOrder.total,
+    subtotal: supabaseOrder.subtotal,
+    totalDiscount: supabaseOrder.total_discount,
+    paymentMethod: supabaseOrder.payment_method,
+    customerName: supabaseOrder.customer_name,
+    cashReceived: supabaseOrder.cash_received,
+    photoEvidence: supabaseOrder.photo_evidence,
+    createdAt: new Date(supabaseOrder.created_at),
+    status: supabaseOrder.status,
+    appliedPromotions: supabaseOrder.applied_promotions ? JSON.parse(supabaseOrder.applied_promotions as string) : []
+  };
+};
+
 export const AdminDashboard = ({ orders }: AdminDashboardProps) => {
   const [activeTab, setActiveTab] = useState("metrics");
+
+  // Transformar las órdenes de Supabase al formato esperado
+  const transformedOrders: Order[] = orders.map(transformSupabaseOrderToOrder);
 
   return (
     <div className="container mx-auto p-6">
@@ -38,7 +69,7 @@ export const AdminDashboard = ({ orders }: AdminDashboardProps) => {
         </TabsList>
 
         <TabsContent value="metrics" className="space-y-0">
-          <SalesMetrics orders={orders} />
+          <SalesMetrics orders={transformedOrders} />
         </TabsContent>
 
         <TabsContent value="catalog" className="space-y-0">
