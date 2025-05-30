@@ -1,13 +1,16 @@
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, X } from "lucide-react";
-import { Product, ProductOption } from "@/hooks/useProducts";
+import { Switch } from "@/components/ui/switch";
+import { Trash2, Plus } from "lucide-react";
+import { Product } from "@/hooks/useProducts";
+import { ProductVariantsManager } from "./ProductVariantsManager";
+import { useProductOptions, useProductVariants, useCreateProductOption, useCreateProductVariant, useBulkCreateProductVariants } from "@/hooks/useProductOptions";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProductOptionsManagerProps {
   product: Product;
@@ -15,221 +18,270 @@ interface ProductOptionsManagerProps {
 }
 
 export const ProductOptionsManager = ({ product, onClose }: ProductOptionsManagerProps) => {
-  const [options, setOptions] = useState<ProductOption[]>(product.options || []);
-  const [newOption, setNewOption] = useState<Partial<ProductOption>>({
-    name: "",
-    values: [],
+  const [options, setOptions] = useState(product.options || []);
+  const [variants, setVariants] = useState(product.variants || []);
+  const [newOption, setNewOption] = useState({
+    name: '',
+    values: [''],
     is_required: false,
   });
-  const [editingOption, setEditingOption] = useState<ProductOption | null>(null);
-  const [newValue, setNewValue] = useState("");
-  const [newAdditionalPrice, setNewAdditionalPrice] = useState<number>(0);
 
-  const handleAddValue = () => {
-    if (!newValue.trim()) return;
-    
-    const currentOption = editingOption || newOption;
-    const updatedValues = [...(currentOption.values || []), newValue.trim()];
-    
-    if (editingOption) {
-      setEditingOption({ ...editingOption, values: updatedValues });
-    } else {
-      setNewOption({ ...newOption, values: updatedValues });
-    }
-    
-    setNewValue("");
-    setNewAdditionalPrice(0);
+  const { toast } = useToast();
+  const createOptionMutation = useCreateProductOption();
+  const createVariantMutation = useCreateProductVariant();
+  const bulkCreateVariantsMutation = useBulkCreateProductVariants();
+
+  const addValueToNewOption = () => {
+    setNewOption(prev => ({
+      ...prev,
+      values: [...prev.values, '']
+    }));
   };
 
-  const handleRemoveValue = (valueToRemove: string) => {
-    const currentOption = editingOption || newOption;
-    const updatedValues = (currentOption.values || []).filter(v => v !== valueToRemove);
-    
-    if (editingOption) {
-      setEditingOption({ ...editingOption, values: updatedValues });
-    } else {
-      setNewOption({ ...newOption, values: updatedValues });
-    }
+  const updateNewOptionValue = (index: number, value: string) => {
+    setNewOption(prev => ({
+      ...prev,
+      values: prev.values.map((v, i) => i === index ? value : v)
+    }));
   };
 
-  const handleSaveOption = () => {
-    const optionToSave = editingOption || newOption;
-    
-    if (!optionToSave.name || !optionToSave.values || optionToSave.values.length === 0) {
+  const removeValueFromNewOption = (index: number) => {
+    setNewOption(prev => ({
+      ...prev,
+      values: prev.values.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addOption = async () => {
+    if (!newOption.name || newOption.values.some(v => !v.trim())) {
+      toast({
+        title: "Error",
+        description: "Por favor completa todos los campos de la opción",
+        variant: "destructive",
+      });
       return;
     }
 
-    if (editingOption) {
-      setOptions(options.map(opt => opt.id === editingOption.id ? editingOption : opt));
-      setEditingOption(null);
-    } else {
-      const newOpt: ProductOption = {
+    try {
+      const cleanValues = newOption.values.filter(v => v.trim()).map(v => v.trim());
+      
+      await createOptionMutation.mutateAsync({
+        product_id: product.id,
+        name: newOption.name,
+        values: cleanValues,
+        is_required: newOption.is_required,
+      });
+
+      const newOptionData = {
         id: `temp-${Date.now()}`,
         product_id: product.id,
-        name: optionToSave.name,
-        values: optionToSave.values,
-        is_required: optionToSave.is_required || false,
+        name: newOption.name,
+        values: cleanValues,
+        is_required: newOption.is_required,
       };
-      setOptions([...options, newOpt]);
+
+      setOptions(prev => [...prev, newOptionData]);
+      setNewOption({ name: '', values: [''], is_required: false });
+      
+      toast({
+        title: "Opción agregada",
+        description: `La opción "${newOption.name}" ha sido agregada exitosamente`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo agregar la opción",
+        variant: "destructive",
+      });
     }
-
-    setNewOption({ name: "", values: [], is_required: false });
   };
 
-  const handleDeleteOption = (optionId: string) => {
-    setOptions(options.filter(opt => opt.id !== optionId));
+  const generateVariants = () => {
+    if (options.length === 0) return;
+
+    const combinations: Array<Record<string, string>> = [{}];
+
+    options.forEach(option => {
+      const newCombinations: Array<Record<string, string>> = [];
+      combinations.forEach(combination => {
+        option.values.forEach(value => {
+          newCombinations.push({
+            ...combination,
+            [option.name]: value
+          });
+        });
+      });
+      combinations.splice(0, combinations.length, ...newCombinations);
+    });
+
+    const basePrice = product.base_price || 5000;
+    const newVariants = combinations.map((combo, index) => {
+      const name = Object.values(combo).join(' - ');
+      const sku = `${product.id}-${Object.values(combo).join('-').toLowerCase().replace(/\s+/g, '-')}-${index}`;
+      
+      return {
+        id: `temp-${Date.now()}-${index}`,
+        product_id: product.id,
+        sku,
+        name,
+        price: basePrice,
+        option_values: combo,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      };
+    });
+
+    setVariants(newVariants);
+    toast({
+      title: "Variantes generadas",
+      description: `Se generaron ${newVariants.length} variantes basadas en las opciones`,
+    });
   };
 
-  const handleEditOption = (option: ProductOption) => {
-    setEditingOption({ ...option });
-  };
+  const saveVariants = async () => {
+    if (variants.length === 0) return;
 
-  const handleCancelEdit = () => {
-    setEditingOption(null);
-    setNewOption({ name: "", values: [], is_required: false });
+    try {
+      const variantsToCreate = variants
+        .filter(v => v.id.startsWith('temp-'))
+        .map(v => ({
+          product_id: product.id,
+          sku: v.sku,
+          name: v.name,
+          price: v.price,
+          option_values: v.option_values,
+          is_active: v.is_active,
+          stock: v.stock,
+        }));
+
+      if (variantsToCreate.length > 0) {
+        await bulkCreateVariantsMutation.mutateAsync(variantsToCreate);
+        toast({
+          title: "Variantes guardadas",
+          description: `Se guardaron ${variantsToCreate.length} variantes exitosamente`,
+        });
+      }
+
+      onClose();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudieron guardar las variantes",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+    <div className="space-y-6 max-h-[80vh] overflow-y-auto">
+      <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Configurar Opciones - {product.name}</CardTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <CardTitle>Opciones del Producto: {product.name}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4">
           {/* Opciones existentes */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Opciones Configuradas</h3>
-            {options.map((option) => (
-              <Card key={option.id} className="p-4">
+          <div className="space-y-2">
+            {options.map(option => (
+              <div key={option.id} className="p-3 border rounded">
                 <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h4 className="font-medium">{option.name}</h4>
-                    <Badge variant={option.is_required ? "default" : "secondary"}>
-                      {option.is_required ? "Requerido" : "Opcional"}
-                    </Badge>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button size="sm" variant="outline" onClick={() => handleEditOption(option)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleDeleteOption(option.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <div className="font-medium">{option.name}</div>
+                  {option.is_required && (
+                    <Badge variant="secondary">Requerido</Badge>
+                  )}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {option.values.map((value, index) => (
-                    <Badge key={index} variant="outline">
-                      {value}
-                    </Badge>
+                <div className="flex flex-wrap gap-1">
+                  {option.values.map(value => (
+                    <Badge key={value} variant="outline">{value}</Badge>
                   ))}
                 </div>
-              </Card>
+              </div>
             ))}
           </div>
 
-          {/* Formulario para nueva opción o editar */}
-          <Card className="p-4">
-            <h3 className="text-lg font-semibold mb-4">
-              {editingOption ? "Editar Opción" : "Nueva Opción"}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="optionName">Nombre de la Opción</Label>
-                <Input
-                  id="optionName"
-                  value={editingOption?.name || newOption.name || ""}
-                  onChange={(e) => {
-                    if (editingOption) {
-                      setEditingOption({ ...editingOption, name: e.target.value });
-                    } else {
-                      setNewOption({ ...newOption, name: e.target.value });
-                    }
-                  }}
-                  placeholder="Ej: Tamaño, Salsa, Adiciones"
-                />
-              </div>
+          {/* Nueva opción */}
+          <div className="border-t pt-4 space-y-3">
+            <h4 className="font-medium">Agregar Nueva Opción</h4>
+            
+            <div>
+              <Label htmlFor="option-name">Nombre de la Opción</Label>
+              <Input
+                id="option-name"
+                placeholder="Ej: Tamaño"
+                value={newOption.name}
+                onChange={(e) => setNewOption(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
 
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={editingOption?.is_required || newOption.is_required || false}
-                  onCheckedChange={(checked) => {
-                    if (editingOption) {
-                      setEditingOption({ ...editingOption, is_required: checked });
-                    } else {
-                      setNewOption({ ...newOption, is_required: checked });
-                    }
-                  }}
-                />
-                <Label>Opción requerida</Label>
-              </div>
-
-              <div>
-                <Label>Valores de la Opción</Label>
-                <div className="flex space-x-2 mb-2">
-                  <Input
-                    value={newValue}
-                    onChange={(e) => setNewValue(e.target.value)}
-                    placeholder="Ej: Pequeño, Mediano, Grande"
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddValue()}
-                  />
-                  <Input
-                    type="number"
-                    value={newAdditionalPrice}
-                    onChange={(e) => setNewAdditionalPrice(Number(e.target.value))}
-                    placeholder="Precio adicional"
-                    className="w-32"
-                  />
-                  <Button onClick={handleAddValue}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {(editingOption?.values || newOption.values || []).map((value, index) => (
-                    <Badge key={index} variant="outline" className="cursor-pointer">
-                      {value}
-                      <X 
-                        className="h-3 w-3 ml-1" 
-                        onClick={() => handleRemoveValue(value)}
-                      />
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex space-x-2">
-                <Button onClick={handleSaveOption}>
-                  {editingOption ? "Actualizar Opción" : "Agregar Opción"}
+            <div>
+              <Label>Valores</Label>
+              <div className="space-y-2">
+                {newOption.values.map((value, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input
+                      placeholder="Ej: Grande"
+                      value={value}
+                      onChange={(e) => updateNewOptionValue(index, e.target.value)}
+                    />
+                    {newOption.values.length > 1 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => removeValueFromNewOption(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={addValueToNewOption}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar Valor
                 </Button>
-                {editingOption && (
-                  <Button variant="outline" onClick={handleCancelEdit}>
-                    Cancelar
-                  </Button>
-                )}
               </div>
             </div>
-          </Card>
 
-          {/* Botones de acción */}
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={onClose}>
-              Cerrar
-            </Button>
-            <Button onClick={() => {
-              // Aquí implementarías la lógica para guardar las opciones en la base de datos
-              console.log("Guardando opciones:", options);
-              onClose();
-            }}>
-              Guardar Cambios
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="required"
+                checked={newOption.is_required}
+                onCheckedChange={(checked) => setNewOption(prev => ({ ...prev, is_required: checked }))}
+              />
+              <Label htmlFor="required">Opción requerida</Label>
+            </div>
+
+            <Button onClick={addOption} className="w-full">
+              Agregar Opción
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Administrador de variantes */}
+      <ProductVariantsManager
+        product={product}
+        options={options}
+        variants={variants}
+        onUpdateVariants={setVariants}
+      />
+
+      {/* Acciones */}
+      <div className="flex gap-3">
+        {options.length > 0 && (
+          <Button onClick={generateVariants} variant="outline">
+            Generar Variantes Automáticamente
+          </Button>
+        )}
+        <Button onClick={saveVariants} className="flex-1">
+          Guardar Cambios
+        </Button>
+        <Button onClick={onClose} variant="outline">
+          Cerrar
+        </Button>
+      </div>
     </div>
   );
 };

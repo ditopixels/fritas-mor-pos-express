@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -87,7 +88,6 @@ export const OrderSummary = ({
     setIsProcessing(true);
 
     try {
-      // Convert photo to base64 if present
       let photoBase64 = undefined;
       if (photoEvidence) {
         const reader = new FileReader();
@@ -110,14 +110,11 @@ export const OrderSummary = ({
         description: `Orden completada para ${customerName}`,
       });
 
-      // Limpiar formulario y carrito
       setCustomerName("");
       setPaymentMethod("");
       setCashReceived(undefined);
       setPhotoEvidence(undefined);
       onClearCart();
-      
-      // También llamar a la función original para mantener compatibilidad
       onProceedToPayment(paymentMethod, customerName, cashReceived, photoEvidence);
       
     } catch (error: any) {
@@ -143,217 +140,222 @@ export const OrderSummary = ({
   const change = paymentMethod === "cash" && cashReceived ? cashReceived - total : 0;
 
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <CardTitle>Resumen de Orden</CardTitle>
-        <CardDescription>
-          {items.length} {items.length === 1 ? 'producto' : 'productos'} en el carrito
-        </CardDescription>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {/* Lista de productos */}
-        <div className="space-y-2 max-h-40 overflow-y-auto">
-          {items.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">El carrito está vacío</p>
-          ) : (
-            items.map((item) => (
-              <div key={item.sku} className="flex items-center justify-between space-x-2 p-2 border rounded">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{item.productName}</p>
-                  <p className="text-xs text-gray-500">{item.variantName}</p>
-                  <div className="flex items-center space-x-2">
-                    {item.originalPrice && item.originalPrice > item.price ? (
-                      <>
-                        <span className="text-xs text-gray-500 line-through">
-                          ${item.originalPrice.toLocaleString()}
-                        </span>
-                        <span className="text-sm font-bold text-red-600">
-                          ${item.price.toLocaleString()}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-sm font-bold">${item.price.toLocaleString()}</span>
+    <div className="h-full flex flex-col">
+      <Card className="flex-1 flex flex-col">
+        <CardHeader className="flex-shrink-0">
+          <CardTitle>Resumen de Orden</CardTitle>
+          <CardDescription>
+            {items.length} {items.length === 1 ? 'producto' : 'productos'} en el carrito
+          </CardDescription>
+        </CardHeader>
+        
+        <CardContent className="flex-1 flex flex-col justify-between space-y-4">
+          {/* Lista de productos - Toma la mayor parte del espacio */}
+          <div className="flex-1 space-y-2 overflow-y-auto min-h-0">
+            {items.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">El carrito está vacío</p>
+            ) : (
+              items.map((item) => (
+                <div key={item.sku} className="flex items-center justify-between space-x-2 p-3 border rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{item.productName}</p>
+                    <p className="text-xs text-gray-500 break-words">{item.variantName}</p>
+                    <div className="flex items-center space-x-2 mt-1">
+                      {item.originalPrice && item.originalPrice > item.price ? (
+                        <>
+                          <span className="text-xs text-gray-500 line-through">
+                            ${item.originalPrice.toLocaleString()}
+                          </span>
+                          <span className="text-sm font-bold text-red-600">
+                            ${item.price.toLocaleString()}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-sm font-bold">${item.price.toLocaleString()}</span>
+                      )}
+                    </div>
+                    {item.appliedPromotions && item.appliedPromotions.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {item.appliedPromotions.map((promo, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
+                            <Tag className="h-2 w-2 mr-1" />
+                            {promo.promotionName}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  {item.appliedPromotions && item.appliedPromotions.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {item.appliedPromotions.map((promo, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
-                          <Tag className="h-2 w-2 mr-1" />
-                          {promo.promotionName}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                  
+                  <div className="flex items-center space-x-1 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onUpdateQuantity(item.sku, item.quantity - 1)}
+                      disabled={item.quantity <= 1}
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    
+                    <span className="w-8 text-center text-sm">{item.quantity}</span>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onUpdateQuantity(item.sku, item.quantity + 1)}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onRemoveItem(item.sku)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
-                
-                <div className="flex items-center space-x-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onUpdateQuantity(item.sku, item.quantity - 1)}
-                    disabled={item.quantity <= 1}
-                  >
-                    <Minus className="h-3 w-3" />
-                  </Button>
-                  
-                  <span className="w-8 text-center text-sm">{item.quantity}</span>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onUpdateQuantity(item.sku, item.quantity + 1)}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onRemoveItem(item.sku)}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Totales */}
-        {items.length > 0 && (
-          <div className="border-t pt-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Subtotal:</span>
-              <span>${subtotal.toLocaleString()}</span>
-            </div>
-            
-            {totalDiscount > 0 && (
-              <div className="flex justify-between text-sm text-green-600">
-                <span className="flex items-center">
-                  <Tag className="h-3 w-3 mr-1" />
-                  Descuentos:
-                </span>
-                <span>-${totalDiscount.toLocaleString()}</span>
-              </div>
+              ))
             )}
-            
-            <div className="flex justify-between items-center text-lg font-bold border-t pt-2">
-              <span>Total:</span>
-              <span>${total.toLocaleString()}</span>
-            </div>
           </div>
-        )}
 
-        {/* Formulario de pago */}
-        {items.length > 0 && (
-          <div className="space-y-4 border-t pt-4">
-            <div>
-              <Label htmlFor="customer-name">Nombre del Cliente</Label>
-              <Input
-                id="customer-name"
-                placeholder="Ingrese el nombre del cliente"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label>Método de Pago</Label>
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <Button
-                  variant={paymentMethod === "cash" ? "default" : "outline"}
-                  onClick={() => setPaymentMethod("cash")}
-                  className="h-16 flex flex-col space-y-1"
-                >
-                  <DollarSign className="h-5 w-5" />
-                  <span>Efectivo</span>
-                </Button>
+          {/* Totales y formulario - Parte inferior fija */}
+          <div className="flex-shrink-0 space-y-4">
+            {/* Totales */}
+            {items.length > 0 && (
+              <div className="border-t pt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal:</span>
+                  <span>${subtotal.toLocaleString()}</span>
+                </div>
                 
-                <Button
-                  variant={paymentMethod === "transfer" ? "default" : "outline"}
-                  onClick={() => setPaymentMethod("transfer")}
-                  className="h-16 flex flex-col space-y-1"
-                >
-                  <CreditCard className="h-5 w-5" />
-                  <span>Transferencia</span>
-                </Button>
-              </div>
-            </div>
-
-            {paymentMethod === "cash" && (
-              <div>
-                <Label htmlFor="cash-received">Efectivo Recibido</Label>
-                <Input
-                  id="cash-received"
-                  type="number"
-                  placeholder="0"
-                  value={cashReceived || ""}
-                  onChange={(e) => setCashReceived(Number(e.target.value) || undefined)}
-                />
-                {cashReceived && cashReceived >= total && (
-                  <p className="text-sm text-green-600 mt-1">
-                    Cambio: ${change.toLocaleString()}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {paymentMethod === "transfer" && (
-              <div>
-                <Label>Comprobante de Transferencia</Label>
-                <div className="mt-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handlePhotoCapture}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full h-16 flex flex-col space-y-1"
-                  >
-                    <Camera className="h-5 w-5" />
-                    <span>
-                      {photoEvidence ? "Foto Capturada" : "Tomar Foto"}
+                {totalDiscount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span className="flex items-center">
+                      <Tag className="h-3 w-3 mr-1" />
+                      Descuentos:
                     </span>
-                  </Button>
-                  {photoEvidence && (
-                    <p className="text-sm text-green-600 mt-1">
-                      ✓ Comprobante guardado: {photoEvidence.name}
-                    </p>
-                  )}
+                    <span>-${totalDiscount.toLocaleString()}</span>
+                  </div>
+                )}
+                
+                <div className="flex justify-between items-center text-lg font-bold border-t pt-2">
+                  <span>Total:</span>
+                  <span>${total.toLocaleString()}</span>
                 </div>
               </div>
             )}
 
-            <div className="space-y-2">
-              <Button
-                onClick={handlePayment}
-                disabled={isProcessing || createOrderMutation.isPending}
-                className="w-full bg-green-600 hover:bg-green-700"
-              >
-                {isProcessing || createOrderMutation.isPending ? "Procesando..." : "Procesar Pago"}
-              </Button>
-              
-              <Button
-                onClick={onClearCart}
-                variant="outline"
-                className="w-full"
-                disabled={isProcessing}
-              >
-                Limpiar Carrito
-              </Button>
-            </div>
+            {/* Formulario de pago */}
+            {items.length > 0 && (
+              <div className="space-y-4 border-t pt-4">
+                <div>
+                  <Label htmlFor="customer-name">Nombre del Cliente</Label>
+                  <Input
+                    id="customer-name"
+                    placeholder="Ingrese el nombre del cliente"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label>Método de Pago</Label>
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <Button
+                      variant={paymentMethod === "cash" ? "default" : "outline"}
+                      onClick={() => setPaymentMethod("cash")}
+                      className="h-16 flex flex-col space-y-1"
+                    >
+                      <DollarSign className="h-5 w-5" />
+                      <span>Efectivo</span>
+                    </Button>
+                    
+                    <Button
+                      variant={paymentMethod === "transfer" ? "default" : "outline"}
+                      onClick={() => setPaymentMethod("transfer")}
+                      className="h-16 flex flex-col space-y-1"
+                    >
+                      <CreditCard className="h-5 w-5" />
+                      <span>Transferencia</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {paymentMethod === "cash" && (
+                  <div>
+                    <Label htmlFor="cash-received">Efectivo Recibido</Label>
+                    <Input
+                      id="cash-received"
+                      type="number"
+                      placeholder="0"
+                      value={cashReceived || ""}
+                      onChange={(e) => setCashReceived(Number(e.target.value) || undefined)}
+                    />
+                    {cashReceived && cashReceived >= total && (
+                      <p className="text-sm text-green-600 mt-1">
+                        Cambio: ${change.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {paymentMethod === "transfer" && (
+                  <div>
+                    <Label>Comprobante de Transferencia</Label>
+                    <div className="mt-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handlePhotoCapture}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full h-16 flex flex-col space-y-1"
+                      >
+                        <Camera className="h-5 w-5" />
+                        <span>
+                          {photoEvidence ? "Foto Capturada" : "Tomar Foto"}
+                        </span>
+                      </Button>
+                      {photoEvidence && (
+                        <p className="text-sm text-green-600 mt-1">
+                          ✓ Comprobante guardado: {photoEvidence.name}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Button
+                    onClick={handlePayment}
+                    disabled={isProcessing || createOrderMutation.isPending}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
+                    {isProcessing || createOrderMutation.isPending ? "Procesando..." : "Procesar Pago"}
+                  </Button>
+                  
+                  <Button
+                    onClick={onClearCart}
+                    variant="outline"
+                    className="w-full"
+                    disabled={isProcessing}
+                  >
+                    Limpiar Carrito
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 };

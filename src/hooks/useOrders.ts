@@ -63,11 +63,17 @@ export const useCreateOrder = () => {
       const user = await supabase.auth.getUser();
       if (!user.data.user) throw new Error('Usuario no autenticado');
 
-      const subtotal = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      const total_discount = 0; // Por ahora sin descuentos
+      const subtotal = orderData.items.reduce((sum, item) => sum + ((item.originalPrice || item.price) * item.quantity), 0);
+      const total_discount = orderData.items.reduce((sum, item) => {
+        if (item.appliedPromotions && item.originalPrice) {
+          const itemDiscount = item.appliedPromotions.reduce((acc, promo) => acc + promo.discountAmount, 0);
+          return sum + (itemDiscount * item.quantity);
+        }
+        return sum;
+      }, 0);
       const total = subtotal - total_discount;
 
-      // Crear la orden
+      // Crear la orden con promociones aplicadas
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -80,13 +86,14 @@ export const useCreateOrder = () => {
           payment_method: orderData.payment_method,
           cash_received: orderData.cash_received,
           photo_evidence: orderData.photo_evidence,
+          applied_promotions: JSON.stringify(orderData.items.flatMap(item => item.appliedPromotions || [])),
         })
         .select()
         .single();
 
       if (orderError) throw orderError;
 
-      // Crear los items de la orden - variant_id ahora es nullable
+      // Crear los items de la orden con información completa de promociones
       const orderItems = orderData.items.map(item => ({
         order_id: order.id,
         product_id: item.id,
@@ -98,6 +105,7 @@ export const useCreateOrder = () => {
         original_price: item.originalPrice || item.price,
         quantity: item.quantity,
         applied_promotions: JSON.stringify(item.appliedPromotions || []),
+        variant_options: JSON.stringify({}), // Por ahora vacío, se llenará con las opciones seleccionadas
       }));
 
       const { error: itemsError } = await supabase

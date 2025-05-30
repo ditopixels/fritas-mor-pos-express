@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { CartItem } from "@/types";
 import { useProducts, useCategories, Product, ProductVariant } from "@/hooks/useProducts";
 import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
+import { ProductVariantSelector } from "./ProductVariantSelector";
 
 interface ProductGridProps {
   onAddToCart: (item: Omit<CartItem, "quantity">) => void;
@@ -17,10 +19,8 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const { calculateItemPromotions } = usePromotionCalculator();
 
-  // Usar el orden de display_order de la base de datos
   const sortedCategories = categories?.sort((a, b) => a.display_order - b.display_order);
 
-  // Seleccionar la primera categoría por defecto
   useEffect(() => {
     if (sortedCategories && sortedCategories.length > 0 && !selectedCategory) {
       setSelectedCategory(sortedCategories[0].id);
@@ -35,36 +35,31 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
     }
   }, [products, selectedCategory]);
 
-  const handleAddToCart = (product: Product, variant?: ProductVariant) => {
-    const defaultVariant = variant || {
-      id: `${product.id}-default`,
-      product_id: product.id,
-      sku: `${product.id}-default`,
-      name: product.name,
-      price: variant?.price || 5000,
-      option_values: {},
-      is_active: true,
-    };
-
+  const handleAddToCart = (product: Product, variant: ProductVariant, selectedOptions: Record<string, string>) => {
     const appliedPromotions = calculateItemPromotions(
       product.id,
       product.category_id || '',
-      defaultVariant.price
+      variant.price
     );
 
     const finalPrice = appliedPromotions.length > 0 ? 
-      appliedPromotions.reduce((price, promo) => price - promo.discountAmount, defaultVariant.price) :
-      defaultVariant.price;
+      appliedPromotions.reduce((price, promo) => price - promo.discountAmount, variant.price) :
+      variant.price;
+
+    // Crear un nombre único que incluya las opciones seleccionadas
+    const variantDisplayName = Object.keys(selectedOptions).length > 0 
+      ? `${variant.name} (${Object.entries(selectedOptions).map(([key, value]) => `${key}: ${value}`).join(', ')})`
+      : variant.name;
 
     const item = {
-      id: product.id,
+      id: variant.id,
       productName: product.name,
-      variantName: defaultVariant.name,
-      sku: defaultVariant.sku,
+      variantName: variantDisplayName,
+      sku: variant.sku,
       price: finalPrice,
-      originalPrice: appliedPromotions.length > 0 ? defaultVariant.price : undefined,
+      originalPrice: appliedPromotions.length > 0 ? variant.price : undefined,
       image: product.image,
-      variantId: variant ? variant.id : undefined,
+      variantId: variant.id,
       appliedPromotions,
     };
     onAddToCart(item);
@@ -82,13 +77,6 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
         -{percentage}%
       </Badge>
     );
-  };
-
-  const getFinalPrice = (productId: string, categoryId: string, originalPrice: number) => {
-    const promotions = calculateItemPromotions(productId, categoryId, originalPrice);
-    if (promotions.length === 0) return originalPrice;
-
-    return promotions.reduce((price, promo) => price - promo.discountAmount, originalPrice);
   };
 
   if (productsLoading || categoriesLoading) {
@@ -110,7 +98,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Botones de categorías usando display_order */}
+      {/* Botones de categorías */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {sortedCategories?.map((category) => (
           <Button
@@ -151,111 +139,44 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
               : "No se encontraron productos en esta categoría"}
           </div>
         ) : (
-          filteredProducts.map((product) => (
-            <Card key={product.id} className="relative">
-              {getPromotionBadge(product.id, product.category_id || '', product.variants?.[0]?.price || 5000) && (
-                <div className="absolute top-2 right-2 z-10">
-                  {getPromotionBadge(product.id, product.category_id || '', product.variants?.[0]?.price || 5000)}
-                </div>
-              )}
-              
-              <CardHeader>
-                <CardTitle className="text-sm">{product.name}</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                {product.image && (
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-32 object-cover mb-4 rounded-md"
-                  />
-                )}
-                {product.description && (
-                  <p className="text-sm text-gray-600 mb-2">{product.description}</p>
-                )}
-                <div className="text-xs text-gray-500 mb-2">
-                  Categoría: {product.category?.name || 'Sin categoría'}
-                </div>
-                <div className="variants space-y-2">
-                  {product.variants && product.variants.length > 0 ? (
-                    <div>
-                      <p className="text-sm font-semibold">Variantes disponibles:</p>
-                      {product.variants.map(variant => {
-                        const finalPrice = getFinalPrice(product.id, product.category_id || '', variant.price);
-                        const hasDiscount = finalPrice < variant.price;
-                        
-                        return (
-                          <div key={variant.id} className="flex justify-between items-center">
-                            <span className="text-sm">{variant.name}</span>
-                            <div className="flex items-center space-x-2">
-                              {hasDiscount && (
-                                <span className="text-xs text-gray-500 line-through">
-                                  ${variant.price.toLocaleString()}
-                                </span>
-                              )}
-                              <span className={`text-sm font-bold ${hasDiscount ? 'text-red-600' : ''}`}>
-                                ${finalPrice.toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Precio:</span>
-                      <div className="flex items-center space-x-2">
-                        {(() => {
-                          const finalPrice = getFinalPrice(product.id, product.category_id || '', 5000);
-                          const hasDiscount = finalPrice < 5000;
-                          return (
-                            <>
-                              {hasDiscount && (
-                                <span className="text-xs text-gray-500 line-through">
-                                  $5.000
-                                </span>
-                              )}
-                              <span className={`text-sm font-bold ${hasDiscount ? 'text-red-600' : ''}`}>
-                                ${finalPrice.toLocaleString()}
-                              </span>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-              <CardFooter className="flex flex-col items-center">
-                {product.variants && product.variants.length > 0 ? (
-                  <div className="space-y-2 w-full">
-                    {product.variants.map(variant => {
-                      const finalPrice = getFinalPrice(product.id, product.category_id || '', variant.price);
-                      return (
-                        <Button 
-                          key={variant.id}
-                          onClick={() => handleAddToCart(product, variant)}
-                          className="w-full"
-                          variant="outline"
-                          size="sm"
-                        >
-                          {variant.name} - ${finalPrice.toLocaleString()}
-                        </Button>
-                      );
-                    })}
+          filteredProducts.map((product) => {
+            const basePrice = product.variants?.[0]?.price || product.base_price || 5000;
+            
+            return (
+              <Card key={product.id} className="relative">
+                {getPromotionBadge(product.id, product.category_id || '', basePrice) && (
+                  <div className="absolute top-2 right-2 z-10">
+                    {getPromotionBadge(product.id, product.category_id || '', basePrice)}
                   </div>
-                ) : (
-                  <Button 
-                    onClick={() => handleAddToCart(product)}
-                    className="w-full"
-                    size="sm"
-                  >
-                    Agregar - ${getFinalPrice(product.id, product.category_id || '', 5000).toLocaleString()}
-                  </Button>
                 )}
-              </CardFooter>
-            </Card>
-          ))
+                
+                <CardHeader>
+                  <CardTitle className="text-sm">{product.name}</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4">
+                  {product.image && (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-32 object-cover mb-4 rounded-md"
+                    />
+                  )}
+                  {product.description && (
+                    <p className="text-sm text-gray-600 mb-2">{product.description}</p>
+                  )}
+                  <div className="text-xs text-gray-500 mb-2">
+                    Categoría: {product.category?.name || 'Sin categoría'}
+                  </div>
+                </CardContent>
+                <CardFooter className="flex flex-col items-center">
+                  <ProductVariantSelector 
+                    product={product}
+                    onAddToCart={(variant, selectedOptions) => handleAddToCart(product, variant, selectedOptions)}
+                  />
+                </CardFooter>
+              </Card>
+            );
+          })
         )}
       </div>
     </div>

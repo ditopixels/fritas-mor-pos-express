@@ -38,6 +38,15 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
     });
   };
 
+  const parseAppliedPromotions = (promotionsJson: any) => {
+    if (!promotionsJson) return [];
+    try {
+      return typeof promotionsJson === 'string' ? JSON.parse(promotionsJson) : promotionsJson;
+    } catch {
+      return [];
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -89,13 +98,49 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <h4 className="font-semibold mb-2">Productos ({order.order_items?.length || 0})</h4>
-                    <div className="space-y-1">
-                      {order.order_items?.map((item) => (
-                        <div key={item.id} className="flex justify-between text-sm">
-                          <span>{item.quantity}x {item.product_name} - {item.variant_name}</span>
-                          <span>${(item.price * item.quantity).toLocaleString()}</span>
-                        </div>
-                      ))}
+                    <div className="space-y-2">
+                      {order.order_items?.map((item) => {
+                        const itemPromotions = parseAppliedPromotions(item.applied_promotions);
+                        const hasDiscount = item.original_price && item.original_price > item.price;
+                        
+                        return (
+                          <div key={item.id} className="border rounded p-2 space-y-1">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <span className="font-medium">{item.quantity}x {item.product_name}</span>
+                                <div className="text-sm text-gray-600">{item.variant_name}</div>
+                              </div>
+                              <div className="text-right">
+                                {hasDiscount ? (
+                                  <div className="space-y-1">
+                                    <div className="text-xs text-gray-500 line-through">
+                                      ${(item.original_price! * item.quantity).toLocaleString()}
+                                    </div>
+                                    <div className="text-sm font-bold text-red-600">
+                                      ${(item.price * item.quantity).toLocaleString()}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm font-bold">
+                                    ${(item.price * item.quantity).toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {itemPromotions.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {itemPromotions.map((promo: any, index: number) => (
+                                  <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                    <Tag className="h-2 w-2 mr-1" />
+                                    {promo.promotionName}: -{promo.type === 'percentage' ? `${promo.value}%` : `$${promo.value.toLocaleString()}`}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                   
@@ -106,7 +151,10 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                     </div>
                     {order.total_discount > 0 && (
                       <div className="flex justify-between text-green-600">
-                        <span>Descuento:</span>
+                        <span className="flex items-center">
+                          <Tag className="h-3 w-3 mr-1" />
+                          Descuentos:
+                        </span>
                         <span>-${order.total_discount.toLocaleString()}</span>
                       </div>
                     )}

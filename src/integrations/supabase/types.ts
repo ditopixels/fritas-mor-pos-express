@@ -53,6 +53,7 @@ export type Database = {
           sku: string
           variant_id: string | null
           variant_name: string
+          variant_options: Json | null
         }
         Insert: {
           applied_promotions?: Json | null
@@ -67,6 +68,7 @@ export type Database = {
           sku: string
           variant_id?: string | null
           variant_name: string
+          variant_options?: Json | null
         }
         Update: {
           applied_promotions?: Json | null
@@ -81,6 +83,7 @@ export type Database = {
           sku?: string
           variant_id?: string | null
           variant_name?: string
+          variant_options?: Json | null
         }
         Relationships: [
           {
@@ -235,6 +238,7 @@ export type Database = {
       }
       products: {
         Row: {
+          base_price: number | null
           category_id: string | null
           created_at: string
           description: string | null
@@ -245,6 +249,7 @@ export type Database = {
           name: string
         }
         Insert: {
+          base_price?: number | null
           category_id?: string | null
           created_at?: string
           description?: string | null
@@ -255,6 +260,7 @@ export type Database = {
           name: string
         }
         Update: {
+          base_price?: number | null
           category_id?: string | null
           created_at?: string
           description?: string | null
