@@ -17,13 +17,8 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const { calculateItemPromotions } = usePromotionCalculator();
 
-  // Ordenar categorías por el orden predefinido
-  const sortedCategories = categories?.sort((a, b) => {
-    const order = { 'Papas': 1, 'Hamburguesas': 2, 'Pinchos': 3, 'Gaseosas': 4 };
-    const aOrder = order[a.name as keyof typeof order] || 99;
-    const bOrder = order[b.name as keyof typeof order] || 99;
-    return aOrder - bOrder;
-  });
+  // Usar el orden de display_order de la base de datos
+  const sortedCategories = categories?.sort((a, b) => a.display_order - b.display_order);
 
   // Seleccionar la primera categoría por defecto
   useEffect(() => {
@@ -35,23 +30,22 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
   useEffect(() => {
     if (products && selectedCategory) {
       const filtered = products.filter(product => product.category_id === selectedCategory);
-      setFilteredProducts(filtered);
+      const sortedFiltered = filtered.sort((a, b) => a.display_order - b.display_order);
+      setFilteredProducts(sortedFiltered);
     }
   }, [products, selectedCategory]);
 
   const handleAddToCart = (product: Product, variant?: ProductVariant) => {
-    // Si hay variante específica, usarla; sino crear una por defecto
     const defaultVariant = variant || {
       id: `${product.id}-default`,
       product_id: product.id,
       sku: `${product.id}-default`,
       name: product.name,
-      price: 5000, // Precio por defecto
+      price: variant?.price || 5000,
       option_values: {},
       is_active: true,
     };
 
-    // Calcular promociones aplicables
     const appliedPromotions = calculateItemPromotions(
       product.id,
       product.category_id || '',
@@ -116,7 +110,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Botones de categorías grandes con imágenes - sin "Todos" */}
+      {/* Botones de categorías usando display_order */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {sortedCategories?.map((category) => (
           <Button
@@ -137,7 +131,6 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                   className="w-8 h-8 object-cover rounded"
                 />
               ) : (
-                // Emojis por defecto basados en el nombre de la categoría
                 category.name === 'Papas' ? '🍟' :
                 category.name === 'Hamburguesas' ? '🍔' :
                 category.name === 'Pinchos' ? '🍖' :
@@ -160,9 +153,9 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
         ) : (
           filteredProducts.map((product) => (
             <Card key={product.id} className="relative">
-              {getPromotionBadge(product.id, product.category_id || '', 5000) && (
+              {getPromotionBadge(product.id, product.category_id || '', product.variants?.[0]?.price || 5000) && (
                 <div className="absolute top-2 right-2 z-10">
-                  {getPromotionBadge(product.id, product.category_id || '', 5000)}
+                  {getPromotionBadge(product.id, product.category_id || '', product.variants?.[0]?.price || 5000)}
                 </div>
               )}
               

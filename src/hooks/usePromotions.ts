@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Promotion } from '@/types';
@@ -22,7 +21,12 @@ export const usePromotions = () => {
         value: promotion.value,
         applicability: promotion.applicability as 'all' | 'category' | 'product',
         targetIds: promotion.target_id ? [promotion.target_id] : undefined,
-        conditions: promotion.conditions || {},
+        conditions: {
+          ...promotion.conditions,
+          startDate: promotion.conditions?.startDate ? new Date(promotion.conditions.startDate) : undefined,
+          endDate: promotion.conditions?.endDate ? new Date(promotion.conditions.endDate) : undefined,
+          minimumQuantity: promotion.minimum_quantity || undefined,
+        },
         isActive: promotion.is_active,
         createdAt: new Date(promotion.created_at),
       })) as Promotion[];
@@ -47,10 +51,10 @@ export const useCreatePromotion = () => {
         endDate?: Date;
         paymentMethods?: string[];
         minimumPurchase?: number;
+        minimumQuantity?: number;
       };
       isActive: boolean;
     }) => {
-      // Convertir conditions a formato JSON compatible
       const conditionsJson = {
         daysOfWeek: promotionData.conditions.daysOfWeek,
         startDate: promotionData.conditions.startDate?.toISOString(),
@@ -69,6 +73,7 @@ export const useCreatePromotion = () => {
           applicability: promotionData.applicability,
           target_id: promotionData.targetIds?.[0] || null,
           conditions: conditionsJson,
+          minimum_quantity: promotionData.conditions.minimumQuantity || 1,
           is_active: promotionData.isActive,
         })
         .select()
@@ -88,11 +93,10 @@ export const useUpdatePromotion = () => {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Promotion> }) => {
-      // Convertir conditions a formato JSON compatible
       const conditionsJson = updates.conditions ? {
         daysOfWeek: updates.conditions.daysOfWeek,
-        startDate: updates.conditions.startDate?.toISOString(),
-        endDate: updates.conditions.endDate?.toISOString(),
+        startDate: updates.conditions.startDate instanceof Date ? updates.conditions.startDate.toISOString() : updates.conditions.startDate,
+        endDate: updates.conditions.endDate instanceof Date ? updates.conditions.endDate.toISOString() : updates.conditions.endDate,
         paymentMethods: updates.conditions.paymentMethods,
         minimumPurchase: updates.conditions.minimumPurchase,
       } : undefined;
@@ -107,6 +111,7 @@ export const useUpdatePromotion = () => {
           applicability: updates.applicability,
           target_id: updates.targetIds?.[0] || null,
           conditions: conditionsJson,
+          minimum_quantity: updates.conditions?.minimumQuantity || 1,
           is_active: updates.isActive,
         })
         .eq('id', id)

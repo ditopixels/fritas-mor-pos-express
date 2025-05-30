@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          display_order: number | null
           id: string
           image: string | null
           is_active: boolean
@@ -21,6 +22,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          display_order?: number | null
           id?: string
           image?: string | null
           is_active?: boolean
@@ -29,6 +31,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          display_order?: number | null
           id?: string
           image?: string | null
           is_active?: boolean
@@ -235,6 +238,7 @@ export type Database = {
           category_id: string | null
           created_at: string
           description: string | null
+          display_order: number | null
           id: string
           image: string | null
           is_active: boolean
@@ -244,6 +248,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string | null
+          display_order?: number | null
           id?: string
           image?: string | null
           is_active?: boolean
@@ -253,6 +258,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string | null
+          display_order?: number | null
           id?: string
           image?: string | null
           is_active?: boolean
@@ -303,6 +309,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          minimum_quantity: number | null
           name: string
           target_id: string | null
           type: string
@@ -315,6 +322,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          minimum_quantity?: number | null
           name: string
           target_id?: string | null
           type: string
@@ -327,6 +335,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          minimum_quantity?: number | null
           name?: string
           target_id?: string | null
           type?: string

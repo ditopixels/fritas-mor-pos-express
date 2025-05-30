@@ -1,4 +1,3 @@
-
 export interface CartItem {
   id: string;
   productName: string;
@@ -8,7 +7,7 @@ export interface CartItem {
   originalPrice?: number;
   quantity: number;
   image?: string;
-  variantId?: string; // Agregamos este campo para manejar variant_id correctamente
+  variantId?: string;
   appliedPromotions?: AppliedPromotion[];
 }
 
@@ -40,13 +39,14 @@ export interface Category {
   description?: string;
   image?: string;
   isActive: boolean;
+  displayOrder: number;
   createdAt: Date;
 }
 
 export interface ProductOption {
   id: string;
   name: string;
-  values: string[];
+  values: { value: string; additionalPrice?: number }[];
   isRequired: boolean;
 }
 
@@ -58,6 +58,7 @@ export interface Product {
   image?: string;
   options: ProductOption[];
   isActive: boolean;
+  displayOrder: number;
   createdAt: Date;
 }
 
@@ -79,13 +80,14 @@ export interface Promotion {
   type: 'percentage' | 'fixed';
   value: number;
   applicability: 'all' | 'category' | 'product';
-  targetIds?: string[]; // IDs de categorías o productos específicos
+  targetIds?: string[];
   conditions: {
-    daysOfWeek?: number[]; // 0 = Domingo, 1 = Lunes, etc.
+    daysOfWeek?: number[];
     startDate?: Date;
     endDate?: Date;
     paymentMethods?: string[];
     minimumPurchase?: number;
+    minimumQuantity?: number;
   };
   isActive: boolean;
   createdAt: Date;

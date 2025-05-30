@@ -9,6 +9,7 @@ export interface Product {
   category_id: string;
   image?: string;
   is_active: boolean;
+  display_order: number;
   created_at: string;
   options: ProductOption[];
   variants: ProductVariant[];
@@ -43,6 +44,7 @@ export interface Category {
   description?: string;
   image?: string;
   is_active: boolean;
+  display_order: number;
   created_at: string;
 }
 
@@ -58,11 +60,11 @@ export const useProducts = () => {
           product_options(*),
           product_variants(*)
         `)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('display_order');
 
       if (error) throw error;
 
-      // Transform the data to match our interface
       return products.map(product => ({
         ...product,
         options: product.product_options || [],
@@ -80,10 +82,50 @@ export const useCategories = () => {
         .from('categories')
         .select('*')
         .eq('is_active', true)
-        .order('name');
+        .order('display_order');
 
       if (error) throw error;
       return data as Category[];
+    },
+  });
+};
+
+export const useAllCategories = () => {
+  return useQuery({
+    queryKey: ['all-categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('display_order');
+
+      if (error) throw error;
+      return data as Category[];
+    },
+  });
+};
+
+export const useAllProducts = () => {
+  return useQuery({
+    queryKey: ['all-products'],
+    queryFn: async () => {
+      const { data: products, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          category:categories(id, name),
+          product_options(*),
+          product_variants(*)
+        `)
+        .order('display_order');
+
+      if (error) throw error;
+
+      return products.map(product => ({
+        ...product,
+        options: product.product_options || [],
+        variants: product.product_variants || [],
+      })) as Product[];
     },
   });
 };
@@ -97,6 +139,7 @@ export const useCreateCategory = () => {
       description?: string;
       image?: string;
       is_active: boolean;
+      display_order?: number;
     }) => {
       const { data, error } = await supabase
         .from('categories')
@@ -109,6 +152,7 @@ export const useCreateCategory = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['all-categories'] });
     },
   });
 };
@@ -130,6 +174,7 @@ export const useUpdateCategory = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['all-categories'] });
     },
   });
 };
@@ -139,15 +184,17 @@ export const useDeleteCategory = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // Solo desactivar la categoría, no eliminarla
       const { error } = await supabase
         .from('categories')
-        .delete()
+        .update({ is_active: false })
         .eq('id', id);
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['all-categories'] });
     },
   });
 };
@@ -162,6 +209,7 @@ export const useCreateProduct = () => {
       category_id: string;
       image?: string;
       is_active: boolean;
+      display_order?: number;
     }) => {
       const { data, error } = await supabase
         .from('products')
@@ -174,6 +222,7 @@ export const useCreateProduct = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['all-products'] });
     },
   });
 };
@@ -195,6 +244,7 @@ export const useUpdateProduct = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['all-products'] });
     },
   });
 };
@@ -204,15 +254,55 @@ export const useDeleteProduct = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // Solo desactivar el producto, no eliminarlo
       const { error } = await supabase
         .from('products')
-        .delete()
+        .update({ is_active: false })
         .eq('id', id);
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['all-products'] });
+    },
+  });
+};
+
+export const useUpdateCategoryOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, newOrder }: { id: string; newOrder: number }) => {
+      const { error } = await supabase
+        .from('categories')
+        .update({ display_order: newOrder })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['all-categories'] });
+    },
+  });
+};
+
+export const useUpdateProductOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, newOrder }: { id: string; newOrder: number }) => {
+      const { error } = await supabase
+        .from('products')
+        .update({ display_order: newOrder })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['all-products'] });
     },
   });
 };

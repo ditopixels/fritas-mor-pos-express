@@ -13,11 +13,9 @@ export const usePromotionCalculator = () => {
     return promotions.filter(promotion => {
       if (!promotion.isActive) return false;
       
-      // Verificar fechas
       if (promotion.conditions.startDate && now < promotion.conditions.startDate) return false;
       if (promotion.conditions.endDate && now > promotion.conditions.endDate) return false;
       
-      // Verificar días de la semana
       if (promotion.conditions.daysOfWeek && 
           promotion.conditions.daysOfWeek.length > 0 && 
           !promotion.conditions.daysOfWeek.includes(currentDay)) {
@@ -31,10 +29,12 @@ export const usePromotionCalculator = () => {
   const calculateItemPromotions = (productId: string, categoryId: string, price: number) => {
     const appliedPromotions: AppliedPromotion[] = [];
 
-    // Filtrar promociones activas que no requieren compra mínima para mostrar en productos individuales
     const eligiblePromotions = activePromotions.filter(promo => {
-      // Solo mostrar promociones sin compra mínima en productos individuales
+      // Solo mostrar promociones sin compra mínima y sin cantidad mínima en productos individuales
       if (promo.conditions.minimumPurchase && promo.conditions.minimumPurchase > 0) {
+        return false;
+      }
+      if (promo.conditions.minimumQuantity && promo.conditions.minimumQuantity > 1) {
         return false;
       }
       return true;
@@ -80,11 +80,20 @@ export const usePromotionCalculator = () => {
     let totalDiscount = 0;
     const updatedItems = [...cartItems];
 
-    // Verificar promoción de compra mínima
+    // Verificar promociones de compra mínima y cantidad mínima
     const eligiblePromotions = activePromotions.filter(promo => {
       if (promo.conditions.minimumPurchase && subtotal < promo.conditions.minimumPurchase) {
         return false;
       }
+      
+      // Verificar cantidad mínima
+      if (promo.conditions.minimumQuantity && promo.conditions.minimumQuantity > 1) {
+        const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+        if (totalItems < promo.conditions.minimumQuantity) {
+          return false;
+        }
+      }
+      
       return true;
     });
 
@@ -93,21 +102,16 @@ export const usePromotionCalculator = () => {
       const affectedItems: CartItem[] = [];
 
       if (promotion.applicability === 'all') {
-        // Aplicar a todos los productos
         affectedItems.push(...updatedItems);
       } else if (promotion.applicability === 'category') {
-        // Aplicar a productos de categorías específicas
         affectedItems.push(
           ...updatedItems.filter(item => 
             promotion.targetIds?.some(targetId => 
-              // Aquí necesitarías verificar la categoría del producto
-              // Por ahora asumimos que tienes esta información
               item.id === targetId
             )
           )
         );
       } else if (promotion.applicability === 'product') {
-        // Aplicar a productos específicos
         affectedItems.push(
           ...updatedItems.filter(item => 
             promotion.targetIds?.includes(item.id)
@@ -116,7 +120,6 @@ export const usePromotionCalculator = () => {
       }
 
       if (affectedItems.length > 0) {
-        // Calcular descuento
         if (promotion.type === 'percentage') {
           const itemsSubtotal = affectedItems.reduce((sum, item) => 
             sum + (item.price * item.quantity), 0
@@ -137,7 +140,6 @@ export const usePromotionCalculator = () => {
 
           totalDiscount += discountAmount;
 
-          // Aplicar descuento a los items afectados
           affectedItems.forEach(item => {
             const itemIndex = updatedItems.findIndex(i => i.id === item.id);
             if (itemIndex !== -1) {
