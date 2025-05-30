@@ -13,14 +13,18 @@ export const Header = ({ onLogout }: HeaderProps) => {
   });
 
   return (
-    <header className="bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg">
+    <header className="bg-gradient-to-r from-yellow-500 to-red-500 text-white shadow-lg">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Store className="h-8 w-8" />
+          <div className="flex items-center space-x-4">
+            <img 
+              src="/lovable-uploads/262726dd-04dd-473f-8565-588c74af4070.png" 
+              alt="Las Fritas Mor Logo" 
+              className="h-12 w-12 bg-white rounded-full p-1"
+            />
             <div>
               <h1 className="text-2xl font-bold">Las Fritas Mor</h1>
-              <p className="text-orange-100 text-sm">Sistema de Punto de Venta</p>
+              <p className="text-yellow-100 text-sm">Sistema de Punto de Venta</p>
             </div>
           </div>
           

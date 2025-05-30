@@ -5,13 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CartItem } from "@/pages/Index";
 
-// Importar iconos apropiados
-import { Beef, Burger, Potato } from "lucide-react";
+// Importar iconos apropiados - usando iconos disponibles en lucide-react
+import { ChefHat, UtensilsCrossed, Beef } from "lucide-react";
 
 // Simulación de datos de MedusaJS con estructura mejorada para variantes
 const categories = [
-  { id: "papas", name: "Papas Fritas", color: "bg-yellow-100 text-yellow-800", icon: Potato },
-  { id: "hamburguesas", name: "Hamburguesas", color: "bg-red-100 text-red-800", icon: Burger },
+  { id: "papas", name: "Papas Fritas", color: "bg-yellow-100 text-yellow-800", icon: UtensilsCrossed },
+  { id: "hamburguesas", name: "Hamburguesas", color: "bg-red-100 text-red-800", icon: ChefHat },
   { id: "pinchos", name: "Pinchos", color: "bg-green-100 text-green-800", icon: Beef }
 ];
 
@@ -128,7 +128,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
 
   return (
     <div className="bg-white rounded-lg shadow-sm border h-full flex flex-col">
-      <div className="p-4 border-b bg-gray-50">
+      <div className="p-4 border-b bg-gradient-to-r from-yellow-50 to-red-50">
         <h2 className="text-xl font-bold text-gray-800 mb-4">Seleccionar Productos</h2>
         <div className="grid grid-cols-3 gap-3">
           {categories.map((category) => {
@@ -145,8 +145,8 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                 }}
                 className={`h-20 flex flex-col space-y-2 text-lg font-semibold ${
                   selectedCategory === category.id 
-                    ? "bg-orange-500 hover:bg-orange-600 text-white" 
-                    : "hover:bg-orange-50"
+                    ? "bg-gradient-to-r from-yellow-500 to-red-500 hover:from-yellow-600 hover:to-red-600 text-white" 
+                    : "hover:bg-gradient-to-r hover:from-yellow-50 hover:to-red-50"
                 }`}
               >
                 <IconComponent className="h-8 w-8" />
@@ -162,7 +162,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
           <div className="space-y-6">
             {/* Variant Configuration for Papas */}
             {selectedProduct ? (
-              <div className="bg-gray-50 rounded-lg p-4 border-2 border-orange-200">
+              <div className="bg-gradient-to-r from-yellow-50 to-red-50 rounded-lg p-4 border-2 border-yellow-200">
                 <h3 className="text-lg font-bold mb-4">{selectedProduct.name}</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -200,7 +200,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                 </div>
 
                 <div className="flex items-center justify-between mt-4">
-                  <div className="text-lg font-bold text-orange-600">
+                  <div className="text-lg font-bold text-red-600">
                     Total: {selectedSize && selectedSauce ? formatPrice(calculateVariantPrice()) : "---"}
                   </div>
                   <div className="space-x-2">
@@ -223,7 +223,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                         }
                       }}
                       disabled={!selectedSize || !selectedSauce}
-                      className="bg-orange-500 hover:bg-orange-600"
+                      className="bg-gradient-to-r from-yellow-500 to-red-500 hover:from-yellow-600 hover:to-red-600"
                     >
                       Agregar al Pedido
                     </Button>
@@ -236,7 +236,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                   <Button
                     key={product.id}
                     onClick={() => setSelectedProduct(product)}
-                    className="h-32 p-4 text-left justify-start bg-white border-2 border-gray-200 hover:border-orange-300 hover:bg-orange-50 text-gray-800"
+                    className="h-32 p-4 text-left justify-start bg-white border-2 border-gray-200 hover:border-yellow-300 hover:bg-gradient-to-r hover:from-yellow-50 hover:to-red-50 text-gray-800"
                     variant="outline"
                   >
                     <div className="w-full">
@@ -256,7 +256,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
               <Button
                 key={product.id}
                 onClick={() => handleDirectAddToCart(product)}
-                className="h-auto p-4 text-left justify-start bg-white border-2 border-gray-200 hover:border-orange-300 hover:bg-orange-50 text-gray-800"
+                className="h-auto p-4 text-left justify-start bg-white border-2 border-gray-200 hover:border-yellow-300 hover:bg-gradient-to-r hover:from-yellow-50 hover:to-red-50 text-gray-800"
                 variant="outline"
               >
                 <div className="w-full">
@@ -272,7 +272,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                   </div>
                   <p className="text-xs text-gray-600 mb-2">{product.variantName}</p>
                   <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold text-orange-600">
+                    <span className="text-lg font-bold text-red-600">
                       {formatPrice(product.price)}
                     </span>
                     <span className="text-xs text-gray-500">SKU: {product.sku}</span>

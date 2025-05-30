@@ -1,10 +1,10 @@
-
 import { useState } from "react";
 import { ProductGrid } from "@/components/pos/ProductGrid";
 import { OrderSummary } from "@/components/pos/OrderSummary";
 import { PaymentModal } from "@/components/pos/PaymentModal";
 import { OrdersHistory } from "@/components/pos/OrdersHistory";
 import { Header } from "@/components/pos/Header";
+import { LoginForm } from "@/components/pos/LoginForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export interface CartItem {
@@ -30,10 +30,26 @@ export interface Order {
 }
 
 const Index = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState("pos");
+
+  const handleLogin = (username: string, password: string) => {
+    // Demo login - en producción esto se conectaría a MedusaJS
+    if (username === "admin" && password === "lasfritas2024") {
+      setIsLoggedIn(true);
+      return true;
+    }
+    return false;
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setCartItems([]);
+    setActiveTab("pos");
+  };
 
   const addToCart = (item: Omit<CartItem, "quantity">) => {
     setCartItems(prevItems => {
@@ -75,27 +91,33 @@ const Index = () => {
     return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
-  const handlePayment = (paymentMethod: string, cashReceived?: number) => {
+  const handlePayment = (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: string) => {
     const newOrder: Order = {
       id: `ORD-${Date.now()}`,
       items: [...cartItems],
       total: calculateTotal(),
       paymentMethod,
+      customerName,
+      cashReceived,
+      photoEvidence,
       createdAt: new Date(),
       status: "Completado"
     };
 
     setOrders(prevOrders => [newOrder, ...prevOrders]);
     clearCart();
-    setIsPaymentModalOpen(false);
     
     // Aquí se enviaría la orden a MedusaJS
     console.log("Orden enviada a MedusaJS:", newOrder);
   };
 
+  if (!isLoggedIn) {
+    return <LoginForm onLogin={handleLogin} />;
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-red-50">
+      <Header onLogout={handleLogout} />
       
       <div className="container mx-auto p-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -121,7 +143,7 @@ const Index = () => {
                   onUpdateQuantity={updateQuantity}
                   onRemoveItem={removeFromCart}
                   onClearCart={clearCart}
-                  onProceedToPayment={() => setIsPaymentModalOpen(true)}
+                  onConfirmPayment={handlePayment}
                 />
               </div>
             </div>
@@ -132,13 +154,6 @@ const Index = () => {
           </TabsContent>
         </Tabs>
       </div>
-
-      <PaymentModal
-        isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
-        total={calculateTotal()}
-        onConfirmPayment={handlePayment}
-      />
     </div>
   );
 };

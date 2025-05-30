@@ -34,13 +34,15 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-red-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="bg-gradient-to-r from-orange-500 to-red-500 p-3 rounded-full">
-              <Store className="h-8 w-8 text-white" />
-            </div>
+            <img 
+              src="/lovable-uploads/262726dd-04dd-473f-8565-588c74af4070.png" 
+              alt="Las Fritas Mor Logo" 
+              className="h-20 w-20"
+            />
           </div>
           <CardTitle className="text-2xl font-bold text-gray-800">
             Las Fritas Mor
@@ -97,7 +99,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-3"
+              className="w-full bg-gradient-to-r from-yellow-500 to-red-500 hover:from-yellow-600 hover:to-red-600 text-white font-bold py-3"
             >
               {isLoading ? (
                 <div className="flex items-center space-x-2">
