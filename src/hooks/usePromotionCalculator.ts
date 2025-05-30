@@ -28,6 +28,53 @@ export const usePromotionCalculator = () => {
     });
   }, [promotions]);
 
+  const calculateItemPromotions = (productId: string, categoryId: string, price: number) => {
+    const appliedPromotions: AppliedPromotion[] = [];
+
+    // Filtrar promociones activas que no requieren compra mínima para mostrar en productos individuales
+    const eligiblePromotions = activePromotions.filter(promo => {
+      // Solo mostrar promociones sin compra mínima en productos individuales
+      if (promo.conditions.minimumPurchase && promo.conditions.minimumPurchase > 0) {
+        return false;
+      }
+      return true;
+    });
+
+    eligiblePromotions.forEach(promotion => {
+      let isApplicable = false;
+
+      if (promotion.applicability === 'all') {
+        isApplicable = true;
+      } else if (promotion.applicability === 'category') {
+        isApplicable = promotion.targetIds?.includes(categoryId) || false;
+      } else if (promotion.applicability === 'product') {
+        isApplicable = promotion.targetIds?.includes(productId) || false;
+      }
+
+      if (isApplicable) {
+        let discountAmount = 0;
+
+        if (promotion.type === 'percentage') {
+          discountAmount = (price * promotion.value) / 100;
+        } else {
+          discountAmount = promotion.value;
+        }
+
+        if (discountAmount > 0) {
+          appliedPromotions.push({
+            promotionId: promotion.id,
+            promotionName: promotion.name,
+            type: promotion.type,
+            value: promotion.value,
+            discountAmount,
+          });
+        }
+      }
+    });
+
+    return appliedPromotions;
+  };
+
   const calculatePromotions = (cartItems: CartItem[], subtotal: number) => {
     const appliedPromotions: AppliedPromotion[] = [];
     let totalDiscount = 0;
@@ -130,5 +177,6 @@ export const usePromotionCalculator = () => {
   return {
     activePromotions,
     calculatePromotions,
+    calculateItemPromotions,
   };
 };
