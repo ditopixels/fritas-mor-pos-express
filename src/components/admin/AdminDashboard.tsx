@@ -1,11 +1,20 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Package, Tag, TrendingUp } from "lucide-react";
+import { BarChart3, Package, Tag } from "lucide-react";
 import { SalesMetrics } from "./SalesMetrics";
 import { CatalogManagement } from "./CatalogManagement";
 import { PromotionsManagement } from "./PromotionsManagement";
-import { Order } from "@/types";
+
+interface Order {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  total: number;
+  payment_method: string;
+  created_at: string;
+  status: string;
+}
 
 interface AdminDashboardProps {
   orders: Order[];

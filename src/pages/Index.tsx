@@ -4,31 +4,19 @@ import { ProductGrid } from "@/components/pos/ProductGrid";
 import { OrderSummary } from "@/components/pos/OrderSummary";
 import { OrdersHistory } from "@/components/pos/OrdersHistory";
 import { Header } from "@/components/pos/Header";
-import { LoginForm } from "@/components/pos/LoginForm";
+import { AuthPage } from "@/components/auth/AuthPage";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CartItem, Order, User } from "@/types";
+import { CartItem } from "@/types";
+import { useAuth } from "@/hooks/useAuth";
+import { useOrders } from "@/hooks/useOrders";
 
 const Index = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, profile, loading, signOut } = useAuth();
+  const { data: orders } = useOrders();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState("pos");
   const [currentView, setCurrentView] = useState("pos");
-
-  const handleLogin = (userData: User) => {
-    setUser(userData);
-    if (userData.role === 'cashier') {
-      setCurrentView('pos');
-    }
-  };
-
-  const handleLogout = () => {
-    setUser(null);
-    setCartItems([]);
-    setActiveTab("pos");
-    setCurrentView("pos");
-  };
 
   const handleNavigate = (view: string) => {
     setCurrentView(view);
@@ -78,46 +66,41 @@ const Index = () => {
   };
 
   const handlePayment = (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: File) => {
-    const subtotal = calculateTotal();
-    const totalDiscount = 0; // Se calculará con promociones
-    const total = subtotal - totalDiscount;
-
-    const newOrder: Order = {
-      id: `ORD-${Date.now()}`,
-      items: [...cartItems],
-      total,
-      subtotal,
-      totalDiscount,
-      paymentMethod,
-      customerName,
-      cashReceived,
-      photoEvidence: photoEvidence ? URL.createObjectURL(photoEvidence) : undefined,
-      createdAt: new Date(),
-      status: "Completado"
-    };
-
-    setOrders(prevOrders => [newOrder, ...prevOrders]);
-    clearCart();
-    
-    console.log("Orden procesada:", newOrder);
+    // Esta función ahora es manejada por el hook useCreateOrder en OrderSummary
+    // Pero la mantenemos para compatibilidad
+    console.log("Pago procesado:", { paymentMethod, customerName, cashReceived });
   };
 
-  if (!user) {
-    return <LoginForm onLogin={handleLogin} />;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-red-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+        <span className="ml-2">Cargando...</span>
+      </div>
+    );
+  }
+
+  if (!user || !profile) {
+    return <AuthPage />;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-red-50">
       <Header 
-        user={user} 
+        user={{
+          id: profile.id,
+          username: profile.username,
+          role: profile.role,
+          name: profile.name,
+        }}
         currentView={currentView}
-        onLogout={handleLogout} 
-        onNavigate={user.role === 'admin' ? handleNavigate : undefined}
+        onLogout={signOut} 
+        onNavigate={profile.role === 'admin' ? handleNavigate : undefined}
       />
       
       <div className="container mx-auto p-4">
-        {currentView === 'admin' && user.role === 'admin' ? (
-          <AdminDashboard orders={orders} />
+        {currentView === 'admin' && profile.role === 'admin' ? (
+          <AdminDashboard orders={orders || []} />
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
@@ -125,7 +108,7 @@ const Index = () => {
                 Punto de Venta
               </TabsTrigger>
               <TabsTrigger value="orders" className="text-lg font-semibold">
-                Órdenes ({orders.length})
+                Órdenes ({orders?.length || 0})
               </TabsTrigger>
             </TabsList>
             
@@ -149,7 +132,7 @@ const Index = () => {
             </TabsContent>
             
             <TabsContent value="orders" className="space-y-0">
-              <OrdersHistory orders={orders} />
+              <OrdersHistory orders={orders || []} />
             </TabsContent>
           </Tabs>
         )}

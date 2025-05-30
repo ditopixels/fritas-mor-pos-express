@@ -4,11 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { PaymentModal } from "./PaymentModal";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Trash2, Minus, Plus } from "lucide-react";
 import { CartItem } from "@/types";
+import { useCreateOrder } from "@/hooks/useOrders";
+import { useToast } from "@/hooks/use-toast";
 
 interface OrderSummaryProps {
   items: CartItem[];
@@ -19,193 +19,218 @@ interface OrderSummaryProps {
   onProceedToPayment: (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: File) => void;
 }
 
-export const OrderSummary = ({
-  items,
-  total,
-  onUpdateQuantity,
-  onRemoveItem,
+export const OrderSummary = ({ 
+  items, 
+  total, 
+  onUpdateQuantity, 
+  onRemoveItem, 
   onClearCart,
-  onProceedToPayment
+  onProceedToPayment 
 }: OrderSummaryProps) => {
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [cashReceived, setCashReceived] = useState<number | undefined>();
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  const createOrderMutation = useCreateOrder();
+  const { toast } = useToast();
 
-  const handlePayment = (paymentMethod: string, cashReceived?: number, photoEvidence?: File) => {
-    onProceedToPayment(paymentMethod, customerName, cashReceived, photoEvidence);
-    setIsPaymentModalOpen(false);
-    setCustomerName("");
+  const handlePayment = async () => {
+    if (!customerName.trim()) {
+      toast({
+        title: "Error",
+        description: "Por favor ingresa el nombre del cliente",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!paymentMethod) {
+      toast({
+        title: "Error",
+        description: "Por favor selecciona un método de pago",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (paymentMethod === "cash" && (!cashReceived || cashReceived < total)) {
+      toast({
+        title: "Error",
+        description: "El monto en efectivo debe ser mayor o igual al total",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      await createOrderMutation.mutateAsync({
+        customer_name: customerName.trim(),
+        payment_method: paymentMethod,
+        cash_received: paymentMethod === "cash" ? cashReceived : undefined,
+        items,
+      });
+
+      toast({
+        title: "¡Orden procesada!",
+        description: `Orden completada para ${customerName}`,
+      });
+
+      // Limpiar formulario y carrito
+      setCustomerName("");
+      setPaymentMethod("");
+      setCashReceived(undefined);
+      onClearCart();
+      
+      // También llamar a la función original para mantener compatibilidad
+      onProceedToPayment(paymentMethod, customerName, cashReceived);
+      
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Error al procesar la orden",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const subtotal = total;
-  const totalDiscount = items.reduce((sum, item) => {
-    const originalPrice = item.originalPrice || item.price;
-    return sum + ((originalPrice - item.price) * item.quantity);
-  }, 0);
+  const change = paymentMethod === "cash" && cashReceived ? cashReceived - total : 0;
 
   return (
-    <Card className="h-fit">
+    <Card className="h-full">
       <CardHeader>
-        <CardTitle>Resumen de Compra</CardTitle>
+        <CardTitle>Resumen de Orden</CardTitle>
         <CardDescription>
-          {items.length} {items.length === 1 ? 'artículo' : 'artículos'} en el carrito
+          {items.length} {items.length === 1 ? 'producto' : 'productos'} en el carrito
         </CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="customer-name">Nombre del Cliente</Label>
-          <Input
-            id="customer-name"
-            type="text"
-            placeholder="Ingrese el nombre del cliente"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-          />
-        </div>
-
-        <Separator />
-
-        <div className="space-y-3 max-h-80 overflow-y-auto">
+        {/* Lista de productos */}
+        <div className="space-y-2 max-h-40 overflow-y-auto">
           {items.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">
-              No hay artículos en el carrito
-            </p>
+            <p className="text-gray-500 text-center py-4">El carrito está vacío</p>
           ) : (
-            items.map((item) => {
-              const originalPrice = item.originalPrice || item.price;
-              const hasDiscount = originalPrice > item.price;
-              
-              return (
-                <div key={item.sku} className="space-y-2 p-3 border rounded-lg">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm">{item.productName}</h4>
-                      {item.variantName && (
-                        <p className="text-xs text-gray-600">{item.variantName}</p>
-                      )}
-                      <p className="text-xs text-gray-500">SKU: {item.sku}</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onRemoveItem(item.sku)}
-                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onUpdateQuantity(item.sku, item.quantity - 1)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-8 text-center text-sm">{item.quantity}</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onUpdateQuantity(item.sku, item.quantity + 1)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    
-                    <div className="text-right">
-                      {hasDiscount && (
-                        <div className="flex items-center space-x-1">
-                          <span className="text-xs text-gray-500 line-through">
-                            ${(originalPrice * item.quantity).toLocaleString()}
-                          </span>
-                          <Badge variant="secondary" className="text-xs">
-                            -{Math.round(((originalPrice - item.price) / originalPrice) * 100)}%
-                          </Badge>
-                        </div>
-                      )}
-                      <p className="font-medium text-sm">
-                        ${(item.price * item.quantity).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {item.appliedPromotions && item.appliedPromotions.length > 0 && (
-                    <div className="space-y-1">
-                      {item.appliedPromotions.map((promo, index) => (
-                        <div key={index} className="flex items-center space-x-2">
-                          <Badge variant="outline" className="text-xs">
-                            {promo.promotionName}
-                          </Badge>
-                          <span className="text-xs text-green-600">
-                            -{promo.type === 'percentage' ? `${promo.value}%` : `$${promo.value.toLocaleString()}`}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+            items.map((item) => (
+              <div key={item.sku} className="flex items-center justify-between space-x-2 p-2 border rounded">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{item.productName}</p>
+                  <p className="text-xs text-gray-500">{item.variantName}</p>
+                  <p className="text-sm font-bold">${item.price.toLocaleString()}</p>
                 </div>
-              );
-            })
+                
+                <div className="flex items-center space-x-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onUpdateQuantity(item.sku, item.quantity - 1)}
+                    disabled={item.quantity <= 1}
+                  >
+                    <Minus className="h-3 w-3" />
+                  </Button>
+                  
+                  <span className="w-8 text-center text-sm">{item.quantity}</span>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onUpdateQuantity(item.sku, item.quantity + 1)}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onRemoveItem(item.sku)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ))
           )}
         </div>
 
+        {/* Total */}
+        <div className="border-t pt-4">
+          <div className="flex justify-between items-center text-lg font-bold">
+            <span>Total:</span>
+            <span>${total.toLocaleString()}</span>
+          </div>
+        </div>
+
+        {/* Formulario de pago */}
         {items.length > 0 && (
-          <>
-            <Separator />
-            
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal:</span>
-                <span>${subtotal.toLocaleString()}</span>
-              </div>
-              
-              {totalDiscount > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Descuentos aplicados:</span>
-                  <span>-${totalDiscount.toLocaleString()}</span>
-                </div>
-              )}
-              
-              <Separator />
-              
-              <div className="flex justify-between font-bold text-lg">
-                <span>Total:</span>
-                <span>${total.toLocaleString()}</span>
-              </div>
+          <div className="space-y-4 border-t pt-4">
+            <div>
+              <Label htmlFor="customer-name">Nombre del Cliente</Label>
+              <Input
+                id="customer-name"
+                placeholder="Ingrese el nombre del cliente"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+              />
             </div>
+
+            <div>
+              <Label htmlFor="payment-method">Método de Pago</Label>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione método de pago" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Efectivo</SelectItem>
+                  <SelectItem value="card">Tarjeta</SelectItem>
+                  <SelectItem value="transfer">Transferencia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {paymentMethod === "cash" && (
+              <div>
+                <Label htmlFor="cash-received">Efectivo Recibido</Label>
+                <Input
+                  id="cash-received"
+                  type="number"
+                  placeholder="0"
+                  value={cashReceived || ""}
+                  onChange={(e) => setCashReceived(Number(e.target.value) || undefined)}
+                />
+                {cashReceived && cashReceived >= total && (
+                  <p className="text-sm text-green-600 mt-1">
+                    Cambio: ${change.toLocaleString()}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Button
-                className="w-full"
-                size="lg"
-                onClick={() => setIsPaymentModalOpen(true)}
-                disabled={!customerName.trim()}
+                onClick={handlePayment}
+                disabled={isProcessing || createOrderMutation.isPending}
+                className="w-full bg-green-600 hover:bg-green-700"
               >
-                Proceder al Pago
+                {isProcessing || createOrderMutation.isPending ? "Procesando..." : "Procesar Pago"}
               </Button>
               
               <Button
+                onClick={onClearCart}
                 variant="outline"
                 className="w-full"
-                onClick={onClearCart}
+                disabled={isProcessing}
               >
                 Limpiar Carrito
               </Button>
             </div>
-          </>
+          </div>
         )}
       </CardContent>
-
-      <PaymentModal
-        isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
-        total={total}
-        onConfirmPayment={handlePayment}
-      />
     </Card>
   );
 };

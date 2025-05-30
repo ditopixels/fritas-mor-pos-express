@@ -1,5 +1,15 @@
-import { Order } from "@/types";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+interface Order {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  total: number;
+  payment_method: string;
+  created_at: string;
+  status: string;
+}
 
 interface OrdersHistoryProps {
   orders: Order[];
@@ -25,7 +35,7 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
               <thead>
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ID
+                    Número
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Fecha
@@ -39,20 +49,34 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Método de Pago
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {orders.map((order) => (
                   <tr key={order.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {order.createdAt.toLocaleDateString()}
+                      {order.order_number}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.customerName}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${order.total.toFixed(2)}
+                      {new Date(order.created_at).toLocaleDateString('es-ES')}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.paymentMethod}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {order.customer_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      ${order.total.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {order.payment_method}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                        {order.status}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>

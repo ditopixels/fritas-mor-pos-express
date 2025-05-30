@@ -5,104 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { CartItem } from "@/types";
-
-interface ProductOption {
-  id: string;
-  name: string;
-  values: string[];
-  isRequired: boolean;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  description?: string;
-  categoryId: string;
-  image?: string;
-  options: ProductOption[];
-  isActive: boolean;
-  createdAt: Date;
-}
-
-interface ProductVariant {
-  id: string;
-  productId: string;
-  sku: string;
-  name: string;
-  price: number;
-  optionValues: Record<string, string>;
-  isActive: boolean;
-  stock?: number;
-}
+import { useProducts, Product, ProductVariant } from "@/hooks/useProducts";
 
 interface ProductGridProps {
   onAddToCart: (item: Omit<CartItem, "quantity">) => void;
 }
 
-// Mock data for demonstration
-const mockProducts: Product[] = [
-  {
-    id: "1",
-    name: "Papas Fritas",
-    description: "Deliciosas papas fritas crujientes",
-    categoryId: "cat1",
-    image: "/placeholder.svg",
-    options: [
-      {
-        id: "opt1",
-        name: "Tamaño",
-        values: ["Pequeño", "Mediano", "Grande"],
-        isRequired: true
-      },
-      {
-        id: "opt2", 
-        name: "Salsa",
-        values: ["Rosada", "Ajo", "Sin Salsa"],
-        isRequired: false
-      }
-    ],
-    isActive: true,
-    createdAt: new Date()
-  },
-  {
-    id: "2",
-    name: "Hamburguesa Clásica",
-    description: "Hamburguesa con carne, lechuga y tomate",
-    categoryId: "cat2",
-    image: "/placeholder.svg",
-    options: [
-      {
-        id: "opt3",
-        name: "Tamaño",
-        values: ["Simple", "Doble"],
-        isRequired: true
-      }
-    ],
-    isActive: true,
-    createdAt: new Date()
-  },
-  {
-    id: "3",
-    name: "Gaseosa",
-    description: "Bebida refrescante",
-    categoryId: "cat3",
-    image: "/placeholder.svg",
-    options: [
-      {
-        id: "opt4",
-        name: "Tamaño",
-        values: ["300ml", "500ml", "1L"],
-        isRequired: true
-      }
-    ],
-    isActive: true,
-    createdAt: new Date()
-  }
-];
-
 export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [products] = useState<Product[]>(mockProducts);
+  const { data: products, isLoading, error } = useProducts();
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
 
   useEffect(() => {
@@ -120,17 +31,45 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
     }
   }, [searchTerm, products]);
 
-  const handleAddToCart = (product: Product, variant: ProductVariant) => {
+  const handleAddToCart = (product: Product, variant?: ProductVariant) => {
+    // Si no hay variante específica, crear una por defecto
+    const defaultVariant = variant || {
+      id: product.id,
+      product_id: product.id,
+      sku: product.id,
+      name: product.name,
+      price: 5000, // Precio por defecto
+      option_values: {},
+      is_active: true,
+    };
+
     const item = {
       id: product.id,
       productName: product.name,
-      variantName: variant.name,
-      sku: variant.sku,
-      price: variant.price,
+      variantName: defaultVariant.name,
+      sku: defaultVariant.sku,
+      price: defaultVariant.price,
       image: product.image,
     };
     onAddToCart(item);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+        <span className="ml-2">Cargando productos...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center text-red-600 p-4">
+        Error al cargar los productos. Por favor intenta de nuevo.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -159,8 +98,21 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                   className="w-full h-32 object-cover mb-4 rounded-md"
                 />
               )}
+              {product.description && (
+                <p className="text-sm text-gray-600 mb-2">{product.description}</p>
+              )}
               <div className="variants space-y-2">
-                {product.options.length > 0 ? (
+                {product.variants && product.variants.length > 0 ? (
+                  <div>
+                    <p className="text-sm font-semibold">Variantes disponibles:</p>
+                    {product.variants.map(variant => (
+                      <div key={variant.id} className="flex justify-between items-center">
+                        <span className="text-sm">{variant.name}</span>
+                        <span className="text-sm font-bold">${variant.price.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : product.options && product.options.length > 0 ? (
                   product.options.map(option => (
                     <div key={option.id} className="text-sm">
                       <p className="font-semibold">{option.name}:</p>
@@ -174,26 +126,31 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-500">No hay opciones disponibles.</p>
+                  <p className="text-gray-500 text-sm">Producto simple</p>
                 )}
               </div>
             </CardContent>
             <CardFooter className="flex flex-col items-center">
-              {product.options.length === 0 ? (
-                <Button onClick={() => handleAddToCart(product, {
-                  id: product.id,
-                  productId: product.id,
-                  sku: product.id,
-                  name: product.name,
-                  price: 5000,
-                  optionValues: {},
-                  isActive: true,
-                })}
-                >
-                  Agregar al carrito - $5.000
-                </Button>
+              {product.variants && product.variants.length > 0 ? (
+                <div className="space-y-2 w-full">
+                  {product.variants.map(variant => (
+                    <Button 
+                      key={variant.id}
+                      onClick={() => handleAddToCart(product, variant)}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      {variant.name} - ${variant.price.toLocaleString()}
+                    </Button>
+                  ))}
+                </div>
               ) : (
-                <p className="text-gray-500 text-center">Seleccione las opciones para agregar al carrito.</p>
+                <Button 
+                  onClick={() => handleAddToCart(product)}
+                  className="w-full"
+                >
+                  Agregar - $5.000
+                </Button>
               )}
             </CardFooter>
           </Card>
