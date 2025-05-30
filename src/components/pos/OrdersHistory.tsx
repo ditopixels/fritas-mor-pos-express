@@ -1,179 +1,65 @@
-
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Clock, Receipt, DollarSign, Image, User } from "lucide-react";
-import { Order } from "@/pages/Index";
-import { TransferImageModal } from "./TransferImageModal";
-import { useState } from "react";
+import { Order } from "@/types";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface OrdersHistoryProps {
   orders: Order[];
 }
 
 export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
-  const [selectedImageUrl, setSelectedImageUrl] = useState<string>("");
-  const [selectedCustomerName, setSelectedCustomerName] = useState<string>("");
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      minimumFractionDigits: 0
-    }).format(price);
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("es-ES", {
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-  };
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("es-ES", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric"
-    });
-  };
-
-  const getPaymentMethodBadge = (method: string) => {
-    const config = {
-      cash: { label: "Efectivo", color: "bg-green-100 text-green-800" },
-      transfer: { label: "Transferencia", color: "bg-blue-100 text-blue-800" }
-    };
-    
-    const paymentConfig = config[method as keyof typeof config] || { label: method, color: "bg-gray-100 text-gray-800" };
-    
-    return (
-      <Badge className={paymentConfig.color}>
-        {paymentConfig.label}
-      </Badge>
-    );
-  };
-
-  const handleViewTransferImage = (imageUrl: string, customerName: string) => {
-    setSelectedImageUrl(imageUrl);
-    setSelectedCustomerName(customerName);
-    setIsImageModalOpen(true);
-  };
-
-  if (orders.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <Receipt className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-        <h3 className="text-xl font-semibold text-gray-600 mb-2">
-          No hay órdenes registradas
-        </h3>
-        <p className="text-gray-500">
-          Las órdenes completadas aparecerán aquí
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Historial de Órdenes</h2>
-        <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-          {orders.length} {orders.length === 1 ? "orden" : "órdenes"}
-        </Badge>
-      </div>
-
-      <div className="grid gap-4">
-        {orders.map((order) => (
-          <Card key={order.id} className="shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-bold text-orange-600">
-                  {order.id}
-                </CardTitle>
-                <div className="flex items-center space-x-2">
-                  {getPaymentMethodBadge(order.paymentMethod)}
-                  <Badge className="bg-green-100 text-green-800">
-                    {order.status}
-                  </Badge>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-4 text-sm text-gray-600">
-                <div className="flex items-center space-x-1">
-                  <Clock className="h-4 w-4" />
-                  <span>{formatTime(order.createdAt)}</span>
-                </div>
-                <span>•</span>
-                <span>{formatDate(order.createdAt)}</span>
-              </div>
-
-              {/* Customer Name */}
-              <div className="flex items-center space-x-2 text-sm">
-                <User className="h-4 w-4 text-gray-500" />
-                <span className="font-medium text-gray-700">Cliente: {order.customerName}</span>
-              </div>
-            </CardHeader>
-
-            <CardContent className="pt-0">
-              <div className="space-y-3">
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <h4 className="font-semibold text-sm mb-2 text-gray-700">Productos:</h4>
-                  <div className="space-y-2">
-                    {order.items.map((item, index) => (
-                      <div key={`${item.sku}-${index}`} className="flex justify-between items-center text-sm">
-                        <div className="flex-1">
-                          <span className="font-medium">{item.productName}</span>
-                          <span className="text-gray-600 ml-1">- {item.variantName}</span>
-                          <span className="text-gray-500 ml-2">(x{item.quantity})</span>
-                        </div>
-                        <span className="font-semibold">
-                          {formatPrice(item.price * item.quantity)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <DollarSign className="h-5 w-5 text-orange-500" />
-                    <span className="font-semibold text-gray-700">Total:</span>
-                  </div>
-                  <span className="text-xl font-bold text-orange-600">
-                    {formatPrice(order.total * 1.19)}
-                  </span>
-                </div>
-
-                {/* Transfer Image Button */}
-                {order.paymentMethod === 'transfer' && order.photoEvidence && (
-                  <div className="pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleViewTransferImage(order.photoEvidence!, order.customerName)}
-                      className="flex items-center space-x-2"
-                    >
-                      <Image className="h-4 w-4" />
-                      <span>Ver Comprobante</span>
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <TransferImageModal
-        isOpen={isImageModalOpen}
-        onClose={() => setIsImageModalOpen(false)}
-        imageUrl={selectedImageUrl}
-        customerName={selectedCustomerName}
-      />
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Historial de Órdenes</CardTitle>
+        <CardDescription>
+          Aquí puedes revisar el historial de todas las órdenes completadas.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {orders.length === 0 ? (
+          <div className="text-center py-4">
+            No hay órdenes registradas aún.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cliente
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Método de Pago
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {orders.map((order) => (
+                  <tr key={order.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.id}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {order.createdAt.toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.customerName}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      ${order.total.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.paymentMethod}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
