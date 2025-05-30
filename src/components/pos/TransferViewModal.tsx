@@ -1,5 +1,7 @@
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface TransferViewModalProps {
   isOpen: boolean;
@@ -16,15 +18,21 @@ export const TransferViewModal = ({
 }: TransferViewModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Comprobante de Transferencia - {customerName}</DialogTitle>
-        </DialogHeader>
-        <div className="flex justify-center p-4">
+      <DialogContent className="max-w-screen max-h-screen w-screen h-screen p-0 m-0 border-0 bg-black">
+        <div className="relative w-full h-full flex items-center justify-center">
+          <Button
+            onClick={onClose}
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 z-10 bg-white/20 hover:bg-white/40 text-white"
+          >
+            <X className="h-6 w-6" />
+          </Button>
+          
           <img 
             src={imageUrl} 
-            alt="Comprobante de transferencia" 
-            className="max-w-full max-h-96 object-contain rounded-lg border shadow-lg"
+            alt={`Comprobante de transferencia - ${customerName}`}
+            className="max-w-full max-h-full object-contain"
           />
         </div>
       </DialogContent>

@@ -100,10 +100,10 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const summaryData = [
       ['Métrica', 'Valor'],
       ['Período', `${format(dateRange.from!, 'dd/MM/yyyy')} - ${format(dateRange.to!, 'dd/MM/yyyy')}`],
-      ['Total Ingresos', metrics.totalRevenue],
-      ['Total Órdenes', metrics.totalOrders],
-      ['Ticket Promedio', metrics.averageTicket],
-      ['Total Productos Vendidos', metrics.totalProducts]
+      ['Total Ingresos', metrics.totalRevenue.toString()],
+      ['Total Órdenes', metrics.totalOrders.toString()],
+      ['Ticket Promedio', metrics.averageTicket.toString()],
+      ['Total Productos Vendidos', metrics.totalProducts.toString()]
     ];
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen');
@@ -118,8 +118,8 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
         `ORD-${order.id.slice(-8)}`,
         order.customerName,
         order.paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia',
-        order.items.length,
-        order.total
+        order.items.length.toString(),
+        order.total.toString()
       ]);
     });
     const ordersSheet = XLSX.utils.aoa_to_sheet(ordersData);
@@ -130,7 +130,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       ['Producto', 'Cantidad Vendida', 'Ingresos']
     ];
     metrics.topProducts.forEach(product => {
-      productsData.push([product.name, product.quantity, product.revenue]);
+      productsData.push([product.name, product.quantity.toString(), product.revenue.toString()]);
     });
     const productsSheet = XLSX.utils.aoa_to_sheet(productsData);
     XLSX.utils.book_append_sheet(workbook, productsSheet, 'Productos Más Vendidos');
@@ -310,6 +310,34 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                   <div className="text-right">
                     <p className="font-bold">${product.revenue.toLocaleString()}</p>
                     <p className="text-sm text-gray-500">en ingresos</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Lista de órdenes */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Últimas Órdenes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {filteredOrders.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No hay órdenes en el período seleccionado</p>
+            ) : (
+              filteredOrders.slice(0, 10).map((order) => (
+                <div key={order.id} className="flex items-center justify-between p-4 border rounded">
+                  <div>
+                    <p className="font-medium">ORD-{order.id.slice(-8)}</p>
+                    <p className="text-sm text-gray-500">{order.customerName}</p>
+                    <p className="text-xs text-gray-400">{format(order.createdAt, 'dd/MM/yyyy HH:mm')}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold">${order.total.toLocaleString()}</p>
+                    <p className="text-sm text-gray-500">{order.items.length} productos</p>
                   </div>
                 </div>
               ))

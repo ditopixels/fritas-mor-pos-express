@@ -5,29 +5,140 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tag, Plus, Edit, Trash2, Percent, DollarSign } from "lucide-react";
+import { usePromotions, useCreatePromotion, useUpdatePromotion, useDeletePromotion } from "@/hooks/usePromotions";
+import { PromotionForm } from "./PromotionForm";
+import { useToast } from "@/hooks/use-toast";
+import { Promotion } from "@/types";
 
 export const PromotionsManagement = () => {
   const [activeTab, setActiveTab] = useState("active");
+  const [showForm, setShowForm] = useState(false);
+  const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null);
+
+  const { data: promotions = [], isLoading } = usePromotions();
+  const createPromotion = useCreatePromotion();
+  const updatePromotion = useUpdatePromotion();
+  const deletePromotion = useDeletePromotion();
+  const { toast } = useToast();
+
+  const activePromotions = promotions.filter(p => p.isActive);
+  const inactivePromotions = promotions.filter(p => !p.isActive);
+
+  const handleCreatePromotion = async (promotionData: Partial<Promotion>) => {
+    try {
+      await createPromotion.mutateAsync({
+        name: promotionData.name!,
+        description: promotionData.description,
+        type: promotionData.type!,
+        value: promotionData.value!,
+        applicability: promotionData.applicability!,
+        conditions: promotionData.conditions || {},
+        isActive: promotionData.isActive ?? true,
+      });
+
+      toast({
+        title: "Promoción creada",
+        description: "La promoción se ha creado exitosamente",
+      });
+
+      setShowForm(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Error al crear la promoción",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdatePromotion = async (promotionData: Partial<Promotion>) => {
+    if (!editingPromotion) return;
+
+    try {
+      await updatePromotion.mutateAsync({
+        id: editingPromotion.id,
+        updates: promotionData,
+      });
+
+      toast({
+        title: "Promoción actualizada",
+        description: "La promoción se ha actualizado exitosamente",
+      });
+
+      setEditingPromotion(null);
+      setShowForm(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Error al actualizar la promoción",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeletePromotion = async (promotion: Promotion) => {
+    if (!confirm(`¿Estás seguro de que quieres eliminar la promoción "${promotion.name}"?`)) {
+      return;
+    }
+
+    try {
+      await deletePromotion.mutateAsync(promotion.id);
+      toast({
+        title: "Promoción eliminada",
+        description: "La promoción se ha eliminado exitosamente",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Error al eliminar la promoción",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const formatValue = (type: string, value: number) => {
+    return type === "percentage" ? `${value}%` : `$${value.toLocaleString()}`;
+  };
+
+  if (showForm) {
+    return (
+      <PromotionForm
+        promotion={editingPromotion || undefined}
+        onSave={editingPromotion ? handleUpdatePromotion : handleCreatePromotion}
+        onCancel={() => {
+          setShowForm(false);
+          setEditingPromotion(null);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Tag className="h-5 w-5" />
-            <span>Gestión de Promociones</span>
-          </CardTitle>
-          <CardDescription>
-            Crea y administra promociones y descuentos
-          </CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="flex items-center space-x-2">
+                <Tag className="h-5 w-5" />
+                <span>Gestión de Promociones</span>
+              </CardTitle>
+              <CardDescription>
+                Crea y administra promociones y descuentos
+              </CardDescription>
+            </div>
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva Promoción
+            </Button>
+          </div>
         </CardHeader>
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="active">Activas</TabsTrigger>
-          <TabsTrigger value="inactive">Inactivas</TabsTrigger>
-          <TabsTrigger value="create">Crear Nueva</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="active">Activas ({activePromotions.length})</TabsTrigger>
+          <TabsTrigger value="inactive">Inactivas ({inactivePromotions.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="active" className="space-y-4">
@@ -37,16 +148,58 @@ export const PromotionsManagement = () => {
               <CardDescription>Promociones actualmente en funcionamiento</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium">Lista de Promociones</h3>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nueva Promoción
-                </Button>
-              </div>
-              <div className="text-gray-500 text-center py-8">
-                No hay promociones activas actualmente
-              </div>
+              {isLoading ? (
+                <div className="text-center py-8">Cargando promociones...</div>
+              ) : activePromotions.length === 0 ? (
+                <div className="text-gray-500 text-center py-8">
+                  No hay promociones activas actualmente
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {activePromotions.map((promotion) => (
+                    <div key={promotion.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h3 className="font-semibold">{promotion.name}</h3>
+                            <Badge variant="outline" className="bg-green-50 text-green-700">
+                              {promotion.type === "percentage" ? <Percent className="h-3 w-3 mr-1" /> : <DollarSign className="h-3 w-3 mr-1" />}
+                              {formatValue(promotion.type, promotion.value)}
+                            </Badge>
+                          </div>
+                          {promotion.description && (
+                            <p className="text-sm text-gray-600 mb-2">{promotion.description}</p>
+                          )}
+                          <div className="flex items-center space-x-4 text-sm text-gray-500">
+                            <span>Aplicabilidad: {promotion.applicability === "all" ? "Todos" : promotion.applicability}</span>
+                            <span>Creada: {new Date(promotion.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2 ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingPromotion(promotion);
+                              setShowForm(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => handleDeletePromotion(promotion)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -58,47 +211,58 @@ export const PromotionsManagement = () => {
               <CardDescription>Promociones pausadas o finalizadas</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-gray-500 text-center py-8">
-                No hay promociones inactivas
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="create" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Crear Nueva Promoción</CardTitle>
-              <CardDescription>Define una nueva promoción o descuento</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <Card className="p-4 cursor-pointer hover:bg-gray-50 border-2 border-dashed">
-                    <div className="flex items-center space-x-3">
-                      <Percent className="h-8 w-8 text-blue-500" />
-                      <div>
-                        <h4 className="font-semibold">Descuento Porcentual</h4>
-                        <p className="text-sm text-gray-600">Descuento por porcentaje</p>
+              {isLoading ? (
+                <div className="text-center py-8">Cargando promociones...</div>
+              ) : inactivePromotions.length === 0 ? (
+                <div className="text-gray-500 text-center py-8">
+                  No hay promociones inactivas
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {inactivePromotions.map((promotion) => (
+                    <div key={promotion.id} className="border rounded-lg p-4 opacity-60">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h3 className="font-semibold">{promotion.name}</h3>
+                            <Badge variant="outline" className="bg-gray-50 text-gray-700">
+                              {promotion.type === "percentage" ? <Percent className="h-3 w-3 mr-1" /> : <DollarSign className="h-3 w-3 mr-1" />}
+                              {formatValue(promotion.type, promotion.value)}
+                            </Badge>
+                          </div>
+                          {promotion.description && (
+                            <p className="text-sm text-gray-600 mb-2">{promotion.description}</p>
+                          )}
+                          <div className="flex items-center space-x-4 text-sm text-gray-500">
+                            <span>Aplicabilidad: {promotion.applicability === "all" ? "Todos" : promotion.applicability}</span>
+                            <span>Creada: {new Date(promotion.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2 ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingPromotion(promotion);
+                              setShowForm(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => handleDeletePromotion(promotion)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </Card>
-                  
-                  <Card className="p-4 cursor-pointer hover:bg-gray-50 border-2 border-dashed">
-                    <div className="flex items-center space-x-3">
-                      <DollarSign className="h-8 w-8 text-green-500" />
-                      <div>
-                        <h4 className="font-semibold">Descuento Fijo</h4>
-                        <p className="text-sm text-gray-600">Monto fijo de descuento</p>
-                      </div>
-                    </div>
-                  </Card>
+                  ))}
                 </div>
-                
-                <div className="text-gray-500 text-center py-4">
-                  Formulario de creación de promociones próximamente
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

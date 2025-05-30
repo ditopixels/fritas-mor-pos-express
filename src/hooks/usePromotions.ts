@@ -1,25 +1,7 @@
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-
-export interface Promotion {
-  id: string;
-  name: string;
-  description?: string;
-  type: 'percentage' | 'fixed';
-  value: number;
-  applicability: 'all' | 'category' | 'product';
-  target_id?: string;
-  conditions: {
-    daysOfWeek?: number[];
-    startDate?: string;
-    endDate?: string;
-    paymentMethods?: string[];
-    minimumPurchase?: number;
-  };
-  is_active: boolean;
-  created_at: string;
-}
+import { Promotion } from '@/types';
 
 export const usePromotions = () => {
   return useQuery({
@@ -31,7 +13,12 @@ export const usePromotions = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Promotion[];
+      
+      return data.map(promotion => ({
+        ...promotion,
+        createdAt: new Date(promotion.created_at),
+        conditions: promotion.conditions || {},
+      })) as Promotion[];
     },
   });
 };
@@ -40,18 +27,25 @@ export const useCreatePromotion = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (promotion: Omit<Promotion, 'id' | 'created_at'>) => {
+    mutationFn: async (promotionData: {
+      name: string;
+      description?: string;
+      type: 'percentage' | 'fixed';
+      value: number;
+      applicability: 'all' | 'category' | 'product';
+      conditions: object;
+      isActive: boolean;
+    }) => {
       const { data, error } = await supabase
         .from('promotions')
         .insert({
-          name: promotion.name,
-          description: promotion.description,
-          type: promotion.type,
-          value: promotion.value,
-          applicability: promotion.applicability,
-          target_id: promotion.target_id,
-          conditions: promotion.conditions,
-          is_active: promotion.is_active,
+          name: promotionData.name,
+          description: promotionData.description,
+          type: promotionData.type,
+          value: promotionData.value,
+          applicability: promotionData.applicability,
+          conditions: promotionData.conditions,
+          is_active: promotionData.isActive,
         })
         .select()
         .single();
@@ -69,10 +63,18 @@ export const useUpdatePromotion = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...promotion }: Partial<Promotion> & { id: string }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Promotion> }) => {
       const { data, error } = await supabase
         .from('promotions')
-        .update(promotion)
+        .update({
+          name: updates.name,
+          description: updates.description,
+          type: updates.type,
+          value: updates.value,
+          applicability: updates.applicability,
+          conditions: updates.conditions,
+          is_active: updates.isActive,
+        })
         .eq('id', id)
         .select()
         .single();
