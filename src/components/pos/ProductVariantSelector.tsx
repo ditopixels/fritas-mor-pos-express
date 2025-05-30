@@ -1,15 +1,16 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
-import { ProductVariant } from "@/types";
+import { ProductVariant, ProductOption } from "@/types";
 import { Tag } from "lucide-react";
 
 interface ProductVariantSelectorProps {
   productId: string;
   categoryId: string;
   variants: ProductVariant[];
+  options: ProductOption[];
   productName: string;
   onAddToCart: (productId: string, categoryId: string, variantId: string, sku: string, productName: string, variantName: string, price: number) => void;
   calculateItemPromotions: (productId: string, categoryId: string, price: number) => any[];
@@ -19,103 +20,114 @@ export const ProductVariantSelector = ({
   productId, 
   categoryId,
   variants, 
+  options,
   productName, 
   onAddToCart,
   calculateItemPromotions
 }: ProductVariantSelectorProps) => {
-  const [selectedVariant, setSelectedVariant] = useState<string>("");
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [matchedVariant, setMatchedVariant] = useState<ProductVariant | null>(null);
+
+  // Find matching variant based on selected options
+  useEffect(() => {
+    if (Object.keys(selectedOptions).length === options.length && options.length > 0) {
+      const variant = variants.find(v => {
+        return Object.entries(selectedOptions).every(([optionName, selectedValue]) => {
+          return v.optionValues[optionName] === selectedValue;
+        });
+      });
+      setMatchedVariant(variant || null);
+    } else {
+      setMatchedVariant(null);
+    }
+  }, [selectedOptions, variants, options]);
+
+  const handleOptionChange = (optionName: string, value: string) => {
+    setSelectedOptions(prev => ({
+      ...prev,
+      [optionName]: value
+    }));
+  };
 
   const handleAddToCart = () => {
-    const variant = variants.find(v => v.id === selectedVariant);
-    if (variant) {
-      console.log('ProductVariantSelector - Adding to cart:', { productId, categoryId, variant });
-      onAddToCart(productId, categoryId, variant.id, variant.sku, productName, variant.name, variant.price);
+    if (matchedVariant) {
+      console.log('ProductVariantSelector - Adding to cart:', { productId, categoryId, variant: matchedVariant });
+      onAddToCart(productId, categoryId, matchedVariant.id, matchedVariant.sku, productName, matchedVariant.name, matchedVariant.price);
     }
   };
 
-  const selectedVariantData = variants.find(v => v.id === selectedVariant);
-  const appliedPromotions = selectedVariantData 
-    ? calculateItemPromotions(productId, categoryId, selectedVariantData.price)
+  const appliedPromotions = matchedVariant 
+    ? calculateItemPromotions(productId, categoryId, matchedVariant.price)
     : [];
   const hasPromotion = appliedPromotions.length > 0;
-  const discountedPrice = selectedVariantData && hasPromotion 
-    ? selectedVariantData.price - appliedPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
-    : selectedVariantData?.price || 0;
+  const discountedPrice = matchedVariant && hasPromotion 
+    ? matchedVariant.price - appliedPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
+    : matchedVariant?.price || 0;
+
+  const allOptionsSelected = options.length > 0 && Object.keys(selectedOptions).length === options.length;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center space-x-3">
-        <div className="flex-1">
-          <Select value={selectedVariant} onValueChange={setSelectedVariant}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Selecciona una variante" />
-            </SelectTrigger>
-            <SelectContent>
-              {variants.map((variant) => {
-                const variantPromotions = calculateItemPromotions(productId, categoryId, variant.price);
-                const variantHasPromotion = variantPromotions.length > 0;
-                const variantDiscountedPrice = variantHasPromotion 
-                  ? variant.price - variantPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
-                  : variant.price;
-
-                return (
-                  <SelectItem key={variant.id} value={variant.id}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{variant.name}</span>
-                      <div className="flex items-center space-x-2 ml-2">
-                        {variantHasPromotion ? (
-                          <>
-                            <span className="text-gray-500 line-through text-sm">
-                              ${variant.price.toLocaleString()}
-                            </span>
-                            <span className="font-bold text-red-600">
-                              ${variantDiscountedPrice.toLocaleString()}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="font-bold">
-                            ${variant.price.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {selectedVariant && (
-          <Button
-            onClick={handleAddToCart}
-            size="sm"
-            className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md font-medium transition-colors flex-shrink-0"
+    <div className="space-y-4">
+      {/* Dynamic Option Selectors */}
+      {options.map((option) => (
+        <div key={option.id} className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">
+            {option.name}
+            {option.isRequired && <span className="text-red-500 ml-1">*</span>}
+          </label>
+          <ToggleGroup
+            type="single"
+            value={selectedOptions[option.name] || ""}
+            onValueChange={(value) => value && handleOptionChange(option.name, value)}
+            className="flex flex-wrap gap-2"
           >
-            Agregar
-          </Button>
-        )}
-      </div>
+            {option.values.map((optionValue, index) => (
+              <ToggleGroupItem
+                key={index}
+                value={typeof optionValue === 'string' ? optionValue : optionValue.value}
+                className="border border-gray-300 hover:bg-gray-100 data-[state=on]:bg-yellow-500 data-[state=on]:text-white"
+              >
+                {typeof optionValue === 'string' ? optionValue : optionValue.value}
+                {typeof optionValue === 'object' && optionValue.additionalPrice && (
+                  <span className="ml-1 text-xs">
+                    (+${optionValue.additionalPrice.toLocaleString()})
+                  </span>
+                )}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+      ))}
 
-      {selectedVariantData && (
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            {hasPromotion ? (
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-500 line-through">
-                  ${selectedVariantData.price.toLocaleString()}
+      {/* Price and Add Button Section */}
+      {allOptionsSelected && matchedVariant && (
+        <div className="space-y-3 pt-2 border-t">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              {hasPromotion ? (
+                <div className="flex items-center space-x-2">
+                  <span className="text-gray-500 line-through">
+                    ${matchedVariant.price.toLocaleString()}
+                  </span>
+                  <span className="text-lg font-bold text-red-600">
+                    ${discountedPrice.toLocaleString()}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-lg font-bold">
+                  ${matchedVariant.price.toLocaleString()}
                 </span>
-                <span className="text-lg font-bold text-red-600">
-                  ${discountedPrice.toLocaleString()}
-                </span>
-              </div>
-            ) : (
-              <span className="text-lg font-bold">
-                ${selectedVariantData.price.toLocaleString()}
-              </span>
-            )}
+              )}
+            </div>
+            
+            <Button
+              onClick={handleAddToCart}
+              className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-md font-medium transition-colors"
+            >
+              Agregar
+            </Button>
           </div>
-          
+
           {hasPromotion && (
             <div className="flex flex-wrap gap-1">
               {appliedPromotions.map((promo, index) => (
@@ -126,6 +138,17 @@ export const ProductVariantSelector = ({
               ))}
             </div>
           )}
+
+          <div className="text-xs text-gray-500">
+            SKU: {matchedVariant.sku}
+          </div>
+        </div>
+      )}
+
+      {/* Instructions when options are not complete */}
+      {options.length > 0 && !allOptionsSelected && (
+        <div className="text-sm text-gray-500 text-center py-2">
+          Selecciona todas las opciones para ver el precio y agregar al carrito
         </div>
       )}
     </div>

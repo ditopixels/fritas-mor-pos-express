@@ -48,7 +48,8 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
         .from('products')
         .select(`
           *,
-          product_variants(*)
+          product_variants(*),
+          product_options(*)
         `)
         .eq('is_active', true)
         .order('display_order', { ascending: true });
@@ -67,7 +68,6 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
         categoryId: product.category_id,
         image: product.image,
         base_price: product.base_price,
-        options: [],
         isActive: product.is_active,
         displayOrder: product.display_order,
         createdAt: new Date(product.created_at),
@@ -80,6 +80,12 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
           optionValues: variant.option_values || {},
           isActive: variant.is_active,
           stock: variant.stock,
+        })) || [],
+        options: product.product_options?.map((option: any) => ({
+          id: option.id,
+          name: option.name,
+          values: option.values || [],
+          isRequired: option.is_required,
         })) || []
       }));
     },
@@ -152,11 +158,12 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                       <p className="text-gray-600 text-sm mb-3">{product.description}</p>
                     )}
 
-                    {product.variants?.length > 0 ? (
+                    {product.variants?.length > 0 && product.options?.length > 0 ? (
                       <ProductVariantSelector
                         productId={product.id}
                         categoryId={product.categoryId || ''}
                         variants={product.variants}
+                        options={product.options}
                         productName={product.name}
                         onAddToCart={handleAddToCart}
                         calculateItemPromotions={calculateItemPromotions}
