@@ -55,6 +55,7 @@ export interface Product {
   name: string;
   description?: string;
   categoryId: string;
+  basePrice?: number;
   image?: string;
   options: ProductOption[];
   isActive: boolean;

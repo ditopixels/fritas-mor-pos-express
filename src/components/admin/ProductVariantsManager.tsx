@@ -1,179 +1,144 @@
-
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus } from "lucide-react";
-import { Product, ProductOption, ProductVariant } from "@/hooks/useProducts";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "@/components/ui/use-toast";
+import { useProductOptions } from '@/hooks/useProductOptions';
+import { Product } from '@/hooks/useProducts';
+import { useBulkCreateProductVariants } from '@/hooks/useProductOptions';
 
-interface ProductVariantsManagerProps {
-  product: Product;
-  options: ProductOption[];
-  variants: ProductVariant[];
-  onUpdateVariants: (variants: ProductVariant[]) => void;
+interface Combination {
+  name: string;
+  values: Record<string, string>;
+  additionalPrice: number;
 }
 
-export const ProductVariantsManager = ({ 
-  product, 
-  options, 
-  variants, 
-  onUpdateVariants 
-}: ProductVariantsManagerProps) => {
-  const [newVariant, setNewVariant] = useState<Partial<ProductVariant>>({
-    name: '',
-    sku: '',
-    price: 0,
-    option_values: {},
-    is_active: true,
-  });
+export const ProductVariantsManager = ({ product }: { product: Product }) => {
+  const { data: options, isLoading, isError } = useProductOptions(product.id);
+  const [basePrice, setBasePrice] = useState(product.base_price || 0);
+  const [combinations, setCombinations] = useState<Combination[]>([]);
+  const bulkCreateVariants = useBulkCreateProductVariants();
 
-  const addVariant = () => {
-    if (!newVariant.name || !newVariant.sku || !newVariant.price) return;
+  useEffect(() => {
+    if (product.base_price) {
+      setBasePrice(product.base_price);
+    }
+  }, [product.base_price]);
 
-    const variant: ProductVariant = {
-      id: `temp-${Date.now()}`,
-      product_id: product.id,
-      name: newVariant.name,
-      sku: newVariant.sku,
-      price: newVariant.price,
-      option_values: newVariant.option_values || {},
-      is_active: true,
-      created_at: new Date().toISOString(),
+  useEffect(() => {
+    if (options && options.length > 0) {
+      generateCombinations();
+    } else {
+      setCombinations([]);
+    }
+  }, [options]);
+
+  const generateCombinations = () => {
+    if (!options || options.length === 0) {
+      setCombinations([]);
+      return;
+    }
+
+    const generate = (index: number, currentCombination: Combination): void => {
+      if (index === options.length) {
+        setCombinations(prev => [...prev, currentCombination]);
+        return;
+      }
+
+      const option = options[index];
+      option.values.forEach(value => {
+        const newCombination: Combination = {
+          name: currentCombination.name ? `${currentCombination.name} - ${value}` : value,
+          values: { ...currentCombination.values, [option.name]: value },
+          additionalPrice: currentCombination.additionalPrice,
+        };
+        generate(index + 1, newCombination);
+      });
     };
 
-    onUpdateVariants([...variants, variant]);
-    setNewVariant({
-      name: '',
-      sku: '',
-      price: 0,
-      option_values: {},
-      is_active: true,
-    });
+    setCombinations([]);
+    const initialCombination: Combination = { name: '', values: {}, additionalPrice: 0 };
+    generate(0, initialCombination);
   };
 
-  const removeVariant = (variantId: string) => {
-    onUpdateVariants(variants.filter(v => v.id !== variantId));
+  const handleBulkCreate = async () => {
+    try {
+      const variantData = combinations.map(combination => ({
+        product_id: product.id,
+        sku: `${product.name.substring(0, 3).toUpperCase()}-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+        name: combination.name,
+        price: basePrice + combination.additionalPrice,
+        option_values: combination.values,
+        is_active: true,
+      }));
+
+      await bulkCreateVariants.mutateAsync(variantData);
+
+      toast({
+        title: "Variantes creadas",
+        description: "Las variantes se han creado correctamente.",
+      });
+    } catch (error) {
+      console.error('Error creating variants:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron crear las variantes.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const updateVariantOptionValue = (optionName: string, value: string) => {
-    setNewVariant(prev => ({
-      ...prev,
-      option_values: {
-        ...prev.option_values,
-        [optionName]: value
-      }
-    }));
-  };
+  if (isLoading) return <div>Cargando opciones...</div>;
+  if (isError) return <div>Error al cargar las opciones.</div>;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Variantes del Producto</CardTitle>
+        <CardTitle>Administrar Variantes</CardTitle>
+        <CardDescription>
+          Genera y administra las variantes de tu producto.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Lista de variantes existentes */}
-        <div className="space-y-2">
-          {variants.map(variant => (
-            <div key={variant.id} className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <div className="font-medium">{variant.name}</div>
-                <div className="text-sm text-gray-500">
-                  SKU: {variant.sku} • Precio: ${variant.price.toLocaleString()}
-                </div>
-                {Object.keys(variant.option_values).length > 0 && (
-                  <div className="flex gap-1 mt-1">
-                    {Object.entries(variant.option_values).map(([key, value]) => (
-                      <Badge key={key} variant="outline" className="text-xs">
-                        {key}: {value}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => removeVariant(variant.id)}
-                className="text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
+        <p className="text-sm text-gray-600 mb-4">
+          Producto: {product.name} - Precio base: ${product.base_price || 0}.toLocaleString()}
+        </p>
+
+        <div>
+          <Label htmlFor="base_price">Precio Base</Label>
+          <Input
+            id="base_price"
+            type="number"
+            value={basePrice}
+            onChange={(e) => setBasePrice(parseFloat(e.target.value))}
+          />
         </div>
 
-        {/* Formulario para nueva variante */}
-        <div className="border-t pt-4 space-y-3">
-          <h4 className="font-medium">Agregar Nueva Variante</h4>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="variant-name">Nombre</Label>
-              <Input
-                id="variant-name"
-                placeholder="Ej: Papa Grande"
-                value={newVariant.name}
-                onChange={(e) => setNewVariant(prev => ({ ...prev, name: e.target.value }))}
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="variant-sku">SKU</Label>
-              <Input
-                id="variant-sku"
-                placeholder="Ej: PAPA-GR-001"
-                value={newVariant.sku}
-                onChange={(e) => setNewVariant(prev => ({ ...prev, sku: e.target.value }))}
-              />
-            </div>
-          </div>
-
+        {options && options.length > 0 ? (
           <div>
-            <Label htmlFor="variant-price">Precio</Label>
-            <Input
-              id="variant-price"
-              type="number"
-              placeholder="0"
-              value={newVariant.price || ''}
-              onChange={(e) => setNewVariant(prev => ({ ...prev, price: Number(e.target.value) }))}
-            />
-          </div>
-
-          {/* Opciones del producto */}
-          {options.length > 0 && (
-            <div className="space-y-2">
-              <Label>Valores de Opciones</Label>
-              {options.map(option => (
-                <div key={option.id}>
-                  <Label className="text-sm">{option.name}</Label>
-                  <div className="grid grid-cols-3 gap-2 mt-1">
-                    {option.values.map(value => (
-                      <Button
-                        key={value}
-                        size="sm"
-                        variant={newVariant.option_values?.[option.name] === value ? "default" : "outline"}
-                        onClick={() => updateVariantOptionValue(option.name, value)}
-                      >
-                        {value}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
+            <h4 className="text-sm font-semibold">Combinaciones Generadas</h4>
+            <p className="text-xs text-gray-500">
+              Se generarán {combinations.length} variantes basadas en las opciones del producto.
+            </p>
+            <ul className="mt-2 space-y-1">
+              {combinations.map((combination, index) => (
+                <li key={index} className="text-gray-700">
+                  {combination.name}
+                </li>
               ))}
-            </div>
-          )}
+            </ul>
+          </div>
+        ) : (
+          <p className="text-gray-500">
+            No hay opciones configuradas para este producto. Agrega opciones para generar variantes.
+          </p>
+        )}
 
-          <Button 
-            onClick={addVariant}
-            disabled={!newVariant.name || !newVariant.sku || !newVariant.price}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Agregar Variante
-          </Button>
-        </div>
+        <Button onClick={handleBulkCreate} disabled={combinations.length === 0 || bulkCreateVariants.isLoading}>
+          {bulkCreateVariants.isLoading ? "Creando Variantes..." : "Crear Variantes en Masa"}
+        </Button>
       </CardContent>
     </Card>
   );
