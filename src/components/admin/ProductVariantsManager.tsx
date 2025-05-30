@@ -1,222 +1,178 @@
 
-import { useState } from 'react';
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Edit } from "lucide-react";
-import { Product, ProductVariant } from "@/hooks/useProducts";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { Trash2, Plus } from "lucide-react";
+import { Product, ProductOption, ProductVariant } from "@/hooks/useProducts";
 
 interface ProductVariantsManagerProps {
   product: Product;
+  options: ProductOption[];
+  variants: ProductVariant[];
+  onUpdateVariants: (variants: ProductVariant[]) => void;
 }
 
-export const ProductVariantsManager = ({ product }: ProductVariantsManagerProps) => {
-  const [isAdding, setIsAdding] = useState(false);
-  const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
-  const [variantForm, setVariantForm] = useState({
-    sku: '',
+export const ProductVariantsManager = ({ 
+  product, 
+  options, 
+  variants, 
+  onUpdateVariants 
+}: ProductVariantsManagerProps) => {
+  const [newVariant, setNewVariant] = useState<Partial<ProductVariant>>({
     name: '',
+    sku: '',
     price: 0,
-    option_values: {} as Record<string, string>,
-    stock: 0
+    option_values: {},
+    is_active: true,
   });
-  
-  const queryClient = useQueryClient();
 
-  const resetForm = () => {
-    setVariantForm({
-      sku: '',
+  const addVariant = () => {
+    if (!newVariant.name || !newVariant.sku || !newVariant.price) return;
+
+    const variant: ProductVariant = {
+      id: `temp-${Date.now()}`,
+      product_id: product.id,
+      name: newVariant.name,
+      sku: newVariant.sku,
+      price: newVariant.price,
+      option_values: newVariant.option_values || {},
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
+
+    onUpdateVariants([...variants, variant]);
+    setNewVariant({
       name: '',
+      sku: '',
       price: 0,
       option_values: {},
-      stock: 0
+      is_active: true,
     });
-    setIsAdding(false);
-    setEditingVariant(null);
   };
 
-  const handleSaveVariant = async () => {
-    try {
-      if (editingVariant) {
-        const { error } = await supabase
-          .from('product_variants')
-          .update({
-            sku: variantForm.sku,
-            name: variantForm.name,
-            price: variantForm.price,
-            option_values: variantForm.option_values,
-            stock: variantForm.stock
-          })
-          .eq('id', editingVariant.id);
+  const removeVariant = (variantId: string) => {
+    onUpdateVariants(variants.filter(v => v.id !== variantId));
+  };
 
-        if (error) throw error;
-        toast.success('Variante actualizada exitosamente');
-      } else {
-        const { error } = await supabase
-          .from('product_variants')
-          .insert({
-            product_id: product.id,
-            sku: variantForm.sku,
-            name: variantForm.name,
-            price: variantForm.price,
-            option_values: variantForm.option_values,
-            stock: variantForm.stock,
-            is_active: true
-          });
-
-        if (error) throw error;
-        toast.success('Variante creada exitosamente');
+  const updateVariantOptionValue = (optionName: string, value: string) => {
+    setNewVariant(prev => ({
+      ...prev,
+      option_values: {
+        ...prev.option_values,
+        [optionName]: value
       }
-
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['all-products'] });
-      resetForm();
-    } catch (error) {
-      console.error('Error saving variant:', error);
-      toast.error('Error al guardar la variante');
-    }
-  };
-
-  const handleDeleteVariant = async (variantId: string) => {
-    try {
-      const { error } = await supabase
-        .from('product_variants')
-        .update({ is_active: false })
-        .eq('id', variantId);
-
-      if (error) throw error;
-      
-      toast.success('Variante eliminada exitosamente');
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['all-products'] });
-    } catch (error) {
-      console.error('Error deleting variant:', error);
-      toast.error('Error al eliminar la variante');
-    }
-  };
-
-  const handleEditVariant = (variant: ProductVariant) => {
-    setVariantForm({
-      sku: variant.sku,
-      name: variant.name,
-      price: variant.price,
-      option_values: variant.option_values,
-      stock: variant.stock || 0
-    });
-    setEditingVariant(variant);
-    setIsAdding(true);
+    }));
   };
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>Variantes del Producto</CardTitle>
-          <Button 
-            onClick={() => setIsAdding(!isAdding)}
-            size="sm"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Agregar Variante
-          </Button>
-        </div>
+        <CardTitle>Variantes del Producto</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isAdding && (
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="sku">SKU</Label>
-                  <Input
-                    id="sku"
-                    value={variantForm.sku}
-                    onChange={(e) => setVariantForm({ ...variantForm, sku: e.target.value })}
-                    placeholder="SKU único"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="variant-name">Nombre</Label>
-                  <Input
-                    id="variant-name"
-                    value={variantForm.name}
-                    onChange={(e) => setVariantForm({ ...variantForm, name: e.target.value })}
-                    placeholder="Nombre de la variante"
-                  />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="price">Precio</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    value={variantForm.price}
-                    onChange={(e) => setVariantForm({ ...variantForm, price: Number(e.target.value) })}
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="stock">Stock</Label>
-                  <Input
-                    id="stock"
-                    type="number"
-                    value={variantForm.stock}
-                    onChange={(e) => setVariantForm({ ...variantForm, stock: Number(e.target.value) })}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-
-              <div className="flex space-x-2">
-                <Button onClick={handleSaveVariant}>
-                  {editingVariant ? 'Actualizar' : 'Crear'} Variante
-                </Button>
-                <Button variant="outline" onClick={resetForm}>
-                  Cancelar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
+        {/* Lista de variantes existentes */}
         <div className="space-y-2">
-          {product.variants?.map((variant) => (
-            <div key={variant.id} className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <span className="font-medium">{variant.name}</span>
-                  <Badge variant="outline">{variant.sku}</Badge>
+          {variants.map(variant => (
+            <div key={variant.id} className="flex items-center justify-between p-3 border rounded">
+              <div>
+                <div className="font-medium">{variant.name}</div>
+                <div className="text-sm text-gray-500">
+                  SKU: {variant.sku} • Precio: ${variant.price.toLocaleString()}
                 </div>
-                <div className="text-sm text-gray-600">
-                  Precio: ${variant.price.toLocaleString()} 
-                  {variant.stock && ` • Stock: ${variant.stock}`}
-                </div>
+                {Object.keys(variant.option_values).length > 0 && (
+                  <div className="flex gap-1 mt-1">
+                    {Object.entries(variant.option_values).map(([key, value]) => (
+                      <Badge key={key} variant="outline" className="text-xs">
+                        {key}: {value}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="flex items-center space-x-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleEditVariant(variant)}
-                >
-                  <Edit className="h-3 w-3" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleDeleteVariant(variant.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => removeVariant(variant.id)}
+                className="text-red-600 hover:text-red-700"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           ))}
+        </div>
+
+        {/* Formulario para nueva variante */}
+        <div className="border-t pt-4 space-y-3">
+          <h4 className="font-medium">Agregar Nueva Variante</h4>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="variant-name">Nombre</Label>
+              <Input
+                id="variant-name"
+                placeholder="Ej: Papa Grande"
+                value={newVariant.name}
+                onChange={(e) => setNewVariant(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="variant-sku">SKU</Label>
+              <Input
+                id="variant-sku"
+                placeholder="Ej: PAPA-GR-001"
+                value={newVariant.sku}
+                onChange={(e) => setNewVariant(prev => ({ ...prev, sku: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="variant-price">Precio</Label>
+            <Input
+              id="variant-price"
+              type="number"
+              placeholder="0"
+              value={newVariant.price || ''}
+              onChange={(e) => setNewVariant(prev => ({ ...prev, price: Number(e.target.value) }))}
+            />
+          </div>
+
+          {/* Opciones del producto */}
+          {options.length > 0 && (
+            <div className="space-y-2">
+              <Label>Valores de Opciones</Label>
+              {options.map(option => (
+                <div key={option.id}>
+                  <Label className="text-sm">{option.name}</Label>
+                  <div className="grid grid-cols-3 gap-2 mt-1">
+                    {option.values.map(value => (
+                      <Button
+                        key={value}
+                        size="sm"
+                        variant={newVariant.option_values?.[option.name] === value ? "default" : "outline"}
+                        onClick={() => updateVariantOptionValue(option.name, value)}
+                      >
+                        {value}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Button 
+            onClick={addVariant}
+            disabled={!newVariant.name || !newVariant.sku || !newVariant.price}
+            className="w-full"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Agregar Variante
+          </Button>
         </div>
       </CardContent>
     </Card>

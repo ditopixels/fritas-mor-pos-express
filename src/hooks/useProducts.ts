@@ -10,7 +10,6 @@ export interface Product {
   image?: string;
   is_active: boolean;
   display_order: number;
-  base_price?: number;
   created_at: string;
   options: ProductOption[];
   variants: ProductVariant[];
@@ -26,7 +25,6 @@ export interface ProductOption {
   name: string;
   values: string[];
   is_required: boolean;
-  created_at?: string;
 }
 
 export interface ProductVariant {
@@ -38,7 +36,6 @@ export interface ProductVariant {
   option_values: Record<string, string>;
   is_active: boolean;
   stock?: number;
-  created_at?: string;
 }
 
 export interface Category {

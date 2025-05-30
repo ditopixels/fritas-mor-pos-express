@@ -25,18 +25,18 @@ const Index = () => {
     }
   };
 
-  const addToCart = (item: CartItem) => {
+  const addToCart = (item: Omit<CartItem, "quantity">) => {
     setCartItems(prevItems => {
       const existingItem = prevItems.find(cartItem => cartItem.sku === item.sku);
       
       if (existingItem) {
         return prevItems.map(cartItem =>
           cartItem.sku === item.sku
-            ? { ...cartItem, quantity: cartItem.quantity + item.quantity }
+            ? { ...cartItem, quantity: cartItem.quantity + 1 }
             : cartItem
         );
       } else {
-        return [...prevItems, item];
+        return [...prevItems, { ...item, quantity: 1 }];
       }
     });
   };

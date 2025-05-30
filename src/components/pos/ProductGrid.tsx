@@ -1,123 +1,184 @@
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Product } from "@/hooks/useProducts";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart } from "lucide-react";
 import { CartItem } from "@/types";
-import { useProducts } from "@/hooks/useProducts";
+import { useProducts, useCategories, Product, ProductVariant } from "@/hooks/useProducts";
+import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 import { ProductVariantSelector } from "./ProductVariantSelector";
-import { useState } from "react";
 
 interface ProductGridProps {
-  onAddToCart: (item: CartItem) => void;
+  onAddToCart: (item: Omit<CartItem, "quantity">) => void;
 }
 
 export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
-  const { data: products, isLoading, error } = useProducts();
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const { data: products, isLoading: productsLoading, error: productsError } = useProducts();
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const { calculateItemPromotions } = usePromotionCalculator();
 
-  if (isLoading) {
+  const sortedCategories = categories?.sort((a, b) => a.display_order - b.display_order);
+
+  useEffect(() => {
+    if (sortedCategories && sortedCategories.length > 0 && !selectedCategory) {
+      setSelectedCategory(sortedCategories[0].id);
+    }
+  }, [sortedCategories, selectedCategory]);
+
+  useEffect(() => {
+    if (products && selectedCategory) {
+      const filtered = products.filter(product => product.category_id === selectedCategory);
+      const sortedFiltered = filtered.sort((a, b) => a.display_order - b.display_order);
+      setFilteredProducts(sortedFiltered);
+    }
+  }, [products, selectedCategory]);
+
+  const handleAddToCart = (product: Product, variant: ProductVariant, selectedOptions: Record<string, string>) => {
+    const appliedPromotions = calculateItemPromotions(
+      product.id,
+      product.category_id || '',
+      variant.price
+    );
+
+    const finalPrice = appliedPromotions.length > 0 ? 
+      appliedPromotions.reduce((price, promo) => price - promo.discountAmount, variant.price) :
+      variant.price;
+
+    // Crear un nombre único que incluya las opciones seleccionadas
+    const variantDisplayName = Object.keys(selectedOptions).length > 0 
+      ? `${variant.name} (${Object.entries(selectedOptions).map(([key, value]) => `${key}: ${value}`).join(', ')})`
+      : variant.name;
+
+    const item = {
+      id: variant.id,
+      productName: product.name,
+      variantName: variantDisplayName,
+      sku: variant.sku,
+      price: finalPrice,
+      originalPrice: appliedPromotions.length > 0 ? variant.price : undefined,
+      image: product.image,
+      variantId: variant.id,
+      appliedPromotions,
+    };
+    onAddToCart(item);
+  };
+
+  const getPromotionBadge = (productId: string, categoryId: string, price: number) => {
+    const promotions = calculateItemPromotions(productId, categoryId, price);
+    if (promotions.length === 0) return null;
+
+    const totalDiscount = promotions.reduce((sum, promo) => sum + promo.discountAmount, 0);
+    const percentage = Math.round((totalDiscount / price) * 100);
+
     return (
-      <div className="flex items-center justify-center h-64">
+      <Badge variant="secondary" className="bg-red-100 text-red-700 text-xs">
+        -{percentage}%
+      </Badge>
+    );
+  };
+
+  if (productsLoading || categoriesLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
         <span className="ml-2">Cargando productos...</span>
       </div>
     );
   }
 
-  if (error) {
+  if (productsError) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-red-500">Error al cargar productos</p>
+      <div className="text-center text-red-600 p-4">
+        Error al cargar los productos. Por favor intenta de nuevo.
       </div>
     );
   }
-
-  if (!products || products.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">No hay productos disponibles</p>
-      </div>
-    );
-  }
-
-  const handleProductClick = (product: Product) => {
-    if (product.variants && product.variants.length > 0) {
-      setSelectedProduct(product);
-    } else {
-      // Add product directly if no variants
-      const cartItem: CartItem = {
-        id: product.id,
-        productName: product.name,
-        variantName: '',
-        sku: product.id,
-        price: product.base_price || 0,
-        quantity: 1,
-        image: product.image,
-        variantId: product.id,
-      };
-      onAddToCart(cartItem);
-    }
-  };
 
   return (
-    <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {products.map((product) => (
-          <Card key={product.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-4 flex flex-col items-center justify-center">
-              {product.image && (
-                <div className="relative w-full h-32 mb-4">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="object-cover rounded-md w-full h-full"
-                  />
-                </div>
+    <div className="space-y-6">
+      {/* Botones de categorías */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {sortedCategories?.map((category) => (
+          <Button
+            key={category.id}
+            variant={selectedCategory === category.id ? "default" : "outline"}
+            onClick={() => setSelectedCategory(category.id)}
+            className={`h-20 flex flex-col items-center justify-center space-y-2 text-sm font-semibold transition-all duration-200 ${
+              selectedCategory === category.id 
+                ? "bg-yellow-500 text-white border-yellow-600 shadow-lg scale-105" 
+                : "bg-white hover:bg-yellow-50 border-yellow-200"
+            }`}
+          >
+            <div className="text-2xl animate-bounce">
+              {category.image ? (
+                <img 
+                  src={category.image} 
+                  alt={category.name} 
+                  className="w-8 h-8 object-cover rounded"
+                />
+              ) : (
+                category.name === 'Papas' ? '🍟' :
+                category.name === 'Hamburguesas' ? '🍔' :
+                category.name === 'Pinchos' ? '🍖' :
+                category.name === 'Gaseosas' ? '🥤' : '🍽️'
               )}
-              <div className="text-center">
-                <h3 className="font-semibold text-gray-900">{product.name}</h3>
-                <p className="text-lg font-bold text-gray-900">
-                  ${(product.base_price || 0).toLocaleString()}
-                </p>
-                {product.variants && product.variants.length > 0 && (
-                  <Badge variant="secondary" className="mt-1 text-xs">
-                    {product.variants.length} variantes
-                  </Badge>
-                )}
-              </div>
-              <button
-                onClick={() => handleProductClick(product)}
-                className="mt-4 w-full bg-blue-500 text-white rounded-md py-2 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-              >
-                <ShoppingCart className="h-4 w-4 mr-2 inline-block" />
-                {product.variants && product.variants.length > 0 ? 'Seleccionar' : 'Agregar'}
-              </button>
-            </CardContent>
-          </Card>
+            </div>
+            <span className="text-xs">{category.name}</span>
+          </Button>
         ))}
       </div>
 
-      {selectedProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">{selectedProduct.name}</h3>
-            <ProductVariantSelector
-              product={selectedProduct}
-              onAddToCart={(item) => {
-                onAddToCart(item);
-                setSelectedProduct(null);
-              }}
-            />
-            <button
-              onClick={() => setSelectedProduct(null)}
-              className="mt-4 w-full bg-gray-500 text-white rounded-md py-2 hover:bg-gray-600"
-            >
-              Cancelar
-            </button>
+      {/* Grid de productos */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {filteredProducts.length === 0 ? (
+          <div className="col-span-full text-center py-8 text-gray-500">
+            {products?.length === 0 
+              ? "No hay productos disponibles" 
+              : "No se encontraron productos en esta categoría"}
           </div>
-        </div>
-      )}
-    </>
+        ) : (
+          filteredProducts.map((product) => {
+            const basePrice = product.variants?.[0]?.price || product.base_price || 5000;
+            
+            return (
+              <Card key={product.id} className="relative">
+                {getPromotionBadge(product.id, product.category_id || '', basePrice) && (
+                  <div className="absolute top-2 right-2 z-10">
+                    {getPromotionBadge(product.id, product.category_id || '', basePrice)}
+                  </div>
+                )}
+                
+                <CardHeader>
+                  <CardTitle className="text-sm">{product.name}</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4">
+                  {product.image && (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-32 object-cover mb-4 rounded-md"
+                    />
+                  )}
+                  {product.description && (
+                    <p className="text-sm text-gray-600 mb-2">{product.description}</p>
+                  )}
+                  <div className="text-xs text-gray-500 mb-2">
+                    Categoría: {product.category?.name || 'Sin categoría'}
+                  </div>
+                </CardContent>
+                <CardFooter className="flex flex-col items-center">
+                  <ProductVariantSelector 
+                    product={product}
+                    onAddToCart={(variant, selectedOptions) => handleAddToCart(product, variant, selectedOptions)}
+                  />
+                </CardFooter>
+              </Card>
+            );
+          })
+        )}
+      </div>
+    </div>
   );
 };
