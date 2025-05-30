@@ -41,9 +41,24 @@ export const useCreatePromotion = () => {
       value: number;
       applicability: 'all' | 'category' | 'product';
       targetIds?: string[];
-      conditions: object;
+      conditions: {
+        daysOfWeek?: number[];
+        startDate?: Date;
+        endDate?: Date;
+        paymentMethods?: string[];
+        minimumPurchase?: number;
+      };
       isActive: boolean;
     }) => {
+      // Convertir conditions a formato JSON compatible
+      const conditionsJson = {
+        daysOfWeek: promotionData.conditions.daysOfWeek,
+        startDate: promotionData.conditions.startDate?.toISOString(),
+        endDate: promotionData.conditions.endDate?.toISOString(),
+        paymentMethods: promotionData.conditions.paymentMethods,
+        minimumPurchase: promotionData.conditions.minimumPurchase,
+      };
+
       const { data, error } = await supabase
         .from('promotions')
         .insert({
@@ -52,8 +67,8 @@ export const useCreatePromotion = () => {
           type: promotionData.type,
           value: promotionData.value,
           applicability: promotionData.applicability,
-          target_id: promotionData.targetIds?.[0] || null, // Por ahora solo el primero
-          conditions: promotionData.conditions,
+          target_id: promotionData.targetIds?.[0] || null,
+          conditions: conditionsJson,
           is_active: promotionData.isActive,
         })
         .select()
@@ -73,6 +88,15 @@ export const useUpdatePromotion = () => {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Promotion> }) => {
+      // Convertir conditions a formato JSON compatible
+      const conditionsJson = updates.conditions ? {
+        daysOfWeek: updates.conditions.daysOfWeek,
+        startDate: updates.conditions.startDate?.toISOString(),
+        endDate: updates.conditions.endDate?.toISOString(),
+        paymentMethods: updates.conditions.paymentMethods,
+        minimumPurchase: updates.conditions.minimumPurchase,
+      } : undefined;
+
       const { data, error } = await supabase
         .from('promotions')
         .update({
@@ -82,7 +106,7 @@ export const useUpdatePromotion = () => {
           value: updates.value,
           applicability: updates.applicability,
           target_id: updates.targetIds?.[0] || null,
-          conditions: updates.conditions,
+          conditions: conditionsJson,
           is_active: updates.isActive,
         })
         .eq('id', id)

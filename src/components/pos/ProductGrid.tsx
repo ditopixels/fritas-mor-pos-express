@@ -1,9 +1,10 @@
-
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { CartItem } from "@/types";
 import { useProducts, useCategories, Product, ProductVariant } from "@/hooks/useProducts";
+import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
 interface ProductGridProps {
   onAddToCart: (item: Omit<CartItem, "quantity">) => void;
@@ -14,6 +15,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
   const { data: products, isLoading: productsLoading, error: productsError } = useProducts();
   const { data: categories, isLoading: categoriesLoading } = useCategories();
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const { calculateItemPromotions } = usePromotionCalculator();
 
   // Ordenar categorías por el orden predefinido
   const sortedCategories = categories?.sort((a, b) => {
@@ -49,16 +51,50 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
       is_active: true,
     };
 
+    // Calcular promociones aplicables
+    const appliedPromotions = calculateItemPromotions(
+      product.id,
+      product.category_id || '',
+      defaultVariant.price
+    );
+
+    const finalPrice = appliedPromotions.length > 0 ? 
+      appliedPromotions.reduce((price, promo) => price - promo.discountAmount, defaultVariant.price) :
+      defaultVariant.price;
+
     const item = {
       id: product.id,
       productName: product.name,
       variantName: defaultVariant.name,
       sku: defaultVariant.sku,
-      price: defaultVariant.price,
+      price: finalPrice,
+      originalPrice: appliedPromotions.length > 0 ? defaultVariant.price : undefined,
       image: product.image,
-      variantId: variant ? variant.id : undefined, // Solo incluir si es una variante real
+      variantId: variant ? variant.id : undefined,
+      appliedPromotions,
     };
     onAddToCart(item);
+  };
+
+  const getPromotionBadge = (productId: string, categoryId: string, price: number) => {
+    const promotions = calculateItemPromotions(productId, categoryId, price);
+    if (promotions.length === 0) return null;
+
+    const totalDiscount = promotions.reduce((sum, promo) => sum + promo.discountAmount, 0);
+    const percentage = Math.round((totalDiscount / price) * 100);
+
+    return (
+      <Badge variant="secondary" className="bg-red-100 text-red-700 text-xs">
+        -{percentage}%
+      </Badge>
+    );
+  };
+
+  const getFinalPrice = (productId: string, categoryId: string, originalPrice: number) => {
+    const promotions = calculateItemPromotions(productId, categoryId, originalPrice);
+    if (promotions.length === 0) return originalPrice;
+
+    return promotions.reduce((price, promo) => price - promo.discountAmount, originalPrice);
   };
 
   if (productsLoading || categoriesLoading) {
@@ -123,7 +159,13 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
           </div>
         ) : (
           filteredProducts.map((product) => (
-            <Card key={product.id}>
+            <Card key={product.id} className="relative">
+              {getPromotionBadge(product.id, product.category_id || '', 5000) && (
+                <div className="absolute top-2 right-2 z-10">
+                  {getPromotionBadge(product.id, product.category_id || '', 5000)}
+                </div>
+              )}
+              
               <CardHeader>
                 <CardTitle className="text-sm">{product.name}</CardTitle>
               </CardHeader>
@@ -145,32 +187,69 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                   {product.variants && product.variants.length > 0 ? (
                     <div>
                       <p className="text-sm font-semibold">Variantes disponibles:</p>
-                      {product.variants.map(variant => (
-                        <div key={variant.id} className="flex justify-between items-center">
-                          <span className="text-sm">{variant.name}</span>
-                          <span className="text-sm font-bold">${variant.price.toLocaleString()}</span>
-                        </div>
-                      ))}
+                      {product.variants.map(variant => {
+                        const finalPrice = getFinalPrice(product.id, product.category_id || '', variant.price);
+                        const hasDiscount = finalPrice < variant.price;
+                        
+                        return (
+                          <div key={variant.id} className="flex justify-between items-center">
+                            <span className="text-sm">{variant.name}</span>
+                            <div className="flex items-center space-x-2">
+                              {hasDiscount && (
+                                <span className="text-xs text-gray-500 line-through">
+                                  ${variant.price.toLocaleString()}
+                                </span>
+                              )}
+                              <span className={`text-sm font-bold ${hasDiscount ? 'text-red-600' : ''}`}>
+                                ${finalPrice.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
-                    <p className="text-gray-500 text-sm">Producto simple</p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Precio:</span>
+                      <div className="flex items-center space-x-2">
+                        {(() => {
+                          const finalPrice = getFinalPrice(product.id, product.category_id || '', 5000);
+                          const hasDiscount = finalPrice < 5000;
+                          return (
+                            <>
+                              {hasDiscount && (
+                                <span className="text-xs text-gray-500 line-through">
+                                  $5.000
+                                </span>
+                              )}
+                              <span className={`text-sm font-bold ${hasDiscount ? 'text-red-600' : ''}`}>
+                                ${finalPrice.toLocaleString()}
+                              </span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
                   )}
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col items-center">
                 {product.variants && product.variants.length > 0 ? (
                   <div className="space-y-2 w-full">
-                    {product.variants.map(variant => (
-                      <Button 
-                        key={variant.id}
-                        onClick={() => handleAddToCart(product, variant)}
-                        className="w-full"
-                        variant="outline"
-                        size="sm"
-                      >
-                        {variant.name} - ${variant.price.toLocaleString()}
-                      </Button>
-                    ))}
+                    {product.variants.map(variant => {
+                      const finalPrice = getFinalPrice(product.id, product.category_id || '', variant.price);
+                      return (
+                        <Button 
+                          key={variant.id}
+                          onClick={() => handleAddToCart(product, variant)}
+                          className="w-full"
+                          variant="outline"
+                          size="sm"
+                        >
+                          {variant.name} - ${finalPrice.toLocaleString()}
+                        </Button>
+                      );
+                    })}
                   </div>
                 ) : (
                   <Button 
@@ -178,7 +257,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                     className="w-full"
                     size="sm"
                   >
-                    Agregar - $5.000
+                    Agregar - ${getFinalPrice(product.id, product.category_id || '', 5000).toLocaleString()}
                   </Button>
                 )}
               </CardFooter>

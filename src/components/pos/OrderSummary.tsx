@@ -1,10 +1,10 @@
-
 import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Minus, Plus, Camera, CreditCard, DollarSign } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Trash2, Minus, Plus, Camera, CreditCard, DollarSign, Tag } from "lucide-react";
 import { CartItem } from "@/types";
 import { useCreateOrder } from "@/hooks/useOrders";
 import { useToast } from "@/hooks/use-toast";
@@ -131,6 +131,15 @@ export const OrderSummary = ({
     }
   };
 
+  const subtotal = items.reduce((sum, item) => sum + ((item.originalPrice || item.price) * item.quantity), 0);
+  const totalDiscount = items.reduce((sum, item) => {
+    if (item.appliedPromotions && item.originalPrice) {
+      const itemDiscount = item.appliedPromotions.reduce((acc, promo) => acc + promo.discountAmount, 0);
+      return sum + (itemDiscount * item.quantity);
+    }
+    return sum;
+  }, 0);
+
   const change = paymentMethod === "cash" && cashReceived ? cashReceived - total : 0;
 
   return (
@@ -153,7 +162,30 @@ export const OrderSummary = ({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{item.productName}</p>
                   <p className="text-xs text-gray-500">{item.variantName}</p>
-                  <p className="text-sm font-bold">${item.price.toLocaleString()}</p>
+                  <div className="flex items-center space-x-2">
+                    {item.originalPrice && item.originalPrice > item.price ? (
+                      <>
+                        <span className="text-xs text-gray-500 line-through">
+                          ${item.originalPrice.toLocaleString()}
+                        </span>
+                        <span className="text-sm font-bold text-red-600">
+                          ${item.price.toLocaleString()}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-sm font-bold">${item.price.toLocaleString()}</span>
+                    )}
+                  </div>
+                  {item.appliedPromotions && item.appliedPromotions.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {item.appliedPromotions.map((promo, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
+                          <Tag className="h-2 w-2 mr-1" />
+                          {promo.promotionName}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex items-center space-x-1">
@@ -190,13 +222,30 @@ export const OrderSummary = ({
           )}
         </div>
 
-        {/* Total */}
-        <div className="border-t pt-4">
-          <div className="flex justify-between items-center text-lg font-bold">
-            <span>Total:</span>
-            <span>${total.toLocaleString()}</span>
+        {/* Totales */}
+        {items.length > 0 && (
+          <div className="border-t pt-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Subtotal:</span>
+              <span>${subtotal.toLocaleString()}</span>
+            </div>
+            
+            {totalDiscount > 0 && (
+              <div className="flex justify-between text-sm text-green-600">
+                <span className="flex items-center">
+                  <Tag className="h-3 w-3 mr-1" />
+                  Descuentos:
+                </span>
+                <span>-${totalDiscount.toLocaleString()}</span>
+              </div>
+            )}
+            
+            <div className="flex justify-between items-center text-lg font-bold border-t pt-2">
+              <span>Total:</span>
+              <span>${total.toLocaleString()}</span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Formulario de pago */}
         {items.length > 0 && (
