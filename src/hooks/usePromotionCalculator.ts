@@ -31,6 +31,8 @@ export const usePromotionCalculator = () => {
     console.log('Promoción:', promotion.name);
     console.log('Aplicabilidad:', promotion.applicability);
     console.log('Target IDs:', promotion.targetIds);
+    console.log('Item categoryId:', item.categoryId);
+    console.log('Item id:', item.id);
 
     if (promotion.applicability === 'all') {
       console.log('✓ Promoción aplica a todos los productos');
@@ -38,16 +40,14 @@ export const usePromotionCalculator = () => {
     }
 
     if (promotion.applicability === 'category') {
-      // Para promociones de categoría, verificar si el item pertenece a la categoría específica
       const isEligible = promotion.targetIds?.includes(item.categoryId || '') || false;
-      console.log(`Categoría del item: ${item.categoryId}, Coincide: ${isEligible}`);
+      console.log(`Categoría del item: ${item.categoryId}, Target IDs: ${promotion.targetIds}, Coincide: ${isEligible}`);
       return isEligible;
     }
 
     if (promotion.applicability === 'product') {
-      // Para promociones de producto específico, verificar si el item está en la lista de productos objetivo
       const isEligible = promotion.targetIds?.includes(item.id) || false;
-      console.log(`ID del producto: ${item.id}, Coincide: ${isEligible}`);
+      console.log(`ID del producto: ${item.id}, Target IDs: ${promotion.targetIds}, Coincide: ${isEligible}`);
       return isEligible;
     }
 
@@ -61,9 +61,22 @@ export const usePromotionCalculator = () => {
 
     console.log('=== CALCULANDO PROMOCIONES ===');
     console.log('Items en carrito:', cartItems.length);
-    console.log('Items details:', cartItems.map(item => ({ name: item.productName, id: item.id, categoryId: item.categoryId })));
+    console.log('Items details:', cartItems.map(item => ({ 
+      name: item.productName, 
+      id: item.id, 
+      categoryId: item.categoryId,
+      quantity: item.quantity 
+    })));
     console.log('Subtotal:', subtotal);
     console.log('Promociones activas:', activePromotions.length);
+    console.log('Promociones activas details:', activePromotions.map(p => ({
+      name: p.name,
+      type: p.type,
+      value: p.value,
+      applicability: p.applicability,
+      targetIds: p.targetIds,
+      minimumQuantity: p.conditions.minimumQuantity
+    })));
 
     // Verificar promociones que requieren compra mínima
     const eligiblePromotions = activePromotions.filter(promo => {
@@ -84,22 +97,23 @@ export const usePromotionCalculator = () => {
       console.log('Cantidad mínima:', promotion.conditions.minimumQuantity);
       
       let discountAmount = 0;
-      const affectedItems: CartItem[] = [];
 
       // Filtrar items elegibles para esta promoción específica
       const eligibleItems = updatedItems.filter(item => checkItemEligibility(item, promotion));
       
       console.log('Items elegibles para esta promoción:', eligibleItems.length);
-      eligibleItems.forEach(item => console.log(`- ${item.productName}`));
+      eligibleItems.forEach(item => console.log(`- ${item.productName} (cantidad: ${item.quantity})`));
 
       if (eligibleItems.length === 0) {
         console.log('✗ No hay items elegibles para esta promoción');
         return;
       }
 
-      // Verificar cantidad mínima para los items elegibles
+      // Calcular cantidad total de items elegibles
       const totalEligibleQuantity = eligibleItems.reduce((sum, item) => sum + item.quantity, 0);
+      console.log('Cantidad total de items elegibles:', totalEligibleQuantity);
       
+      // Verificar cantidad mínima para los items elegibles
       if (promotion.conditions.minimumQuantity && promotion.conditions.minimumQuantity > 1) {
         if (totalEligibleQuantity < promotion.conditions.minimumQuantity) {
           console.log(`✗ No se cumple cantidad mínima: requerida ${promotion.conditions.minimumQuantity}, actual ${totalEligibleQuantity}`);
@@ -108,24 +122,25 @@ export const usePromotionCalculator = () => {
       }
 
       console.log('✓ Promoción aplicable, calculando descuento...');
-      affectedItems.push(...eligibleItems);
 
+      // Calcular el descuento según el tipo de promoción
       if (promotion.type === 'percentage') {
-        const itemsSubtotal = affectedItems.reduce((sum, item) => 
+        const itemsSubtotal = eligibleItems.reduce((sum, item) => 
           sum + ((item.originalPrice || item.price) * item.quantity), 0
         );
         discountAmount = (itemsSubtotal * promotion.value) / 100;
         console.log('Descuento porcentual - Subtotal items elegibles:', itemsSubtotal, 'Descuento:', discountAmount);
-      } else {
-        // Para promociones fijas como 3x2
+      } else if (promotion.type === 'fixed') {
+        // Para promociones fijas
         if (promotion.conditions.minimumQuantity && promotion.conditions.minimumQuantity >= 3) {
-          // Promoción 3x2: por cada 3 items elegibles, descuento del valor del más barato
-          const groupsOf3 = Math.floor(totalEligibleQuantity / 3);
-          const cheapestPrice = Math.min(...affectedItems.map(item => item.originalPrice || item.price));
-          discountAmount = groupsOf3 * cheapestPrice;
-          console.log('Promoción 3x2 - Grupos de 3:', groupsOf3, 'Precio más barato:', cheapestPrice, 'Descuento total:', discountAmount);
+          // Promoción tipo 3x2: por cada grupo de cantidad mínima, aplicar descuento
+          const groups = Math.floor(totalEligibleQuantity / promotion.conditions.minimumQuantity);
+          discountAmount = groups * promotion.value;
+          console.log('Promoción 3x2 - Grupos:', groups, 'Descuento por grupo:', promotion.value, 'Descuento total:', discountAmount);
         } else {
-          discountAmount = promotion.value;
+          // Descuento fijo por cantidad total de items elegibles
+          discountAmount = promotion.value * totalEligibleQuantity;
+          console.log('Descuento fijo - Valor por item:', promotion.value, 'Cantidad:', totalEligibleQuantity, 'Descuento total:', discountAmount);
         }
       }
 
@@ -143,10 +158,10 @@ export const usePromotionCalculator = () => {
         totalDiscount += discountAmount;
 
         // Aplicar descuento proporcional solo a los items elegibles
-        const totalAffectedQuantity = affectedItems.reduce((sum, item) => sum + item.quantity, 0);
+        const totalAffectedQuantity = eligibleItems.reduce((sum, item) => sum + item.quantity, 0);
         const discountPerUnit = discountAmount / totalAffectedQuantity;
 
-        affectedItems.forEach(item => {
+        eligibleItems.forEach(item => {
           const itemIndex = updatedItems.findIndex(i => i.sku === item.sku);
           if (itemIndex !== -1) {
             const currentItem = updatedItems[itemIndex];
