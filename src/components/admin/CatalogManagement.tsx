@@ -4,9 +4,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Package, Plus, Edit, Trash2 } from "lucide-react";
+import { useCategories, useProducts } from "@/hooks/useProducts";
 
 export const CatalogManagement = () => {
   const [activeTab, setActiveTab] = useState("categories");
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
+  const { data: products, isLoading: productsLoading } = useProducts();
+
+  if (categoriesLoading || productsLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+        <span className="ml-2">Cargando datos...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -38,15 +50,38 @@ export const CatalogManagement = () => {
             </CardHeader>
             <CardContent>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium">Lista de Categorías</h3>
+                <h3 className="text-lg font-medium">Lista de Categorías ({categories?.length || 0})</h3>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   Nueva Categoría
                 </Button>
               </div>
-              <div className="text-gray-500 text-center py-8">
-                Funcionalidad de gestión de categorías próximamente
-              </div>
+              
+              {categories && categories.length > 0 ? (
+                <div className="grid gap-4">
+                  {categories.map((category) => (
+                    <div key={category.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <h4 className="font-semibold">{category.name}</h4>
+                        <p className="text-sm text-gray-600">{category.description}</p>
+                        <p className="text-xs text-gray-500">Estado: {category.is_active ? 'Activo' : 'Inactivo'}</p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button size="sm" variant="outline">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-gray-500 text-center py-8">
+                  No hay categorías disponibles
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -59,15 +94,42 @@ export const CatalogManagement = () => {
             </CardHeader>
             <CardContent>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium">Lista de Productos</h3>
+                <h3 className="text-lg font-medium">Lista de Productos ({products?.length || 0})</h3>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   Nuevo Producto
                 </Button>
               </div>
-              <div className="text-gray-500 text-center py-8">
-                Funcionalidad de gestión de productos próximamente
-              </div>
+              
+              {products && products.length > 0 ? (
+                <div className="grid gap-4">
+                  {products.map((product) => (
+                    <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex-1">
+                        <h4 className="font-semibold">{product.name}</h4>
+                        <p className="text-sm text-gray-600">{product.description}</p>
+                        <p className="text-xs text-gray-500">
+                          Categoría: {product.category?.name || 'Sin categoría'} | 
+                          Variantes: {product.variants?.length || 0} | 
+                          Estado: {product.is_active ? 'Activo' : 'Inactivo'}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button size="sm" variant="outline">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-gray-500 text-center py-8">
+                  No hay productos disponibles
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

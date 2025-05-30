@@ -1,4 +1,3 @@
-
 export interface CartItem {
   id: string;
   productName: string;
@@ -8,6 +7,7 @@ export interface CartItem {
   originalPrice?: number;
   quantity: number;
   image?: string;
+  variantId?: string; // Agregamos este campo para manejar variant_id correctamente
   appliedPromotions?: AppliedPromotion[];
 }
 

@@ -86,19 +86,27 @@ export const useCreateOrder = () => {
 
       if (orderError) throw orderError;
 
-      // Crear los items de la orden - convertir applied_promotions a JSON
-      const orderItems = orderData.items.map(item => ({
-        order_id: order.id,
-        product_id: item.id,
-        variant_id: null, // Hacer null en lugar de usar el item.id
-        product_name: item.productName,
-        variant_name: item.variantName,
-        sku: item.sku,
-        price: item.price,
-        original_price: item.originalPrice || item.price,
-        quantity: item.quantity,
-        applied_promotions: JSON.stringify(item.appliedPromotions || []),
-      }));
+      // Crear los items de la orden - NO incluir variant_id si es null
+      const orderItems = orderData.items.map(item => {
+        const orderItem: any = {
+          order_id: order.id,
+          product_id: item.id,
+          product_name: item.productName,
+          variant_name: item.variantName,
+          sku: item.sku,
+          price: item.price,
+          original_price: item.originalPrice || item.price,
+          quantity: item.quantity,
+          applied_promotions: JSON.stringify(item.appliedPromotions || []),
+        };
+
+        // Solo incluir variant_id si existe y no es null
+        if (item.variantId && item.variantId !== item.id) {
+          orderItem.variant_id = item.variantId;
+        }
+
+        return orderItem;
+      });
 
       const { error: itemsError } = await supabase
         .from('order_items')

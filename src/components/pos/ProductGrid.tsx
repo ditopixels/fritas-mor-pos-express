@@ -2,9 +2,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search } from "lucide-react";
 import { CartItem } from "@/types";
 import { useProducts, useCategories, Product, ProductVariant } from "@/hooks/useProducts";
 
@@ -13,7 +10,6 @@ interface ProductGridProps {
 }
 
 export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
-  const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const { data: products, isLoading: productsLoading, error: productsError } = useProducts();
   const { data: categories, isLoading: categoriesLoading } = useCategories();
@@ -28,23 +24,16 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
         filtered = filtered.filter(product => product.category_id === selectedCategory);
       }
       
-      // Filtrar por término de búsqueda
-      if (searchTerm) {
-        filtered = filtered.filter(product =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
-      
       setFilteredProducts(filtered);
     }
-  }, [products, selectedCategory, searchTerm]);
+  }, [products, selectedCategory]);
 
   const handleAddToCart = (product: Product, variant?: ProductVariant) => {
     // Si hay variante específica, usarla; sino crear una por defecto
     const defaultVariant = variant || {
-      id: product.id,
+      id: `${product.id}-default`,
       product_id: product.id,
-      sku: product.id,
+      sku: `${product.id}-default`,
       name: product.name,
       price: 5000, // Precio por defecto
       option_values: {},
@@ -58,6 +47,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
       sku: defaultVariant.sku,
       price: defaultVariant.price,
       image: product.image,
+      variantId: variant ? variant.id : undefined, // Solo incluir si es una variante real
     };
     onAddToCart(item);
   };
@@ -80,44 +70,52 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-4">
-        {/* Búsqueda */}
-        <div className="relative flex-1">
-          <Input
-            type="text"
-            placeholder="Buscar productos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
-        </div>
-
-        {/* Filtro de categorías */}
-        <div className="w-full sm:w-64">
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las categorías</SelectItem>
-              {categories?.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <div className="space-y-6">
+      {/* Botones de categorías grandes con imágenes */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Button
+          variant={selectedCategory === "all" ? "default" : "outline"}
+          onClick={() => setSelectedCategory("all")}
+          className="h-20 flex flex-col items-center justify-center space-y-2 text-sm font-semibold"
+        >
+          <div className="text-2xl">🍽️</div>
+          <span>Todos</span>
+        </Button>
+        
+        {categories?.map((category) => (
+          <Button
+            key={category.id}
+            variant={selectedCategory === category.id ? "default" : "outline"}
+            onClick={() => setSelectedCategory(category.id)}
+            className="h-20 flex flex-col items-center justify-center space-y-2 text-sm font-semibold"
+          >
+            <div className="text-2xl">
+              {category.image ? (
+                <img 
+                  src={category.image} 
+                  alt={category.name} 
+                  className="w-8 h-8 object-cover rounded animate-pulse"
+                />
+              ) : (
+                // Emojis por defecto basados en el nombre de la categoría
+                category.name === 'Papas' ? '🍟' :
+                category.name === 'Hamburguesas' ? '🍔' :
+                category.name === 'Pinchos' ? '🍖' :
+                category.name === 'Gaseosas' ? '🥤' : '🍽️'
+              )}
+            </div>
+            <span>{category.name}</span>
+          </Button>
+        ))}
       </div>
 
+      {/* Grid de productos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {filteredProducts.length === 0 ? (
           <div className="col-span-full text-center py-8 text-gray-500">
             {products?.length === 0 
               ? "No hay productos disponibles" 
-              : "No se encontraron productos que coincidan con los filtros"}
+              : "No se encontraron productos en esta categoría"}
           </div>
         ) : (
           filteredProducts.map((product) => (
