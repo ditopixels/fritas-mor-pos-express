@@ -138,19 +138,6 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
             <Card key={product.id} className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="flex">
-                  {/* Image Section */}
-                  <div className="w-32 h-32 bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    {product.image ? (
-                      <img 
-                        src={product.image} 
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-4xl">🍽️</span>
-                    )}
-                  </div>
-                  
                   {/* Content Section */}
                   <div className="flex-1 p-4">
                     <h3 className="text-lg font-semibold mb-1">{product.name}</h3>

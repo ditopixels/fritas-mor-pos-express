@@ -559,7 +559,7 @@ const CatalogManagement = () => {
 
       {/* Product Form Dialog */}
       <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[calc(100vh-4rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {selectedProduct ? "Editar Producto" : "Nuevo Producto"}

@@ -70,7 +70,7 @@ export const ProductVariantSelector = ({
     <div className="space-y-4">
       {/* Dynamic Option Selectors */}
       {options.map((option) => (
-        <div key={option.id} className="space-y-2">
+        <div key={option.id} className="space-y-2 flex gap-4 items-center">
           <label className="text-sm font-medium text-gray-700">
             {option.name}
             {option.isRequired && <span className="text-red-500 ml-1">*</span>}
