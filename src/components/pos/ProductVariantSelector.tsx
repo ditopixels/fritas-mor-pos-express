@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Product, ProductVariant } from "@/hooks/useProducts";
 import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
-import { v4 as uuidv4 } from 'uuid';
 
 interface ProductVariantSelectorProps {
   product: Product;
@@ -151,7 +150,7 @@ export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantS
     );
   }
 
-  // Producto simple sin variantes - crear variante temporal con UUID válido
+  // Producto simple sin variantes - crear variante temporal con ID simple
   const basePrice = product.base_price || 5000;
   const finalPrice = getFinalPrice(basePrice);
   const hasDiscount = finalPrice < basePrice;
@@ -159,7 +158,7 @@ export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantS
   return (
     <div 
       onClick={() => onAddToCart({
-        id: uuidv4(), // Generar UUID válido
+        id: `${product.id}-default-${Date.now()}`, // ID simple pero único
         product_id: product.id,
         sku: `${product.name.replace(/\s+/g, '-').toUpperCase()}-DEFAULT`,
         name: product.name,

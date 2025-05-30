@@ -1,3 +1,4 @@
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -54,9 +55,9 @@ export const useProducts = () => {
         .from('products')
         .select(`
           *,
-          category (*),
-          variants (*),
-          options (*)
+          category:categories(*),
+          variants:product_variants(*),
+          options:product_options(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -80,6 +81,10 @@ export const useCategories = () => {
     },
   });
 };
+
+// Alias para compatibilidad
+export const useAllProducts = useProducts;
+export const useAllCategories = useCategories;
 
 export const useCreateProduct = () => {
   const queryClient = useQueryClient();
@@ -141,6 +146,121 @@ export const useDeleteProduct = () => {
         .eq('id', id);
 
       if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+};
+
+export const useCreateCategory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (categoryData: {
+      name: string;
+      description?: string;
+      image?: string;
+      is_active: boolean;
+      display_order?: number;
+    }) => {
+      const { data, error } = await supabase
+        .from('categories')
+        .insert(categoryData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+};
+
+export const useUpdateCategory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Category> }) => {
+      const { data, error } = await supabase
+        .from('categories')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+};
+
+export const useDeleteCategory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+};
+
+export const useUpdateCategoryOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (categories: { id: string; display_order: number }[]) => {
+      const promises = categories.map(category =>
+        supabase
+          .from('categories')
+          .update({ display_order: category.display_order })
+          .eq('id', category.id)
+      );
+
+      const results = await Promise.all(promises);
+      const errors = results.filter(result => result.error);
+      
+      if (errors.length > 0) {
+        throw new Error('Error updating category order');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+};
+
+export const useUpdateProductOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (products: { id: string; display_order: number }[]) => {
+      const promises = products.map(product =>
+        supabase
+          .from('products')
+          .update({ display_order: product.display_order })
+          .eq('id', product.id)
+      );
+
+      const results = await Promise.all(promises);
+      const errors = results.filter(result => result.error);
+      
+      if (errors.length > 0) {
+        throw new Error('Error updating product order');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });

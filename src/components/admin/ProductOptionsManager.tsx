@@ -1,284 +1,165 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Trash2, Plus } from "lucide-react";
-import { Product } from "@/hooks/useProducts";
-import { ProductVariantsManager } from "./ProductVariantsManager";
-import { useProductOptions, useProductVariants, useCreateProductOption, useCreateProductVariant, useBulkCreateProductVariants } from "@/hooks/useProductOptions";
-import { useToast } from "@/hooks/use-toast";
+import { Product, ProductOption } from "@/hooks/useProducts";
+import { X, Plus, Trash2 } from "lucide-react";
 
 interface ProductOptionsManagerProps {
   product: Product;
-  onClose: () => void;
+  onUpdateOptions: (options: ProductOption[]) => void;
 }
 
-export const ProductOptionsManager = ({ product, onClose }: ProductOptionsManagerProps) => {
-  const [options, setOptions] = useState(product.options || []);
-  const [variants, setVariants] = useState(product.variants || []);
-  const [newOption, setNewOption] = useState({
-    name: '',
-    values: [''],
-    is_required: false,
-  });
+export const ProductOptionsManager = ({ product, onUpdateOptions }: ProductOptionsManagerProps) => {
+  const [options, setOptions] = useState<ProductOption[]>(product.options || []);
+  const [newOptionName, setNewOptionName] = useState("");
+  const [currentValue, setCurrentValue] = useState("");
+  const [newOptionValues, setNewOptionValues] = useState<string[]>([]);
+  const [isRequired, setIsRequired] = useState(false);
 
-  const { toast } = useToast();
-  const createOptionMutation = useCreateProductOption();
-  const createVariantMutation = useCreateProductVariant();
-  const bulkCreateVariantsMutation = useBulkCreateProductVariants();
+  useEffect(() => {
+    onUpdateOptions(options);
+  }, [options, onUpdateOptions]);
 
-  const addValueToNewOption = () => {
-    setNewOption(prev => ({
-      ...prev,
-      values: [...prev.values, '']
-    }));
-  };
-
-  const updateNewOptionValue = (index: number, value: string) => {
-    setNewOption(prev => ({
-      ...prev,
-      values: prev.values.map((v, i) => i === index ? value : v)
-    }));
-  };
-
-  const removeValueFromNewOption = (index: number) => {
-    setNewOption(prev => ({
-      ...prev,
-      values: prev.values.filter((_, i) => i !== index)
-    }));
-  };
-
-  const addOption = async () => {
-    if (!newOption.name || newOption.values.some(v => !v.trim())) {
-      toast({
-        title: "Error",
-        description: "Por favor completa todos los campos de la opción",
-        variant: "destructive",
-      });
-      return;
+  const handleAddValue = () => {
+    if (currentValue.trim() && !newOptionValues.includes(currentValue.trim())) {
+      setNewOptionValues([...newOptionValues, currentValue.trim()]);
+      setCurrentValue("");
     }
+  };
 
-    try {
-      const cleanValues = newOption.values.filter(v => v.trim()).map(v => v.trim());
-      
-      await createOptionMutation.mutateAsync({
-        product_id: product.id,
-        name: newOption.name,
-        values: cleanValues,
-        is_required: newOption.is_required,
-      });
+  const handleRemoveValue = (value: string) => {
+    setNewOptionValues(newOptionValues.filter(v => v !== value));
+  };
 
-      const newOptionData = {
+  const handleAddOption = () => {
+    if (newOptionName.trim() && newOptionValues.length > 0) {
+      const newOption = {
         id: `temp-${Date.now()}`,
         product_id: product.id,
-        name: newOption.name,
-        values: cleanValues,
-        is_required: newOption.is_required,
+        name: newOptionName.trim(),
+        values: newOptionValues,
+        is_required: isRequired,
+        created_at: new Date().toISOString(), // Agregar created_at
       };
 
-      setOptions(prev => [...prev, newOptionData]);
-      setNewOption({ name: '', values: [''], is_required: false });
-      
-      toast({
-        title: "Opción agregada",
-        description: `La opción "${newOption.name}" ha sido agregada exitosamente`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo agregar la opción",
-        variant: "destructive",
-      });
+      setOptions(prev => [...prev, newOption]);
+      setNewOptionName('');
+      setNewOptionValues([]);
+      setCurrentValue('');
+      setIsRequired(false);
     }
   };
 
-  const generateVariants = () => {
-    if (options.length === 0) return;
-
-    const combinations: Array<Record<string, string>> = [{}];
-
-    options.forEach(option => {
-      const newCombinations: Array<Record<string, string>> = [];
-      combinations.forEach(combination => {
-        option.values.forEach(value => {
-          newCombinations.push({
-            ...combination,
-            [option.name]: value
-          });
-        });
-      });
-      combinations.splice(0, combinations.length, ...newCombinations);
-    });
-
-    const basePrice = product.base_price || 5000;
-    const newVariants = combinations.map((combo, index) => {
-      const name = Object.values(combo).join(' - ');
-      const sku = `${product.id}-${Object.values(combo).join('-').toLowerCase().replace(/\s+/g, '-')}-${index}`;
-      
-      return {
-        id: `temp-${Date.now()}-${index}`,
-        product_id: product.id,
-        sku,
-        name,
-        price: basePrice,
-        option_values: combo,
-        is_active: true,
-      };
-    });
-
-    setVariants(newVariants);
-    toast({
-      title: "Variantes generadas",
-      description: `Se generaron ${newVariants.length} variantes basadas en las opciones`,
-    });
-  };
-
-  const saveVariants = async () => {
-    if (variants.length === 0) return;
-
-    try {
-      const variantsToCreate = variants
-        .filter(v => v.id.startsWith('temp-'))
-        .map(v => ({
-          product_id: product.id,
-          sku: v.sku,
-          name: v.name,
-          price: v.price,
-          option_values: v.option_values,
-          is_active: v.is_active,
-          stock: v.stock,
-        }));
-
-      if (variantsToCreate.length > 0) {
-        await bulkCreateVariantsMutation.mutateAsync(variantsToCreate);
-        toast({
-          title: "Variantes guardadas",
-          description: `Se guardaron ${variantsToCreate.length} variantes exitosamente`,
-        });
-      }
-
-      onClose();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudieron guardar las variantes",
-        variant: "destructive",
-      });
-    }
+  const handleRemoveOption = (optionId: string) => {
+    setOptions(options.filter(opt => opt.id !== optionId));
   };
 
   return (
-    <div className="space-y-6 max-h-[80vh] overflow-y-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle>Opciones del Producto: {product.name}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Opciones existentes */}
-          <div className="space-y-2">
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Opciones del Producto</h3>
+        
+        {options.length > 0 ? (
+          <div className="space-y-4">
             {options.map(option => (
-              <div key={option.id} className="p-3 border rounded">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="font-medium">{option.name}</div>
-                  {option.is_required && (
-                    <Badge variant="secondary">Requerido</Badge>
-                  )}
+              <div key={option.id} className="border rounded-md p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{option.name}</span>
+                    {option.is_required && (
+                      <Badge variant="outline" className="text-xs">Requerido</Badge>
+                    )}
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleRemoveOption(option.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {option.values.map(value => (
-                    <Badge key={value} variant="outline">{value}</Badge>
+                    <Badge key={value} variant="secondary">{value}</Badge>
                   ))}
                 </div>
               </div>
             ))}
           </div>
+        ) : (
+          <div className="text-sm text-gray-500 italic">
+            No hay opciones configuradas para este producto.
+          </div>
+        )}
+      </div>
 
-          {/* Nueva opción */}
-          <div className="border-t pt-4 space-y-3">
-            <h4 className="font-medium">Agregar Nueva Opción</h4>
-            
-            <div>
-              <Label htmlFor="option-name">Nombre de la Opción</Label>
-              <Input
-                id="option-name"
-                placeholder="Ej: Tamaño"
-                value={newOption.name}
-                onChange={(e) => setNewOption(prev => ({ ...prev, name: e.target.value }))}
+      <div className="border-t pt-4">
+        <h4 className="text-sm font-medium mb-2">Agregar Nueva Opción</h4>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Nombre de la opción (ej: Tamaño)"
+              value={newOptionName}
+              onChange={e => setNewOptionName(e.target.value)}
+              className="flex-1"
+            />
+            <div className="flex items-center gap-2">
+              <Checkbox 
+                id="required" 
+                checked={isRequired}
+                onCheckedChange={(checked) => setIsRequired(checked === true)}
               />
+              <label htmlFor="required" className="text-sm">Requerido</label>
             </div>
-
-            <div>
-              <Label>Valores</Label>
-              <div className="space-y-2">
-                {newOption.values.map((value, index) => (
-                  <div key={index} className="flex gap-2">
-                    <Input
-                      placeholder="Ej: Grande"
-                      value={value}
-                      onChange={(e) => updateNewOptionValue(index, e.target.value)}
-                    />
-                    {newOption.values.length > 1 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => removeValueFromNewOption(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={addValueToNewOption}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Agregar Valor
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="required"
-                checked={newOption.is_required}
-                onCheckedChange={(checked) => setNewOption(prev => ({ ...prev, is_required: checked }))}
-              />
-              <Label htmlFor="required">Opción requerida</Label>
-            </div>
-
-            <Button onClick={addOption} className="w-full">
-              Agregar Opción
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Valor (ej: Grande)"
+              value={currentValue}
+              onChange={e => setCurrentValue(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddValue()}
+              className="flex-1"
+            />
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm"
+              onClick={handleAddValue}
+            >
+              <Plus className="h-4 w-4" />
             </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Administrador de variantes */}
-      <ProductVariantsManager
-        product={product}
-        options={options}
-        variants={variants}
-        onUpdateVariants={setVariants}
-      />
-
-      {/* Acciones */}
-      <div className="flex gap-3">
-        {options.length > 0 && (
-          <Button onClick={generateVariants} variant="outline">
-            Generar Variantes Automáticamente
+          
+          {newOptionValues.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {newOptionValues.map(value => (
+                <Badge 
+                  key={value} 
+                  variant="outline"
+                  className="flex items-center gap-1"
+                >
+                  {value}
+                  <X 
+                    className="h-3 w-3 cursor-pointer" 
+                    onClick={() => handleRemoveValue(value)}
+                  />
+                </Badge>
+              ))}
+            </div>
+          )}
+          
+          <Button
+            type="button"
+            disabled={!newOptionName.trim() || newOptionValues.length === 0}
+            onClick={handleAddOption}
+            className="w-full"
+          >
+            Agregar Opción
           </Button>
-        )}
-        <Button onClick={saveVariants} className="flex-1">
-          Guardar Cambios
-        </Button>
-        <Button onClick={onClose} variant="outline">
-          Cerrar
-        </Button>
+        </div>
       </div>
     </div>
   );
