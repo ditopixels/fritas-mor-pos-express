@@ -106,147 +106,123 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
   };
 
   return (
-    <Card className="h-full flex flex-col">
-      <div className="p-4 border-b flex-shrink-0">
-        <h2 className="text-xl font-bold mb-4">Productos</h2>
+    <div className="flex flex-col h-full">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold mb-4">Productos</h2>
         
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-          <ScrollArea className="w-full">
-            <TabsList className="grid grid-flow-col auto-cols-max gap-2 w-max">
-              <TabsTrigger value="all" className="whitespace-nowrap">
-                Todos
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="all">Todos</TabsTrigger>
+            {categories.map((category) => (
+              <TabsTrigger key={category.id} value={category.id}>
+                {category.name}
               </TabsTrigger>
-              {categories.map((category) => (
-                <TabsTrigger 
-                  key={category.id} 
-                  value={category.id}
-                  className="whitespace-nowrap"
-                >
-                  {category.name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </ScrollArea>
+            ))}
+          </TabsList>
         </Tabs>
       </div>
 
-      <div className="flex-1 min-h-0">
-        <ScrollArea className="h-full">
-          <div className="p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {products.map((product) => (
-                <Card key={product.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-                      {product.image ? (
-                        <img 
-                          src={product.image} 
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-gray-400 text-4xl">🍽️</span>
-                      )}
-                    </div>
-                    
-                    <h3 className="font-semibold text-sm mb-2 line-clamp-2">
-                      {product.name}
-                    </h3>
-                    
-                    {product.description && (
-                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">
-                        {product.description}
-                      </p>
-                    )}
+      <ScrollArea className="flex-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {products.map((product) => (
+            <Card key={product.id} className="overflow-hidden">
+              <div className="aspect-video bg-gray-100 flex items-center justify-center">
+                {product.image ? (
+                  <img 
+                    src={product.image} 
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-6xl">🍽️</span>
+                )}
+              </div>
+              
+              <CardContent className="p-6">
+                <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
+                {product.description && (
+                  <p className="text-gray-600 mb-4">{product.description}</p>
+                )}
 
-                    <div className="space-y-2">
-                      {product.variants?.length > 0 ? (
-                        product.variants.map((variant) => {
-                          const appliedPromotions = calculateItemPromotions(product.id, product.categoryId || '', variant.price);
-                          const hasPromotion = appliedPromotions.length > 0;
-                          const discountedPrice = hasPromotion 
-                            ? variant.price - appliedPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
-                            : variant.price;
+                <div className="space-y-3">
+                  {product.variants?.length > 0 ? (
+                    product.variants.map((variant) => {
+                      const appliedPromotions = calculateItemPromotions(product.id, product.categoryId || '', variant.price);
+                      const hasPromotion = appliedPromotions.length > 0;
+                      const discountedPrice = hasPromotion 
+                        ? variant.price - appliedPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
+                        : variant.price;
 
-                          return (
-                            <div key={variant.id} className="border rounded-lg p-2">
-                              <div className="flex justify-between items-start mb-1">
-                                <span className="text-xs font-medium line-clamp-2 flex-1">
-                                  {variant.name}
-                                </span>
-                              </div>
-                              
-                              <div className="flex items-center justify-between">
-                                <div className="flex flex-col">
-                                  {hasPromotion ? (
-                                    <div className="flex items-center space-x-1">
-                                      <span className="text-xs text-gray-500 line-through">
-                                        ${variant.price.toLocaleString()}
-                                      </span>
-                                      <span className="text-sm font-bold text-red-600">
-                                        ${discountedPrice.toLocaleString()}
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm font-bold">
-                                      ${variant.price.toLocaleString()}
-                                    </span>
-                                  )}
-                                  
-                                  {hasPromotion && (
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {appliedPromotions.map((promo, index) => (
-                                        <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
-                                          <Tag className="h-2 w-2 mr-1" />
-                                          {promo.promotionName}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  )}
+                      return (
+                        <div key={variant.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex-1">
+                            <div className="font-medium">{variant.name}</div>
+                            <div className="flex items-center space-x-2">
+                              {hasPromotion ? (
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-gray-500 line-through">
+                                    ${variant.price.toLocaleString()}
+                                  </span>
+                                  <span className="text-lg font-bold text-red-600">
+                                    ${discountedPrice.toLocaleString()}
+                                  </span>
                                 </div>
-                                
-                                <ProductVariantSelector
-                                  productId={product.id}
-                                  categoryId={product.categoryId || ''}
-                                  variant={variant}
-                                  productName={product.name}
-                                  onAddToCart={handleAddToCart}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="border rounded-lg p-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold">
-                              ${(product.base_price || 0).toLocaleString()}
-                            </span>
-                            <button
-                              onClick={() => handleAddToCart(
-                                product.id,
-                                product.categoryId || '',
-                                '',
-                                `${product.id}-default`,
-                                product.name,
-                                'Estándar',
-                                product.base_price || 0
+                              ) : (
+                                <span className="text-lg font-bold">
+                                  ${variant.price.toLocaleString()}
+                                </span>
                               )}
-                              className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors"
-                            >
-                              Agregar
-                            </button>
+                            </div>
+                            
+                            {hasPromotion && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {appliedPromotions.map((promo, index) => (
+                                  <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                    <Tag className="h-3 w-3 mr-1" />
+                                    {promo.promotionName}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                           </div>
+                          
+                          <ProductVariantSelector
+                            productId={product.id}
+                            categoryId={product.categoryId || ''}
+                            variant={variant}
+                            productName={product.name}
+                            onAddToCart={handleAddToCart}
+                          />
                         </div>
-                      )}
+                      );
+                    })
+                  ) : (
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <span className="text-lg font-bold">
+                        ${(product.base_price || 0).toLocaleString()}
+                      </span>
+                      <button
+                        onClick={() => handleAddToCart(
+                          product.id,
+                          product.categoryId || '',
+                          '',
+                          `${product.id}-default`,
+                          product.name,
+                          'Estándar',
+                          product.base_price || 0
+                        )}
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                      >
+                        Agregar
+                      </button>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </ScrollArea>
-      </div>
-    </Card>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   );
 };
