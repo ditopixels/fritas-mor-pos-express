@@ -22,6 +22,9 @@ export interface Order {
   items: CartItem[];
   total: number;
   paymentMethod: string;
+  customerName: string;
+  cashReceived?: number;
+  photoEvidence?: string;
   createdAt: Date;
   status: string;
 }

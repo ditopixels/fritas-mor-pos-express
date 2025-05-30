@@ -1,8 +1,11 @@
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Minus, Plus, ShoppingCart } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Trash2, Minus, Plus, ShoppingCart, DollarSign, CreditCard, Camera } from "lucide-react";
 import { CartItem } from "@/pages/Index";
 
 interface OrderSummaryProps {
@@ -11,7 +14,7 @@ interface OrderSummaryProps {
   onUpdateQuantity: (sku: string, quantity: number) => void;
   onRemoveItem: (sku: string) => void;
   onClearCart: () => void;
-  onProceedToPayment: () => void;
+  onProceedToPayment: (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: File) => void;
 }
 
 export const OrderSummary = ({
@@ -22,6 +25,12 @@ export const OrderSummary = ({
   onClearCart,
   onProceedToPayment
 }: OrderSummaryProps) => {
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [customerName, setCustomerName] = useState<string>("");
+  const [cashReceived, setCashReceived] = useState<string>("");
+  const [photoEvidence, setPhotoEvidence] = useState<File | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("es-CO", {
       style: "currency",
@@ -31,6 +40,48 @@ export const OrderSummary = ({
   };
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalWithTax = total * 1.19;
+
+  const calculateChange = () => {
+    const received = parseFloat(cashReceived) || 0;
+    return received - totalWithTax;
+  };
+
+  const isValidPayment = () => {
+    if (!customerName.trim()) return false;
+    if (paymentMethod === "cash") {
+      const received = parseFloat(cashReceived) || 0;
+      return received >= totalWithTax;
+    }
+    if (paymentMethod === "transfer") {
+      return photoEvidence !== null;
+    }
+    return false;
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!isValidPayment()) return;
+    
+    setIsProcessing(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const cashAmount = paymentMethod === "cash" ? parseFloat(cashReceived) : undefined;
+    onProceedToPayment(paymentMethod, customerName.trim(), cashAmount, photoEvidence || undefined);
+    
+    // Reset state
+    setPaymentMethod("");
+    setCustomerName("");
+    setCashReceived("");
+    setPhotoEvidence(null);
+    setIsProcessing(false);
+  };
+
+  const handlePhotoCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setPhotoEvidence(file);
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border h-full flex flex-col">
@@ -120,8 +171,120 @@ export const OrderSummary = ({
       </div>
 
       {items.length > 0 && (
-        <div className="border-t p-4 bg-gray-50">
-          <div className="space-y-2 mb-4">
+        <div className="border-t p-4 bg-gray-50 space-y-4">
+          {/* Customer Name */}
+          <div>
+            <Label htmlFor="customer-name" className="text-sm font-semibold">
+              Nombre del Cliente *
+            </Label>
+            <Input
+              id="customer-name"
+              placeholder="Ingrese el nombre del cliente"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+
+          {/* Payment Method Selection */}
+          <div>
+            <Label className="text-sm font-semibold mb-2 block">
+              Método de Pago *
+            </Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant={paymentMethod === "cash" ? "default" : "outline"}
+                onClick={() => setPaymentMethod("cash")}
+                className={`h-16 flex flex-col space-y-1 ${
+                  paymentMethod === "cash" 
+                    ? "bg-orange-500 hover:bg-orange-600" 
+                    : "hover:bg-orange-50"
+                }`}
+              >
+                <DollarSign className="h-5 w-5" />
+                <span className="text-sm">Efectivo</span>
+              </Button>
+              
+              <Button
+                variant={paymentMethod === "transfer" ? "default" : "outline"}
+                onClick={() => setPaymentMethod("transfer")}
+                className={`h-16 flex flex-col space-y-1 ${
+                  paymentMethod === "transfer" 
+                    ? "bg-orange-500 hover:bg-orange-600" 
+                    : "hover:bg-orange-50"
+                }`}
+              >
+                <CreditCard className="h-5 w-5" />
+                <span className="text-sm">Transferencia</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Cash Payment Details */}
+          {paymentMethod === "cash" && (
+            <div className="space-y-2">
+              <Label htmlFor="cash-received" className="text-sm font-semibold">
+                Efectivo Recibido *
+              </Label>
+              <Input
+                id="cash-received"
+                type="number"
+                placeholder="Monto recibido"
+                value={cashReceived}
+                onChange={(e) => setCashReceived(e.target.value)}
+                className="text-center"
+              />
+              
+              {cashReceived && parseFloat(cashReceived) >= totalWithTax && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold text-green-800">Cambio:</span>
+                    <span className="font-bold text-green-600">
+                      {formatPrice(calculateChange())}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {cashReceived && parseFloat(cashReceived) < totalWithTax && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-2">
+                  <span className="text-xs text-red-600">
+                    Monto insuficiente
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Transfer Photo Evidence */}
+          {paymentMethod === "transfer" && (
+            <div className="space-y-2">
+              <Label htmlFor="photo-evidence" className="text-sm font-semibold">
+                Evidencia de Transferencia *
+              </Label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  id="photo-evidence"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoCapture}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => document.getElementById("photo-evidence")?.click()}
+                  variant="outline"
+                  className="flex-1 h-12"
+                >
+                  <Camera className="h-4 w-4 mr-2" />
+                  {photoEvidence ? "Foto capturada ✓" : "Tomar foto del comprobante"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Order Total */}
+          <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>Subtotal:</span>
               <span>{formatPrice(total)}</span>
@@ -133,16 +296,25 @@ export const OrderSummary = ({
             <Separator />
             <div className="flex justify-between text-lg font-bold">
               <span>TOTAL:</span>
-              <span className="text-orange-600">{formatPrice(total * 1.19)}</span>
+              <span className="text-orange-600">{formatPrice(totalWithTax)}</span>
             </div>
           </div>
-          
+
+          {/* Confirm Payment Button */}
           <Button
-            onClick={onProceedToPayment}
+            onClick={handleConfirmPayment}
+            disabled={!isValidPayment() || isProcessing}
             className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-3 text-lg"
             size="lg"
           >
-            Proceder al Pago
+            {isProcessing ? (
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Procesando...</span>
+              </div>
+            ) : (
+              "Confirmar Pago"
+            )}
           </Button>
         </div>
       )}
