@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trash2, Minus, Plus, Camera, CreditCard, DollarSign, Tag } from "lucide-react";
 import { CartItem } from "@/types";
-import { useCreateOrder } from "@/hooks/useOrders";
+import { useCreateOrder, SupabaseOrder } from "@/hooks/useOrders";
 import { useToast } from "@/hooks/use-toast";
 import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
@@ -18,6 +18,7 @@ interface OrderSummaryProps {
   onRemoveItem: (sku: string) => void;
   onClearCart: () => void;
   onProceedToPayment: (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: File) => void;
+  onOrderCreated?: (order: SupabaseOrder) => void; // Nuevo callback para estado local
 }
 
 export const OrderSummary = ({ 
@@ -26,7 +27,8 @@ export const OrderSummary = ({
   onUpdateQuantity, 
   onRemoveItem, 
   onClearCart,
-  onProceedToPayment 
+  onProceedToPayment,
+  onOrderCreated 
 }: OrderSummaryProps) => {
   const [customerName, setCustomerName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -35,7 +37,7 @@ export const OrderSummary = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const createOrderMutation = useCreateOrder();
+  const createOrderMutation = useCreateOrder(onOrderCreated); // Pasar callback
   const { toast } = useToast();
   const { calculatePromotions } = usePromotionCalculator();
 

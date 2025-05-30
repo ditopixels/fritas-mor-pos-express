@@ -55,7 +55,7 @@ export const useOrders = () => {
   });
 };
 
-export const useCreateOrder = () => {
+export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -108,15 +108,37 @@ export const useCreateOrder = () => {
         variant_options: JSON.stringify({}), // Por ahora vacío, se llenará con las opciones seleccionadas
       }));
 
-      const { error: itemsError } = await supabase
+      const { data: createdItems, error: itemsError } = await supabase
         .from('order_items')
-        .insert(orderItems);
+        .insert(orderItems)
+        .select();
 
       if (itemsError) throw itemsError;
 
-      return order;
+      // Crear objeto completo de orden para retornar
+      const completeOrder: SupabaseOrder = {
+        ...order,
+        order_items: createdItems.map(item => ({
+          id: item.id,
+          product_name: item.product_name,
+          variant_name: item.variant_name,
+          sku: item.sku,
+          price: item.price,
+          original_price: item.original_price,
+          quantity: item.quantity,
+          applied_promotions: item.applied_promotions,
+        }))
+      };
+
+      // Llamar callback si existe (para agregar al estado local)
+      if (onOrderCreated) {
+        onOrderCreated(completeOrder);
+      }
+
+      return completeOrder;
     },
     onSuccess: () => {
+      // Solo invalidar queries específicas si es necesario
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
   });

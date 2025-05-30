@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { OptimizedProductGrid } from "@/components/pos/OptimizedProductGrid";
 import { OrderSummary } from "@/components/pos/OrderSummary";
@@ -8,12 +9,12 @@ import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CartItem } from "@/types";
 import { useAuth } from "@/hooks/useAuth";
-import { useIncrementalOrders } from "@/hooks/useIncrementalOrders";
+import { useOptimizedOrders } from "@/hooks/useOptimizedOrders";
 import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
 const Index = () => {
   const { user, profile, loading, signOut } = useAuth();
-  const { data: orders } = useIncrementalOrders(25); // Cargar solo 25 órdenes inicialmente
+  const { data: orders, addOrderToLocal } = useOptimizedOrders(25); // Usar hook optimizado
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("pos");
   const [currentView, setCurrentView] = useState("pos");
@@ -131,6 +132,7 @@ const Index = () => {
                     onRemoveItem={removeFromCart}
                     onClearCart={clearCart}
                     onProceedToPayment={handlePayment}
+                    onOrderCreated={addOrderToLocal} // Pasar callback para agregar al estado local
                   />
                 </div>
               </div>
