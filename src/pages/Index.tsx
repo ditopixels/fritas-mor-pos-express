@@ -91,7 +91,7 @@ const Index = () => {
     return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
-  const handlePayment = (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: string) => {
+  const handlePayment = (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: File) => {
     const newOrder: Order = {
       id: `ORD-${Date.now()}`,
       items: [...cartItems],
@@ -99,7 +99,7 @@ const Index = () => {
       paymentMethod,
       customerName,
       cashReceived,
-      photoEvidence,
+      photoEvidence: photoEvidence ? URL.createObjectURL(photoEvidence) : undefined,
       createdAt: new Date(),
       status: "Completado"
     };
@@ -143,7 +143,7 @@ const Index = () => {
                   onUpdateQuantity={updateQuantity}
                   onRemoveItem={removeFromCart}
                   onClearCart={clearCart}
-                  onConfirmPayment={handlePayment}
+                  onProceedToPayment={handlePayment}
                 />
               </div>
             </div>
