@@ -1,18 +1,29 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CartItem } from "@/pages/Index";
 
-// Importar iconos apropiados - usando iconos disponibles en lucide-react
-import { ChefHat, UtensilsCrossed, Beef } from "lucide-react";
-
-// Simulación de datos de MedusaJS con estructura mejorada para variantes
+// Categorías con imágenes animadas de Unsplash
 const categories = [
-  { id: "papas", name: "Papas Fritas", color: "bg-yellow-100 text-yellow-800", icon: UtensilsCrossed },
-  { id: "hamburguesas", name: "Hamburguesas", color: "bg-red-100 text-red-800", icon: ChefHat },
-  { id: "pinchos", name: "Pinchos", color: "bg-green-100 text-green-800", icon: Beef }
+  { 
+    id: "papas", 
+    name: "Papas Fritas", 
+    color: "bg-yellow-100 text-yellow-800", 
+    image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=100&h=100&fit=crop&crop=center"
+  },
+  { 
+    id: "hamburguesas", 
+    name: "Hamburguesas", 
+    color: "bg-red-100 text-red-800", 
+    image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=100&h=100&fit=crop&crop=center"
+  },
+  { 
+    id: "pinchos", 
+    name: "Pinchos", 
+    color: "bg-green-100 text-green-800", 
+    image: "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=100&h=100&fit=crop&crop=center"
+  }
 ];
 
 // Datos base de productos con configuración de variantes
@@ -50,7 +61,6 @@ const baseProducts = {
         { id: "todas-salsas", name: "Todas las Salsas" }
       ]
     }
-    // Continuar con los otros 4 tipos...
   ],
   hamburguesas: [
     { id: "hamburguesa-simple", productName: "Hamburguesa", variantName: "Simple", sku: "HAM-SIM", price: 8000 },
@@ -143,29 +153,33 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
       <div className="p-4 border-b bg-gradient-to-r from-yellow-50 to-red-50">
         <h2 className="text-xl font-bold text-gray-800 mb-4">Seleccionar Productos</h2>
         <div className="grid grid-cols-3 gap-3">
-          {categories.map((category) => {
-            const IconComponent = category.icon;
-            return (
-              <Button
-                key={category.id}
-                variant={selectedCategory === category.id ? "default" : "outline"}
-                onClick={() => {
-                  setSelectedCategory(category.id);
-                  setSelectedProduct(null);
-                  setSelectedSize("");
-                  setSelectedSauces([]);
-                }}
-                className={`h-20 flex flex-col space-y-2 text-lg font-semibold ${
-                  selectedCategory === category.id 
-                    ? "bg-gradient-to-r from-yellow-500 to-red-500 hover:from-yellow-600 hover:to-red-600 text-white" 
-                    : "hover:bg-gradient-to-r hover:from-yellow-50 hover:to-red-50"
-                }`}
-              >
-                <IconComponent className="h-8 w-8" />
-                <span className="text-sm">{category.name}</span>
-              </Button>
-            );
-          })}
+          {categories.map((category) => (
+            <Button
+              key={category.id}
+              variant={selectedCategory === category.id ? "default" : "outline"}
+              onClick={() => {
+                setSelectedCategory(category.id);
+                setSelectedProduct(null);
+                setSelectedSize("");
+                setSelectedSauces([]);
+              }}
+              className={`h-24 flex flex-col space-y-2 text-lg font-semibold relative overflow-hidden group ${
+                selectedCategory === category.id 
+                  ? "bg-gradient-to-r from-yellow-500 to-red-500 hover:from-yellow-600 hover:to-red-600 text-white" 
+                  : "hover:bg-gradient-to-r hover:from-yellow-50 hover:to-red-50"
+              }`}
+            >
+              <div className="relative">
+                <img 
+                  src={category.image} 
+                  alt={category.name}
+                  className="w-12 h-12 rounded-full object-cover transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-red-400/20 rounded-full animate-pulse"></div>
+              </div>
+              <span className="text-sm relative z-10">{category.name}</span>
+            </Button>
+          ))}
         </div>
       </div>
 

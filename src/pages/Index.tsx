@@ -144,6 +144,7 @@ const Index = () => {
                   onRemoveItem={removeFromCart}
                   onClearCart={clearCart}
                   onProceedToPayment={handlePayment}
+                  lastOrder={orders[0]}
                 />
               </div>
             </div>
