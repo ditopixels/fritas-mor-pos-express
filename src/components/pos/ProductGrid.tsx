@@ -184,17 +184,14 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                           <div className="text-xs text-gray-500 mt-1">
                             Categoría: {product.category?.name || 'Sin categoría'}
                           </div>
+                          <ProductVariantSelector 
+                            product={product}
+                            onAddToCart={(variant, selectedOptions) => handleAddToCart(product, variant, selectedOptions)}
+                          />
                         </div>
                       </div>
                     </div>
                     
-                    {/* Selector de variantes - lado derecho */}
-                    <div className="flex-shrink-0 min-w-[200px]">
-                      <ProductVariantSelector 
-                        product={product}
-                        onAddToCart={(variant, selectedOptions) => handleAddToCart(product, variant, selectedOptions)}
-                      />
-                    </div>
                   </div>
                 </Card>
               );

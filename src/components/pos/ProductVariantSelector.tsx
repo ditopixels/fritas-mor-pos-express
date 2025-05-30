@@ -99,7 +99,7 @@ export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantS
               <label className="text-xs font-medium text-gray-700">
                 {option.name} {option.is_required && <span className="text-red-500">*</span>}
               </label>
-              <div className="grid grid-cols-2 gap-1">
+              <div className="flex flex-wrap gap-1">
                 {option.values.map(value => (
                   <Button
                     key={value}
@@ -179,7 +179,6 @@ export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantS
           <span className={`text-sm font-bold ${hasDiscount ? 'text-red-600' : ''}`}>
             ${finalPrice.toLocaleString()}
           </span>
-          {getPromotionBadge(basePrice)}
         </div>
       </div>
     </div>
