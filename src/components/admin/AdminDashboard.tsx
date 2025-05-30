@@ -12,6 +12,27 @@ interface AdminDashboardProps {
   orders: SupabaseOrder[];
 }
 
+// Helper function to safely parse JSON
+const safeJsonParse = (jsonString: any): any[] => {
+  if (!jsonString || jsonString === '' || jsonString === null || jsonString === undefined) {
+    return [];
+  }
+  
+  try {
+    if (typeof jsonString === 'string') {
+      return JSON.parse(jsonString);
+    }
+    // If it's already an object/array, return it as is
+    if (Array.isArray(jsonString) || typeof jsonString === 'object') {
+      return jsonString;
+    }
+    return [];
+  } catch (error) {
+    console.warn('Failed to parse JSON:', jsonString, error);
+    return [];
+  }
+};
+
 // Función para transformar SupabaseOrder a Order
 const transformSupabaseOrderToOrder = (supabaseOrder: SupabaseOrder): Order => {
   return {
@@ -24,7 +45,7 @@ const transformSupabaseOrderToOrder = (supabaseOrder: SupabaseOrder): Order => {
       price: item.price,
       originalPrice: item.original_price || item.price,
       quantity: item.quantity,
-      appliedPromotions: item.applied_promotions ? JSON.parse(item.applied_promotions as string) : []
+      appliedPromotions: safeJsonParse(item.applied_promotions)
     })) || [],
     total: supabaseOrder.total,
     subtotal: supabaseOrder.subtotal,
@@ -35,7 +56,7 @@ const transformSupabaseOrderToOrder = (supabaseOrder: SupabaseOrder): Order => {
     photoEvidence: supabaseOrder.photo_evidence,
     createdAt: new Date(supabaseOrder.created_at),
     status: supabaseOrder.status,
-    appliedPromotions: supabaseOrder.applied_promotions ? JSON.parse(supabaseOrder.applied_promotions as string) : []
+    appliedPromotions: safeJsonParse(supabaseOrder.applied_promotions)
   };
 };
 
