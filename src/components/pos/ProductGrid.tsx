@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -96,7 +97,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
       sku,
       price,
       variantId,
-      categoryId, // Asegurar que categoryId se incluya
+      categoryId,
       appliedPromotions,
     };
 
@@ -132,239 +133,117 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
       <div className="flex-1 min-h-0">
         <ScrollArea className="h-full">
           <div className="p-4">
-            <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-              <TabsContent value="all" className="mt-0">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {products.map((product) => (
-                    <Card key={product.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-                          {product.image ? (
-                            <img 
-                              src={product.image} 
-                              alt={product.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-gray-400 text-4xl">🍽️</span>
-                          )}
-                        </div>
-                        
-                        <h3 className="font-semibold text-sm mb-2 line-clamp-2">
-                          {product.name}
-                        </h3>
-                        
-                        {product.description && (
-                          <p className="text-xs text-gray-600 mb-3 line-clamp-2">
-                            {product.description}
-                          </p>
-                        )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {products.map((product) => (
+                <Card key={product.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                      {product.image ? (
+                        <img 
+                          src={product.image} 
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-gray-400 text-4xl">🍽️</span>
+                      )}
+                    </div>
+                    
+                    <h3 className="font-semibold text-sm mb-2 line-clamp-2">
+                      {product.name}
+                    </h3>
+                    
+                    {product.description && (
+                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">
+                        {product.description}
+                      </p>
+                    )}
 
-                        <div className="space-y-2">
-                          {product.variants?.length > 0 ? (
-                            product.variants.map((variant) => {
-                              const appliedPromotions = calculateItemPromotions(product.id, product.categoryId || '', variant.price);
-                              const hasPromotion = appliedPromotions.length > 0;
-                              const discountedPrice = hasPromotion 
-                                ? variant.price - appliedPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
-                                : variant.price;
+                    <div className="space-y-2">
+                      {product.variants?.length > 0 ? (
+                        product.variants.map((variant) => {
+                          const appliedPromotions = calculateItemPromotions(product.id, product.categoryId || '', variant.price);
+                          const hasPromotion = appliedPromotions.length > 0;
+                          const discountedPrice = hasPromotion 
+                            ? variant.price - appliedPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
+                            : variant.price;
 
-                              return (
-                                <div key={variant.id} className="border rounded-lg p-2">
-                                  <div className="flex justify-between items-start mb-1">
-                                    <span className="text-xs font-medium line-clamp-2 flex-1">
-                                      {variant.name}
-                                    </span>
-                                  </div>
-                                  
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex flex-col">
-                                      {hasPromotion ? (
-                                        <div className="flex items-center space-x-1">
-                                          <span className="text-xs text-gray-500 line-through">
-                                            ${variant.price.toLocaleString()}
-                                          </span>
-                                          <span className="text-sm font-bold text-red-600">
-                                            ${discountedPrice.toLocaleString()}
-                                          </span>
-                                        </div>
-                                      ) : (
-                                        <span className="text-sm font-bold">
-                                          ${variant.price.toLocaleString()}
-                                        </span>
-                                      )}
-                                      
-                                      {hasPromotion && (
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                          {appliedPromotions.map((promo, index) => (
-                                            <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
-                                              <Tag className="h-2 w-2 mr-1" />
-                                              {promo.promotionName}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                    
-                                    <ProductVariantSelector
-                                      productId={product.id}
-                                      categoryId={product.categoryId || ''}
-                                      variant={variant}
-                                      productName={product.name}
-                                      onAddToCart={handleAddToCart}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <div className="border rounded-lg p-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-bold">
-                                  ${(product.base_price || 0).toLocaleString()}
+                          return (
+                            <div key={variant.id} className="border rounded-lg p-2">
+                              <div className="flex justify-between items-start mb-1">
+                                <span className="text-xs font-medium line-clamp-2 flex-1">
+                                  {variant.name}
                                 </span>
-                                <button
-                                  onClick={() => handleAddToCart(
-                                    product.id,
-                                    product.categoryId || '',
-                                    '',
-                                    `${product.id}-default`,
-                                    product.name,
-                                    'Estándar',
-                                    product.base_price || 0
+                              </div>
+                              
+                              <div className="flex items-center justify-between">
+                                <div className="flex flex-col">
+                                  {hasPromotion ? (
+                                    <div className="flex items-center space-x-1">
+                                      <span className="text-xs text-gray-500 line-through">
+                                        ${variant.price.toLocaleString()}
+                                      </span>
+                                      <span className="text-sm font-bold text-red-600">
+                                        ${discountedPrice.toLocaleString()}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm font-bold">
+                                      ${variant.price.toLocaleString()}
+                                    </span>
                                   )}
-                                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors"
-                                >
-                                  Agregar
-                                </button>
+                                  
+                                  {hasPromotion && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {appliedPromotions.map((promo, index) => (
+                                        <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                          <Tag className="h-2 w-2 mr-1" />
+                                          {promo.promotionName}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                <ProductVariantSelector
+                                  productId={product.id}
+                                  categoryId={product.categoryId || ''}
+                                  variant={variant}
+                                  productName={product.name}
+                                  onAddToCart={handleAddToCart}
+                                />
                               </div>
                             </div>
-                          )}
+                          );
+                        })
+                      ) : (
+                        <div className="border rounded-lg p-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold">
+                              ${(product.base_price || 0).toLocaleString()}
+                            </span>
+                            <button
+                              onClick={() => handleAddToCart(
+                                product.id,
+                                product.categoryId || '',
+                                '',
+                                `${product.id}-default`,
+                                product.name,
+                                'Estándar',
+                                product.base_price || 0
+                              )}
+                              className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors"
+                            >
+                              Agregar
+                            </button>
+                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </TabsContent>
-
-              {categories.map((category) => (
-                <TabsContent key={category.id} value={category.id} className="mt-0">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {products
-                      .filter(product => product.categoryId === category.id)
-                      .map((product) => (
-                        <Card key={product.id} className="hover:shadow-md transition-shadow">
-                          <CardContent className="p-4">
-                            <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-                              {product.image ? (
-                                <img 
-                                  src={product.image} 
-                                  alt={product.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <span className="text-gray-400 text-4xl">🍽️</span>
-                              )}
-                            </div>
-                            
-                            <h3 className="font-semibold text-sm mb-2 line-clamp-2">
-                              {product.name}
-                            </h3>
-                            
-                            {product.description && (
-                              <p className="text-xs text-gray-600 mb-3 line-clamp-2">
-                                {product.description}
-                              </p>
-                            )}
-
-                            <div className="space-y-2">
-                              {product.variants?.length > 0 ? (
-                                product.variants.map((variant) => {
-                                  const appliedPromotions = calculateItemPromotions(product.id, product.categoryId || '', variant.price);
-                                  const hasPromotion = appliedPromotions.length > 0;
-                                  const discountedPrice = hasPromotion 
-                                    ? variant.price - appliedPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
-                                    : variant.price;
-
-                                  return (
-                                    <div key={variant.id} className="border rounded-lg p-2">
-                                      <div className="flex justify-between items-start mb-1">
-                                        <span className="text-xs font-medium line-clamp-2 flex-1">
-                                          {variant.name}
-                                        </span>
-                                      </div>
-                                      
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex flex-col">
-                                          {hasPromotion ? (
-                                            <div className="flex items-center space-x-1">
-                                              <span className="text-xs text-gray-500 line-through">
-                                                ${variant.price.toLocaleString()}
-                                              </span>
-                                              <span className="text-sm font-bold text-red-600">
-                                                ${discountedPrice.toLocaleString()}
-                                              </span>
-                                            </div>
-                                          ) : (
-                                            <span className="text-sm font-bold">
-                                              ${variant.price.toLocaleString()}
-                                            </span>
-                                          )}
-                                          
-                                          {hasPromotion && (
-                                            <div className="flex flex-wrap gap-1 mt-1">
-                                              {appliedPromotions.map((promo, index) => (
-                                                <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
-                                                  <Tag className="h-2 w-2 mr-1" />
-                                                  {promo.promotionName}
-                                                </Badge>
-                                              ))}
-                                            </div>
-                                          )}
-                                        </div>
-                                        
-                                        <ProductVariantSelector
-                                          productId={product.id}
-                                          categoryId={product.categoryId || ''}
-                                          variant={variant}
-                                          productName={product.name}
-                                          onAddToCart={handleAddToCart}
-                                        />
-                                      </div>
-                                    </div>
-                                  );
-                                })
-                              ) : (
-                                <div className="border rounded-lg p-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-bold">
-                                      ${(product.base_price || 0).toLocaleString()}
-                                    </span>
-                                    <button
-                                      onClick={() => handleAddToCart(
-                                        product.id,
-                                        product.categoryId || '',
-                                        '',
-                                        `${product.id}-default`,
-                                        product.name,
-                                        'Estándar',
-                                        product.base_price || 0
-                                      )}
-                                      className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors"
-                                    >
-                                      Agregar
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                  </div>
-                </TabsContent>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
-            </Tabs>
+            </div>
           </div>
         </ScrollArea>
       </div>
