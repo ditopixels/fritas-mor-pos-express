@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, Package, Tag } from "lucide-react";
 import { SalesMetrics } from "./SalesMetrics";
-import { CatalogManagement } from "./CatalogManagement";
+import CatalogManagement from "./CatalogManagement";
 import { PromotionsManagement } from "./PromotionsManagement";
 import { SupabaseOrder } from "@/hooks/useOrders";
 import { Order } from "@/types";
