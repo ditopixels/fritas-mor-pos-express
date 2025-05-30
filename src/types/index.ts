@@ -1,4 +1,3 @@
-
 export interface CartItem {
   id: string;
   productName: string;
@@ -9,6 +8,7 @@ export interface CartItem {
   quantity: number;
   image?: string;
   variantId?: string;
+  categoryId?: string;
   appliedPromotions?: AppliedPromotion[];
 }
 
