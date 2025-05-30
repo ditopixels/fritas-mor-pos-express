@@ -4,9 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Minus, Plus, ShoppingCart, DollarSign, CreditCard, Camera, Eye, User } from "lucide-react";
+import { Trash2, Minus, Plus, ShoppingCart, DollarSign, CreditCard, Camera } from "lucide-react";
 import { CartItem, Order } from "@/pages/Index";
-import { TransferImageModal } from "./TransferImageModal";
 
 interface OrderSummaryProps {
   items: CartItem[];
@@ -32,7 +31,6 @@ export const OrderSummary = ({
   const [cashReceived, setCashReceived] = useState<string>("");
   const [photoEvidence, setPhotoEvidence] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showTransferModal, setShowTransferModal] = useState(false);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("es-CO", {
@@ -100,35 +98,6 @@ export const OrderSummary = ({
             </Badge>
           )}
         </div>
-
-        {/* Información de la última orden */}
-        {lastOrder && (
-          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                <User className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-semibold text-green-800">
-                  Última venta: {lastOrder.customerName}
-                </span>
-              </div>
-              <Badge className="bg-green-100 text-green-800 text-xs">
-                {lastOrder.paymentMethod === "cash" ? "Efectivo" : "Transferencia"}
-              </Badge>
-            </div>
-            
-            {lastOrder.paymentMethod === "transfer" && lastOrder.photoEvidence && (
-              <Button
-                onClick={() => setShowTransferModal(true)}
-                variant="outline"
-                size="sm"
-                className="w-full text-xs"
-              >
-                <Eye className="h-3 w-3 mr-1" />
-                Ver comprobante de transferencia
-              </Button>
-            )}
-          </div>
-        )}
 
         {items.length > 0 && (
           <Button
@@ -350,16 +319,6 @@ export const OrderSummary = ({
             )}
           </Button>
         </div>
-      )}
-
-      {/* Modal para mostrar imagen de transferencia */}
-      {lastOrder && lastOrder.photoEvidence && (
-        <TransferImageModal
-          isOpen={showTransferModal}
-          onClose={() => setShowTransferModal(false)}
-          imageUrl={lastOrder.photoEvidence}
-          customerName={lastOrder.customerName}
-        />
       )}
     </div>
   );
