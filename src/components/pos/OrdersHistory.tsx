@@ -1,15 +1,22 @@
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Clock, Receipt, DollarSign } from "lucide-react";
+import { Clock, Receipt, DollarSign, Image, User } from "lucide-react";
 import { Order } from "@/pages/Index";
+import { TransferImageModal } from "./TransferImageModal";
+import { useState } from "react";
 
 interface OrdersHistoryProps {
   orders: Order[];
 }
 
 export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string>("");
+  const [selectedCustomerName, setSelectedCustomerName] = useState<string>("");
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("es-CO", {
       style: "currency",
@@ -46,6 +53,12 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
         {paymentConfig.label}
       </Badge>
     );
+  };
+
+  const handleViewTransferImage = (imageUrl: string, customerName: string) => {
+    setSelectedImageUrl(imageUrl);
+    setSelectedCustomerName(customerName);
+    setIsImageModalOpen(true);
   };
 
   if (orders.length === 0) {
@@ -95,6 +108,12 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                 <span>•</span>
                 <span>{formatDate(order.createdAt)}</span>
               </div>
+
+              {/* Customer Name */}
+              <div className="flex items-center space-x-2 text-sm">
+                <User className="h-4 w-4 text-gray-500" />
+                <span className="font-medium text-gray-700">Cliente: {order.customerName}</span>
+              </div>
             </CardHeader>
 
             <CardContent className="pt-0">
@@ -128,11 +147,33 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                     {formatPrice(order.total * 1.19)}
                   </span>
                 </div>
+
+                {/* Transfer Image Button */}
+                {order.paymentMethod === 'transfer' && order.photoEvidence && (
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewTransferImage(order.photoEvidence!, order.customerName)}
+                      className="flex items-center space-x-2"
+                    >
+                      <Image className="h-4 w-4" />
+                      <span>Ver Comprobante</span>
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <TransferImageModal
+        isOpen={isImageModalOpen}
+        onClose={() => setIsImageModalOpen(false)}
+        imageUrl={selectedImageUrl}
+        customerName={selectedCustomerName}
+      />
     </div>
   );
 };
