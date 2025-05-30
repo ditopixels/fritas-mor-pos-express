@@ -10,6 +10,7 @@ import { Trash2, Minus, Plus, Camera, CreditCard, DollarSign, Tag } from "lucide
 import { CartItem } from "@/types";
 import { useCreateOrder } from "@/hooks/useOrders";
 import { useToast } from "@/hooks/use-toast";
+import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
 interface OrderSummaryProps {
   items: CartItem[];
@@ -37,6 +38,17 @@ export const OrderSummary = ({
   
   const createOrderMutation = useCreateOrder();
   const { toast } = useToast();
+  const { calculatePromotions } = usePromotionCalculator();
+
+  // Calcular promociones aplicadas a los items del carrito
+  const subtotal = items.reduce((sum, item) => sum + ((item.originalPrice || item.price) * item.quantity), 0);
+  const promotionResult = calculatePromotions(items, subtotal);
+  const totalWithPromotions = promotionResult.newSubtotal;
+
+  console.log('OrderSummary - Items:', items);
+  console.log('OrderSummary - Subtotal:', subtotal);
+  console.log('OrderSummary - Promotion result:', promotionResult);
+  console.log('OrderSummary - Total with promotions:', totalWithPromotions);
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -68,7 +80,7 @@ export const OrderSummary = ({
       return;
     }
 
-    if (paymentMethod === "cash" && (!cashReceived || cashReceived < total)) {
+    if (paymentMethod === "cash" && (!cashReceived || cashReceived < totalWithPromotions)) {
       toast({
         title: "Error",
         description: "El monto en efectivo debe ser mayor o igual al total",
@@ -103,7 +115,7 @@ export const OrderSummary = ({
         payment_method: paymentMethod,
         cash_received: paymentMethod === "cash" ? cashReceived : undefined,
         photo_evidence: photoBase64,
-        items,
+        items: promotionResult.updatedItems,
       });
 
       toast({
@@ -129,19 +141,10 @@ export const OrderSummary = ({
     }
   };
 
-  const subtotal = items.reduce((sum, item) => sum + ((item.originalPrice || item.price) * item.quantity), 0);
-  const totalDiscount = items.reduce((sum, item) => {
-    if (item.appliedPromotions && item.originalPrice) {
-      const itemDiscount = item.appliedPromotions.reduce((acc, promo) => acc + promo.discountAmount, 0);
-      return sum + (itemDiscount * item.quantity);
-    }
-    return sum;
-  }, 0);
-
-  const change = paymentMethod === "cash" && cashReceived ? cashReceived - total : 0;
+  const change = paymentMethod === "cash" && cashReceived ? cashReceived - totalWithPromotions : 0;
 
   return (
-    <div className="h-full flex flex-col max-h-[calc(100vh-140px)]">
+    <div className="h-full flex flex-col max-h-[calc(100vh-120px)]">
       <Card className="flex-1 flex flex-col min-h-0">
         <CardHeader className="flex-shrink-0 pb-3">
           <CardTitle className="text-lg">Resumen de Orden</CardTitle>
@@ -151,8 +154,8 @@ export const OrderSummary = ({
         </CardHeader>
         
         <CardContent className="flex-1 flex flex-col space-y-4 min-h-0 p-4">
-          {/* Lista de productos con scroll - ajustada la altura */}
-          <div className="flex-1 min-h-0 max-h-[45vh]">
+          {/* Lista de productos con scroll - altura fija más pequeña */}
+          <div className="flex-1 min-h-0 max-h-[35vh]">
             {items.length === 0 ? (
               <div className="flex items-center justify-center h-32">
                 <p className="text-gray-500 text-center">El carrito está vacío</p>
@@ -160,7 +163,7 @@ export const OrderSummary = ({
             ) : (
               <ScrollArea className="h-full">
                 <div className="space-y-3 pr-2">
-                  {items.map((item) => (
+                  {promotionResult.updatedItems.map((item) => (
                     <div key={item.sku} className="flex items-start justify-between space-x-3 p-3 border rounded-lg bg-white">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{item.productName}</p>
@@ -240,19 +243,19 @@ export const OrderSummary = ({
                   <span>${subtotal.toLocaleString()}</span>
                 </div>
                 
-                {totalDiscount > 0 && (
+                {promotionResult.totalDiscount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span className="flex items-center">
                       <Tag className="h-3 w-3 mr-1" />
                       Descuentos:
                     </span>
-                    <span>-${totalDiscount.toLocaleString()}</span>
+                    <span>-${promotionResult.totalDiscount.toLocaleString()}</span>
                   </div>
                 )}
                 
                 <div className="flex justify-between items-center text-lg font-bold border-t pt-2">
                   <span>Total:</span>
-                  <span>${total.toLocaleString()}</span>
+                  <span>${totalWithPromotions.toLocaleString()}</span>
                 </div>
               </div>
 
@@ -303,7 +306,7 @@ export const OrderSummary = ({
                       onChange={(e) => setCashReceived(Number(e.target.value) || undefined)}
                       className="mt-1"
                     />
-                    {cashReceived && cashReceived >= total && (
+                    {cashReceived && cashReceived >= totalWithPromotions && (
                       <p className="text-sm text-green-600 mt-1">
                         Cambio: ${change.toLocaleString()}
                       </p>

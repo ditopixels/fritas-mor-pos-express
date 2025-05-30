@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CartItem } from "@/types";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrders } from "@/hooks/useOrders";
+import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
 const Index = () => {
   const { user, profile, loading, signOut } = useAuth();
@@ -17,6 +18,7 @@ const Index = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("pos");
   const [currentView, setCurrentView] = useState("pos");
+  const { calculatePromotions } = usePromotionCalculator();
 
   const handleNavigate = (view: string) => {
     setCurrentView(view);
@@ -62,7 +64,11 @@ const Index = () => {
   };
 
   const calculateTotal = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+    if (cartItems.length === 0) return 0;
+    
+    const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+    const promotionResult = calculatePromotions(cartItems, subtotal);
+    return promotionResult.newSubtotal;
   };
 
   const handlePayment = (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: File) => {
