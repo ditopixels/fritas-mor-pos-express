@@ -86,7 +86,7 @@ export const useCreateOrder = () => {
 
       if (orderError) throw orderError;
 
-      // Crear los items de la orden - NO incluir variant_id si es null
+      // Crear los items de la orden - variant_id ahora es opcional
       const orderItems = orderData.items.map(item => {
         const orderItem: any = {
           order_id: order.id,
@@ -100,7 +100,7 @@ export const useCreateOrder = () => {
           applied_promotions: JSON.stringify(item.appliedPromotions || []),
         };
 
-        // Solo incluir variant_id si existe y no es null
+        // Solo incluir variant_id si existe y es diferente del product_id
         if (item.variantId && item.variantId !== item.id) {
           orderItem.variant_id = item.variantId;
         }

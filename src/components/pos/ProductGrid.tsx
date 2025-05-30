@@ -10,20 +10,29 @@ interface ProductGridProps {
 }
 
 export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const { data: products, isLoading: productsLoading, error: productsError } = useProducts();
   const { data: categories, isLoading: categoriesLoading } = useCategories();
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
 
+  // Ordenar categorías por el orden predefinido
+  const sortedCategories = categories?.sort((a, b) => {
+    const order = { 'Papas': 1, 'Hamburguesas': 2, 'Pinchos': 3, 'Gaseosas': 4 };
+    const aOrder = order[a.name as keyof typeof order] || 99;
+    const bOrder = order[b.name as keyof typeof order] || 99;
+    return aOrder - bOrder;
+  });
+
+  // Seleccionar la primera categoría por defecto
   useEffect(() => {
-    if (products) {
-      let filtered = products;
-      
-      // Filtrar por categoría
-      if (selectedCategory !== "all") {
-        filtered = filtered.filter(product => product.category_id === selectedCategory);
-      }
-      
+    if (sortedCategories && sortedCategories.length > 0 && !selectedCategory) {
+      setSelectedCategory(sortedCategories[0].id);
+    }
+  }, [sortedCategories, selectedCategory]);
+
+  useEffect(() => {
+    if (products && selectedCategory) {
+      const filtered = products.filter(product => product.category_id === selectedCategory);
       setFilteredProducts(filtered);
     }
   }, [products, selectedCategory]);
@@ -71,30 +80,25 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Botones de categorías grandes con imágenes */}
+      {/* Botones de categorías grandes con imágenes - sin "Todos" */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Button
-          variant={selectedCategory === "all" ? "default" : "outline"}
-          onClick={() => setSelectedCategory("all")}
-          className="h-20 flex flex-col items-center justify-center space-y-2 text-sm font-semibold"
-        >
-          <div className="text-2xl">🍽️</div>
-          <span>Todos</span>
-        </Button>
-        
-        {categories?.map((category) => (
+        {sortedCategories?.map((category) => (
           <Button
             key={category.id}
             variant={selectedCategory === category.id ? "default" : "outline"}
             onClick={() => setSelectedCategory(category.id)}
-            className="h-20 flex flex-col items-center justify-center space-y-2 text-sm font-semibold"
+            className={`h-20 flex flex-col items-center justify-center space-y-2 text-sm font-semibold transition-all duration-200 ${
+              selectedCategory === category.id 
+                ? "bg-yellow-500 text-white border-yellow-600 shadow-lg scale-105" 
+                : "bg-white hover:bg-yellow-50 border-yellow-200"
+            }`}
           >
-            <div className="text-2xl">
+            <div className="text-2xl animate-bounce">
               {category.image ? (
                 <img 
                   src={category.image} 
                   alt={category.name} 
-                  className="w-8 h-8 object-cover rounded animate-pulse"
+                  className="w-8 h-8 object-cover rounded"
                 />
               ) : (
                 // Emojis por defecto basados en el nombre de la categoría
@@ -104,7 +108,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                 category.name === 'Gaseosas' ? '🥤' : '🍽️'
               )}
             </div>
-            <span>{category.name}</span>
+            <span className="text-xs">{category.name}</span>
           </Button>
         ))}
       </div>
