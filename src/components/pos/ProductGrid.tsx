@@ -97,87 +97,91 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Botones de categorías */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {sortedCategories?.map((category) => (
-          <Button
-            key={category.id}
-            variant={selectedCategory === category.id ? "default" : "outline"}
-            onClick={() => setSelectedCategory(category.id)}
-            className={`h-20 flex flex-col items-center justify-center space-y-2 text-sm font-semibold transition-all duration-200 ${
-              selectedCategory === category.id 
-                ? "bg-yellow-500 text-white border-yellow-600 shadow-lg scale-105" 
-                : "bg-white hover:bg-yellow-50 border-yellow-200"
-            }`}
-          >
-            <div className="text-2xl animate-bounce">
-              {category.image ? (
-                <img 
-                  src={category.image} 
-                  alt={category.name} 
-                  className="w-8 h-8 object-cover rounded"
-                />
-              ) : (
-                category.name === 'Papas' ? '🍟' :
-                category.name === 'Hamburguesas' ? '🍔' :
-                category.name === 'Pinchos' ? '🍖' :
-                category.name === 'Gaseosas' ? '🥤' : '🍽️'
-              )}
-            </div>
-            <span className="text-xs">{category.name}</span>
-          </Button>
-        ))}
+    <div className="space-y-6 h-full flex flex-col">
+      {/* Botones de categorías - fijo arriba */}
+      <div className="flex-shrink-0">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {sortedCategories?.map((category) => (
+            <Button
+              key={category.id}
+              variant={selectedCategory === category.id ? "default" : "outline"}
+              onClick={() => setSelectedCategory(category.id)}
+              className={`h-20 flex flex-col items-center justify-center space-y-2 text-sm font-semibold transition-all duration-200 ${
+                selectedCategory === category.id 
+                  ? "bg-yellow-500 text-white border-yellow-600 shadow-lg scale-105" 
+                  : "bg-white hover:bg-yellow-50 border-yellow-200"
+              }`}
+            >
+              <div className="text-2xl animate-bounce">
+                {category.image ? (
+                  <img 
+                    src={category.image} 
+                    alt={category.name} 
+                    className="w-8 h-8 object-cover rounded"
+                  />
+                ) : (
+                  category.name === 'Papas' ? '🍟' :
+                  category.name === 'Hamburguesas' ? '🍔' :
+                  category.name === 'Pinchos' ? '🍖' :
+                  category.name === 'Gaseosas' ? '🥤' : '🍽️'
+                )}
+              </div>
+              <span className="text-xs">{category.name}</span>
+            </Button>
+          ))}
+        </div>
       </div>
 
-      {/* Grid de productos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {filteredProducts.length === 0 ? (
-          <div className="col-span-full text-center py-8 text-gray-500">
-            {products?.length === 0 
-              ? "No hay productos disponibles" 
-              : "No se encontraron productos en esta categoría"}
-          </div>
-        ) : (
-          filteredProducts.map((product) => {
-            const basePrice = product.variants?.[0]?.price || product.base_price || 5000;
-            
-            return (
-              <Card key={product.id} className="relative">
-                {getPromotionBadge(product.id, product.category_id || '', basePrice) && (
-                  <div className="absolute top-2 right-2 z-10">
-                    {getPromotionBadge(product.id, product.category_id || '', basePrice)}
-                  </div>
-                )}
-                
-                <CardHeader>
-                  <CardTitle className="text-sm">{product.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="p-4">
-                  {product.image && (
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-32 object-cover mb-4 rounded-md"
+      {/* Grid de productos con scroll */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
+          {filteredProducts.length === 0 ? (
+            <div className="col-span-full text-center py-8 text-gray-500">
+              {products?.length === 0 
+                ? "No hay productos disponibles" 
+                : "No se encontraron productos en esta categoría"}
+            </div>
+          ) : (
+            filteredProducts.map((product) => {
+              const basePrice = product.variants?.[0]?.price || product.base_price || 5000;
+              
+              return (
+                <Card key={product.id} className="relative">
+                  {getPromotionBadge(product.id, product.category_id || '', basePrice) && (
+                    <div className="absolute top-2 right-2 z-10">
+                      {getPromotionBadge(product.id, product.category_id || '', basePrice)}
+                    </div>
+                  )}
+                  
+                  <CardHeader>
+                    <CardTitle className="text-sm">{product.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    {product.image && (
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-32 object-cover mb-4 rounded-md"
+                      />
+                    )}
+                    {product.description && (
+                      <p className="text-sm text-gray-600 mb-2">{product.description}</p>
+                    )}
+                    <div className="text-xs text-gray-500 mb-2">
+                      Categoría: {product.category?.name || 'Sin categoría'}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex flex-col items-center">
+                    <ProductVariantSelector 
+                      product={product}
+                      onAddToCart={(variant, selectedOptions) => handleAddToCart(product, variant, selectedOptions)}
                     />
-                  )}
-                  {product.description && (
-                    <p className="text-sm text-gray-600 mb-2">{product.description}</p>
-                  )}
-                  <div className="text-xs text-gray-500 mb-2">
-                    Categoría: {product.category?.name || 'Sin categoría'}
-                  </div>
-                </CardContent>
-                <CardFooter className="flex flex-col items-center">
-                  <ProductVariantSelector 
-                    product={product}
-                    onAddToCart={(variant, selectedOptions) => handleAddToCart(product, variant, selectedOptions)}
-                  />
-                </CardFooter>
-              </Card>
-            );
-          })
-        )}
+                  </CardFooter>
+                </Card>
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );

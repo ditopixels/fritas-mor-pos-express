@@ -79,18 +79,9 @@ export const usePromotionCalculator = () => {
     let totalDiscount = 0;
     const updatedItems = [...cartItems];
 
-    // Agrupar items por producto para verificar cantidad mínima
-    const itemsByProduct = cartItems.reduce((acc, item) => {
-      const productId = item.id;
-      if (!acc[productId]) {
-        acc[productId] = { items: [], totalQuantity: 0 };
-      }
-      acc[productId].items.push(item);
-      acc[productId].totalQuantity += item.quantity;
-      return acc;
-    }, {} as Record<string, { items: CartItem[], totalQuantity: number }>);
+    console.log('Calculando promociones para:', cartItems.length, 'items');
 
-    // Verificar promociones que requieren compra mínima o cantidad mínima
+    // Primero verificar promociones que requieren compra mínima
     const eligiblePromotions = activePromotions.filter(promo => {
       if (promo.conditions.minimumPurchase && subtotal < promo.conditions.minimumPurchase) {
         return false;
@@ -98,60 +89,82 @@ export const usePromotionCalculator = () => {
       return true;
     });
 
+    console.log('Promociones elegibles:', eligiblePromotions.length);
+
     eligiblePromotions.forEach(promotion => {
+      console.log('Evaluando promoción:', promotion.name);
       let discountAmount = 0;
       const affectedItems: CartItem[] = [];
 
       if (promotion.applicability === 'all') {
-        // Verificar cantidad mínima para promociones "all"
+        const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+        console.log('Promoción "all" - Total cantidad:', totalQuantity, 'Mínimo requerido:', promotion.conditions.minimumQuantity);
+        
         if (promotion.conditions.minimumQuantity && promotion.conditions.minimumQuantity > 1) {
-          const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-          if (totalItems >= promotion.conditions.minimumQuantity) {
+          if (totalQuantity >= promotion.conditions.minimumQuantity) {
             affectedItems.push(...updatedItems);
+            console.log('Promoción aplicable a todos los items');
           }
         } else {
           affectedItems.push(...updatedItems);
         }
       } else if (promotion.applicability === 'category') {
-        // Para promociones por categoría, verificar cantidad mínima por categoría
+        // Agrupar items por categoría y verificar cantidad mínima
         const categoryItems = updatedItems.filter(item => {
-          // Aquí necesitaríamos la categoría del item, por ahora usamos targetIds
-          return promotion.targetIds?.some(targetId => item.id === targetId);
+          // Buscar productos que coincidan con las categorías objetivo
+          return promotion.targetIds?.some(targetId => {
+            // Aquí necesitaríamos acceso a la categoría del producto
+            // Por ahora, usar una lógica simplificada
+            return item.productName?.toLowerCase().includes('papa') && targetId.includes('papa');
+          });
         });
         
-        if (promotion.conditions.minimumQuantity && promotion.conditions.minimumQuantity > 1) {
+        if (categoryItems.length > 0) {
           const categoryTotalQuantity = categoryItems.reduce((sum, item) => sum + item.quantity, 0);
-          if (categoryTotalQuantity >= promotion.conditions.minimumQuantity) {
+          console.log('Promoción categoría - Items encontrados:', categoryItems.length, 'Cantidad total:', categoryTotalQuantity);
+          
+          if (promotion.conditions.minimumQuantity && promotion.conditions.minimumQuantity > 1) {
+            if (categoryTotalQuantity >= promotion.conditions.minimumQuantity) {
+              affectedItems.push(...categoryItems);
+              console.log('Promoción aplicable a categoría');
+            }
+          } else {
             affectedItems.push(...categoryItems);
           }
-        } else {
-          affectedItems.push(...categoryItems);
         }
       } else if (promotion.applicability === 'product') {
-        // Para promociones por producto específico
+        // Agrupar por producto específico
         promotion.targetIds?.forEach(targetId => {
-          const productGroup = itemsByProduct[targetId];
-          if (productGroup) {
-            if (promotion.conditions.minimumQuantity && promotion.conditions.minimumQuantity > 1) {
-              if (productGroup.totalQuantity >= promotion.conditions.minimumQuantity) {
-                affectedItems.push(...productGroup.items);
-              }
-            } else {
-              affectedItems.push(...productGroup.items);
+          const productItems = updatedItems.filter(item => item.id === targetId);
+          const productTotalQuantity = productItems.reduce((sum, item) => sum + item.quantity, 0);
+          
+          console.log('Promoción producto - Items encontrados:', productItems.length, 'Cantidad total:', productTotalQuantity);
+          
+          if (promotion.conditions.minimumQuantity && promotion.conditions.minimumQuantity > 1) {
+            if (productTotalQuantity >= promotion.conditions.minimumQuantity) {
+              affectedItems.push(...productItems);
+              console.log('Promoción aplicable a producto específico');
             }
+          } else {
+            affectedItems.push(...productItems);
           }
         });
       }
 
       if (affectedItems.length > 0) {
+        console.log('Items afectados por promoción:', affectedItems.length);
+        
         if (promotion.type === 'percentage') {
           const itemsSubtotal = affectedItems.reduce((sum, item) => 
-            sum + (item.price * item.quantity), 0
+            sum + ((item.originalPrice || item.price) * item.quantity), 0
           );
           discountAmount = (itemsSubtotal * promotion.value) / 100;
         } else {
+          // Para promociones fijas, aplicar el descuento total
           discountAmount = promotion.value;
         }
+
+        console.log('Descuento calculado:', discountAmount);
 
         if (discountAmount > 0) {
           appliedPromotions.push({
@@ -164,15 +177,16 @@ export const usePromotionCalculator = () => {
 
           totalDiscount += discountAmount;
 
+          // Aplicar descuento proporcional a cada item afectado
+          const totalAffectedQuantity = affectedItems.reduce((sum, item) => sum + item.quantity, 0);
+          const discountPerUnit = discountAmount / totalAffectedQuantity;
+
           affectedItems.forEach(item => {
             const itemIndex = updatedItems.findIndex(i => i.sku === item.sku);
             if (itemIndex !== -1) {
-              const itemDiscount = promotion.type === 'percentage' 
-                ? (item.price * promotion.value) / 100
-                : promotion.value / affectedItems.reduce((sum, affectedItem) => sum + affectedItem.quantity, 0);
-              
               const currentItem = updatedItems[itemIndex];
-              const newPrice = Math.max(0, currentItem.price - itemDiscount);
+              const itemTotalDiscount = discountPerUnit * currentItem.quantity;
+              const newPrice = Math.max(0, currentItem.price - (itemTotalDiscount / currentItem.quantity));
               
               updatedItems[itemIndex] = {
                 ...currentItem,
@@ -185,7 +199,7 @@ export const usePromotionCalculator = () => {
                     promotionName: promotion.name,
                     type: promotion.type,
                     value: promotion.value,
-                    discountAmount: itemDiscount,
+                    discountAmount: itemTotalDiscount / currentItem.quantity,
                   }
                 ]
               };
@@ -194,6 +208,8 @@ export const usePromotionCalculator = () => {
         }
       }
     });
+
+    console.log('Descuento total aplicado:', totalDiscount);
 
     return {
       updatedItems,

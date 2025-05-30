@@ -141,7 +141,7 @@ export const OrderSummary = ({
   const change = paymentMethod === "cash" && cashReceived ? cashReceived - total : 0;
 
   return (
-    <div className="h-full flex flex-col max-h-[calc(100vh-120px)]">
+    <div className="h-full flex flex-col max-h-[calc(100vh-140px)]">
       <Card className="flex-1 flex flex-col min-h-0">
         <CardHeader className="flex-shrink-0 pb-3">
           <CardTitle className="text-lg">Resumen de Orden</CardTitle>
@@ -151,8 +151,8 @@ export const OrderSummary = ({
         </CardHeader>
         
         <CardContent className="flex-1 flex flex-col space-y-4 min-h-0 p-4">
-          {/* Lista de productos con scroll */}
-          <div className="flex-1 min-h-0">
+          {/* Lista de productos con scroll - ajustada la altura */}
+          <div className="flex-1 min-h-0 max-h-[45vh]">
             {items.length === 0 ? (
               <div className="flex items-center justify-center h-32">
                 <p className="text-gray-500 text-center">El carrito está vacío</p>
@@ -231,7 +231,7 @@ export const OrderSummary = ({
             )}
           </div>
 
-          {/* Totales - Parte fija */}
+          {/* Totales y formulario de pago - Parte fija */}
           {items.length > 0 && (
             <div className="flex-shrink-0 space-y-3 border-t pt-3">
               <div className="space-y-2 text-sm">
