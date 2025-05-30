@@ -132,11 +132,11 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
         </div>
       </div>
 
-      {/* Grid de productos con scroll */}
+      {/* Lista de productos con scroll */}
       <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
+        <div className="space-y-3 pb-4">
           {filteredProducts.length === 0 ? (
-            <div className="col-span-full text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500">
               {products?.length === 0 
                 ? "No hay productos disponibles" 
                 : "No se encontraron productos en esta categoría"}
@@ -146,37 +146,56 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
               const basePrice = product.variants?.[0]?.price || product.base_price || 5000;
               
               return (
-                <Card key={product.id} className="relative">
+                <Card key={product.id} className="relative w-full">
                   {getPromotionBadge(product.id, product.category_id || '', basePrice) && (
                     <div className="absolute top-2 right-2 z-10">
                       {getPromotionBadge(product.id, product.category_id || '', basePrice)}
                     </div>
                   )}
                   
-                  <CardHeader>
-                    <CardTitle className="text-sm">{product.name}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4">
-                    {product.image && (
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-32 object-cover mb-4 rounded-md"
-                      />
-                    )}
-                    {product.description && (
-                      <p className="text-sm text-gray-600 mb-2">{product.description}</p>
-                    )}
-                    <div className="text-xs text-gray-500 mb-2">
-                      Categoría: {product.category?.name || 'Sin categoría'}
+                  <div className="flex items-center p-4 space-x-4">
+                    {/* Imagen del producto */}
+                    <div className="flex-shrink-0">
+                      {product.image ? (
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-20 h-20 object-cover rounded-md"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 bg-gray-200 rounded-md flex items-center justify-center">
+                          <span className="text-gray-400 text-2xl">📦</span>
+                        </div>
+                      )}
                     </div>
-                  </CardContent>
-                  <CardFooter className="flex flex-col items-center">
-                    <ProductVariantSelector 
-                      product={product}
-                      onAddToCart={(variant, selectedOptions) => handleAddToCart(product, variant, selectedOptions)}
-                    />
-                  </CardFooter>
+                    
+                    {/* Información del producto */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col space-y-2">
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900 truncate">
+                            {product.name}
+                          </h3>
+                          {product.description && (
+                            <p className="text-xs text-gray-600 line-clamp-2">
+                              {product.description}
+                            </p>
+                          )}
+                          <div className="text-xs text-gray-500 mt-1">
+                            Categoría: {product.category?.name || 'Sin categoría'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Selector de variantes - lado derecho */}
+                    <div className="flex-shrink-0 min-w-[200px]">
+                      <ProductVariantSelector 
+                        product={product}
+                        onAddToCart={(variant, selectedOptions) => handleAddToCart(product, variant, selectedOptions)}
+                      />
+                    </div>
+                  </div>
                 </Card>
               );
             })
