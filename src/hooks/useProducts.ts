@@ -8,6 +8,7 @@ export interface Product {
   description?: string;
   category_id: string;
   image?: string;
+  base_price?: number;
   is_active: boolean;
   display_order: number;
   created_at: string;

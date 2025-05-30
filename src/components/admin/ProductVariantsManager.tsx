@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +39,6 @@ export const ProductVariantsManager = ({
       price: newVariant.price,
       option_values: newVariant.option_values || {},
       is_active: true,
-      created_at: new Date().toISOString(),
     };
 
     onUpdateVariants([...variants, variant]);

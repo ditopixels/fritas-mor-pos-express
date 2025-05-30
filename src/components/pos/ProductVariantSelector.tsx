@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +11,7 @@ interface ProductVariantSelectorProps {
 
 export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantSelectorProps) => {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
-  const { calculateItemPromotions } = "@/hooks/usePromotionCalculator";
+  const { calculateItemPromotions } = usePromotionCalculator();
 
   const getPromotionBadge = (price: number) => {
     const promotions = calculateItemPromotions(product.id, product.category_id || '', price);

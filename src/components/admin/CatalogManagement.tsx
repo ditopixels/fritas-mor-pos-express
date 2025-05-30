@@ -599,8 +599,7 @@ export const CatalogManagement = () => {
             {/* Product Options Manager */}
             <ProductOptionsManager
               product={editingProduct}
-              options={editingProduct.options || []}
-              onUpdateOptions={(options) => setEditingProduct(prev => prev ? { ...prev, options } : null)}
+              onClose={() => setEditingProduct(null)}
             />
 
             {/* Product Variants Manager */}
