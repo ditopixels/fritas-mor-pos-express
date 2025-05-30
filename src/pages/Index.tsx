@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { ProductGrid } from "@/components/pos/ProductGrid";
+import { OptimizedProductGrid } from "@/components/pos/OptimizedProductGrid";
 import { OrderSummary } from "@/components/pos/OrderSummary";
 import { OrdersHistory } from "@/components/pos/OrdersHistory";
 import { Header } from "@/components/pos/Header";
@@ -9,12 +8,12 @@ import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CartItem } from "@/types";
 import { useAuth } from "@/hooks/useAuth";
-import { useOrders } from "@/hooks/useOrders";
+import { useIncrementalOrders } from "@/hooks/useIncrementalOrders";
 import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
 const Index = () => {
   const { user, profile, loading, signOut } = useAuth();
-  const { data: orders } = useOrders();
+  const { data: orders } = useIncrementalOrders(25); // Cargar solo 25 órdenes inicialmente
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("pos");
   const [currentView, setCurrentView] = useState("pos");
@@ -121,7 +120,7 @@ const Index = () => {
             <TabsContent value="pos" className="space-y-0">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
                 <div className="lg:col-span-2">
-                  <ProductGrid onAddToCart={addToCart} />
+                  <OptimizedProductGrid onAddToCart={addToCart} />
                 </div>
                 
                 <div className="lg:col-span-1">
