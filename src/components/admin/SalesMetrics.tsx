@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -143,29 +142,31 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Selector de período */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
             <div>
-              <CardTitle>Métricas de Ventas</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-lg sm:text-xl">Métricas de Ventas</CardTitle>
+              <CardDescription className="text-sm">
                 Análisis detallado del rendimiento del negocio
               </CardDescription>
             </div>
-            <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange.from && dateRange.to
-                      ? `${format(dateRange.from, 'dd/MM/yyyy')} - ${format(dateRange.to, 'dd/MM/yyyy')}`
-                      : 'Seleccionar período'}
+                    <span className="text-xs sm:text-sm">
+                      {dateRange.from && dateRange.to
+                        ? `${format(dateRange.from, 'dd/MM/yyyy')} - ${format(dateRange.to, 'dd/MM/yyyy')}`
+                        : 'Seleccionar período'}
+                    </span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="end">
-                  <div className="flex">
+                  <div className="flex flex-col sm:flex-row">
                     <div className="p-3">
                       <div className="text-sm font-medium mb-2">Fecha de inicio</div>
                       <Calendar
@@ -175,7 +176,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                         locale={es}
                       />
                     </div>
-                    <div className="p-3 border-l">
+                    <div className="p-3 border-t sm:border-t-0 sm:border-l">
                       <div className="text-sm font-medium mb-2">Fecha final</div>
                       <Calendar
                         mode="single"
@@ -187,9 +188,9 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                   </div>
                 </PopoverContent>
               </Popover>
-              <Button onClick={exportToExcel}>
+              <Button onClick={exportToExcel} size="sm" className="w-full sm:w-auto">
                 <Download className="mr-2 h-4 w-4" />
-                Exportar Excel
+                <span className="text-xs sm:text-sm">Exportar Excel</span>
               </Button>
             </div>
           </div>
@@ -197,60 +198,60 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       </Card>
 
       {/* Tarjetas de métricas principales */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Ingresos Totales</CardTitle>
+            <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${metrics.totalRevenue.toLocaleString()}</div>
+            <div className="text-lg sm:text-2xl font-bold">${metrics.totalRevenue.toLocaleString()}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Órdenes</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Total Órdenes</CardTitle>
+            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.totalOrders}</div>
+            <div className="text-lg sm:text-2xl font-bold">{metrics.totalOrders}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ticket Promedio</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Ticket Promedio</CardTitle>
+            <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${Math.round(metrics.averageTicket).toLocaleString()}</div>
+            <div className="text-lg sm:text-2xl font-bold">${Math.round(metrics.averageTicket).toLocaleString()}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Productos Vendidos</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Productos Vendidos</CardTitle>
+            <Package className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.totalProducts}</div>
+            <div className="text-lg sm:text-2xl font-bold">{metrics.totalProducts}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Ingresos Diarios</CardTitle>
+            <CardTitle className="text-lg">Ingresos Diarios</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart data={metrics.dailyRevenue}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip 
                   formatter={(value: number) => [`$${value.toLocaleString()}`, 'Ingresos']}
                 />
@@ -262,10 +263,10 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Métodos de Pago</CardTitle>
+            <CardTitle className="text-lg">Métodos de Pago</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
                   data={metrics.paymentMethods}
@@ -291,7 +292,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       {/* Productos más vendidos */}
       <Card>
         <CardHeader>
-          <CardTitle>Productos Más Vendidos</CardTitle>
+          <CardTitle className="text-lg">Productos Más Vendidos</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -300,16 +301,16 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
             ) : (
               metrics.topProducts.map((product, index) => (
                 <div key={product.name} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-2xl font-bold text-gray-400">#{index + 1}</span>
-                    <div>
-                      <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-gray-500">{product.quantity} unidades vendidas</p>
+                  <div className="flex items-center space-x-3 min-w-0 flex-1">
+                    <span className="text-xl sm:text-2xl font-bold text-gray-400 flex-shrink-0">#{index + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm sm:text-base truncate">{product.name}</p>
+                      <p className="text-xs sm:text-sm text-gray-500">{product.quantity} unidades vendidas</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold">${product.revenue.toLocaleString()}</p>
-                    <p className="text-sm text-gray-500">en ingresos</p>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-bold text-sm sm:text-base">${product.revenue.toLocaleString()}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">en ingresos</p>
                   </div>
                 </div>
               ))
@@ -321,23 +322,23 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       {/* Lista de órdenes */}
       <Card>
         <CardHeader>
-          <CardTitle>Últimas Órdenes</CardTitle>
+          <CardTitle className="text-lg">Últimas Órdenes</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {filteredOrders.length === 0 ? (
               <p className="text-gray-500 text-center py-4">No hay órdenes en el período seleccionado</p>
             ) : (
               filteredOrders.slice(0, 10).map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-4 border rounded">
-                  <div>
-                    <p className="font-medium">ORD-{order.id.slice(-8)}</p>
-                    <p className="text-sm text-gray-500">{order.customerName}</p>
+                <div key={order.id} className="flex items-center justify-between p-3 sm:p-4 border rounded">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base">ORD-{order.id.slice(-8)}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 truncate">{order.customerName}</p>
                     <p className="text-xs text-gray-400">{format(order.createdAt, 'dd/MM/yyyy HH:mm')}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold">${order.total.toLocaleString()}</p>
-                    <p className="text-sm text-gray-500">{order.items.length} productos</p>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-bold text-sm sm:text-base">${order.total.toLocaleString()}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">{order.items.length} productos</p>
                   </div>
                 </div>
               ))

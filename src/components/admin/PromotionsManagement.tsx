@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -132,20 +131,20 @@ export const PromotionsManagement = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
             <div>
-              <CardTitle className="flex items-center space-x-2">
-                <Tag className="h-5 w-5" />
+              <CardTitle className="flex items-center space-x-2 text-lg sm:text-xl">
+                <Tag className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span>Gestión de Promociones</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-sm">
                 Crea y administra promociones y descuentos avanzados
               </CardDescription>
             </div>
-            <Button onClick={() => setShowForm(true)}>
+            <Button onClick={() => setShowForm(true)} size="sm" className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Nueva Promoción
             </Button>
@@ -155,15 +154,15 @@ export const PromotionsManagement = () => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="active">Activas ({activePromotions.length})</TabsTrigger>
-          <TabsTrigger value="inactive">Inactivas ({inactivePromotions.length})</TabsTrigger>
+          <TabsTrigger value="active" className="text-xs sm:text-sm">Activas ({activePromotions.length})</TabsTrigger>
+          <TabsTrigger value="inactive" className="text-xs sm:text-sm">Inactivas ({inactivePromotions.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="active" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Promociones Activas</CardTitle>
-              <CardDescription>Promociones actualmente en funcionamiento</CardDescription>
+              <CardTitle className="text-lg">Promociones Activas</CardTitle>
+              <CardDescription className="text-sm">Promociones actualmente en funcionamiento</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -175,22 +174,22 @@ export const PromotionsManagement = () => {
               ) : (
                 <div className="grid gap-4">
                   {activePromotions.map((promotion) => (
-                    <div key={promotion.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h3 className="font-semibold">{promotion.name}</h3>
-                            <Badge variant="outline" className="bg-green-50 text-green-700">
+                    <div key={promotion.id} className="border rounded-lg p-3 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-3 sm:space-y-0">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <h3 className="font-semibold text-sm sm:text-base truncate">{promotion.name}</h3>
+                            <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
                               {promotion.type === "percentage" ? <Percent className="h-3 w-3 mr-1" /> : <DollarSign className="h-3 w-3 mr-1" />}
                               {formatValue(promotion.type, promotion.value)}
                             </Badge>
                           </div>
                           
                           {promotion.description && (
-                            <p className="text-sm text-gray-600 mb-2">{promotion.description}</p>
+                            <p className="text-xs sm:text-sm text-gray-600 mb-2">{promotion.description}</p>
                           )}
                           
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-2">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500 mb-2">
                             <span>
                               Aplicabilidad: {
                                 promotion.applicability === "all" ? "Todos" : 
@@ -217,7 +216,7 @@ export const PromotionsManagement = () => {
                             Creada: {format(promotion.createdAt, "dd/MM/yyyy", { locale: es })}
                           </div>
                         </div>
-                        <div className="flex space-x-2 ml-4">
+                        <div className="flex space-x-2 sm:ml-4 justify-end">
                           <Button
                             size="sm"
                             variant="outline"
@@ -249,8 +248,8 @@ export const PromotionsManagement = () => {
         <TabsContent value="inactive" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Promociones Inactivas</CardTitle>
-              <CardDescription>Promociones pausadas o finalizadas</CardDescription>
+              <CardTitle className="text-lg">Promociones Inactivas</CardTitle>
+              <CardDescription className="text-sm">Promociones pausadas o finalizadas</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -262,25 +261,25 @@ export const PromotionsManagement = () => {
               ) : (
                 <div className="grid gap-4">
                   {inactivePromotions.map((promotion) => (
-                    <div key={promotion.id} className="border rounded-lg p-4 opacity-60">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h3 className="font-semibold">{promotion.name}</h3>
-                            <Badge variant="outline" className="bg-gray-50 text-gray-700">
+                    <div key={promotion.id} className="border rounded-lg p-3 sm:p-4 opacity-60">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-3 sm:space-y-0">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <h3 className="font-semibold text-sm sm:text-base truncate">{promotion.name}</h3>
+                            <Badge variant="outline" className="bg-gray-50 text-gray-700 text-xs">
                               {promotion.type === "percentage" ? <Percent className="h-3 w-3 mr-1" /> : <DollarSign className="h-3 w-3 mr-1" />}
                               {formatValue(promotion.type, promotion.value)}
                             </Badge>
                           </div>
                           {promotion.description && (
-                            <p className="text-sm text-gray-600 mb-2">{promotion.description}</p>
+                            <p className="text-xs sm:text-sm text-gray-600 mb-2">{promotion.description}</p>
                           )}
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
                             <span>Aplicabilidad: {promotion.applicability === "all" ? "Todos" : promotion.applicability}</span>
                             <span>Creada: {new Date(promotion.createdAt).toLocaleDateString()}</span>
                           </div>
                         </div>
-                        <div className="flex space-x-2 ml-4">
+                        <div className="flex space-x-2 sm:ml-4 justify-end">
                           <Button
                             size="sm"
                             variant="outline"
