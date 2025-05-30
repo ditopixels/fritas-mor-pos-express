@@ -1,204 +1,373 @@
-
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CartItem } from "@/types";
-import { useProducts, useCategories, Product, ProductVariant } from "@/hooks/useProducts";
-import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProductVariantSelector } from "./ProductVariantSelector";
+import { CartItem } from "@/types";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Tag } from "lucide-react";
+import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
 interface ProductGridProps {
   onAddToCart: (item: Omit<CartItem, "quantity">) => void;
 }
 
 export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const { data: products, isLoading: productsLoading, error: productsError } = useProducts();
-  const { data: categories, isLoading: categoriesLoading } = useCategories();
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const { calculateItemPromotions } = usePromotionCalculator();
 
-  const sortedCategories = categories?.sort((a, b) => a.display_order - b.display_order);
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
 
-  useEffect(() => {
-    if (sortedCategories && sortedCategories.length > 0 && !selectedCategory) {
-      setSelectedCategory(sortedCategories[0].id);
-    }
-  }, [sortedCategories, selectedCategory]);
+      if (error) throw error;
+      return data.map(category => ({
+        id: category.id,
+        name: category.name,
+        description: category.description,
+        image: category.image,
+        isActive: category.is_active,
+        displayOrder: category.display_order,
+        createdAt: new Date(category.created_at),
+      }));
+    },
+  });
 
-  useEffect(() => {
-    if (products && selectedCategory) {
-      const filtered = products.filter(product => product.category_id === selectedCategory);
-      const sortedFiltered = filtered.sort((a, b) => a.display_order - b.display_order);
-      setFilteredProducts(sortedFiltered);
-    }
-  }, [products, selectedCategory]);
+  const { data: products = [] } = useQuery({
+    queryKey: ['products', selectedCategory],
+    queryFn: async () => {
+      let query = supabase
+        .from('products')
+        .select(`
+          *,
+          product_variants(*)
+        `)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
 
-  const handleAddToCart = (product: Product, variant: ProductVariant, selectedOptions: Record<string, string>) => {
-    const appliedPromotions = calculateItemPromotions(
-      product.id,
-      product.category_id || '',
-      variant.price
-    );
+      if (selectedCategory !== "all") {
+        query = query.eq('category_id', selectedCategory);
+      }
 
-    const finalPrice = appliedPromotions.length > 0 ? 
-      appliedPromotions.reduce((price, promo) => price - promo.discountAmount, variant.price) :
-      variant.price;
+      const { data, error } = await query;
+      if (error) throw error;
 
-    // Crear un nombre único que incluya las opciones seleccionadas
-    const variantDisplayName = Object.keys(selectedOptions).length > 0 
-      ? `${variant.name} (${Object.entries(selectedOptions).map(([key, value]) => `${key}: ${value}`).join(', ')})`
-      : variant.name;
+      return data.map(product => ({
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        categoryId: product.category_id,
+        image: product.image,
+        base_price: product.base_price,
+        options: [],
+        isActive: product.is_active,
+        displayOrder: product.display_order,
+        createdAt: new Date(product.created_at),
+        variants: product.product_variants?.map((variant: any) => ({
+          id: variant.id,
+          productId: variant.product_id,
+          sku: variant.sku,
+          name: variant.name,
+          price: variant.price,
+          optionValues: variant.option_values || {},
+          isActive: variant.is_active,
+          stock: variant.stock,
+        })) || []
+      }));
+    },
+  });
 
-    const item = {
-      id: variant.id,
-      productName: product.name,
-      variantName: variantDisplayName,
-      sku: variant.sku,
-      price: finalPrice,
-      originalPrice: appliedPromotions.length > 0 ? variant.price : undefined,
-      image: product.image,
-      variantId: variant.id,
+  const handleAddToCart = (productId: string, categoryId: string, variantId: string, sku: string, productName: string, variantName: string, price: number) => {
+    console.log('ProductGrid - Adding to cart:', { productId, categoryId, variantId, sku, productName, variantName, price });
+    
+    const appliedPromotions = calculateItemPromotions(productId, categoryId, price);
+    
+    const cartItem: Omit<CartItem, "quantity"> = {
+      id: productId,
+      productName,
+      variantName,
+      sku,
+      price,
+      variantId,
+      categoryId, // Asegurar que categoryId se incluya
       appliedPromotions,
     };
-    onAddToCart(item);
+
+    console.log('ProductGrid - Cart item created:', cartItem);
+    onAddToCart(cartItem);
   };
-
-  const getPromotionBadge = (productId: string, categoryId: string, price: number) => {
-    const promotions = calculateItemPromotions(productId, categoryId, price);
-    if (promotions.length === 0) return null;
-
-    const totalDiscount = promotions.reduce((sum, promo) => sum + promo.discountAmount, 0);
-    const percentage = Math.round((totalDiscount / price) * 100);
-
-    return (
-      <Badge variant="secondary" className="bg-red-100 text-red-700 text-xs">
-        -{percentage}%
-      </Badge>
-    );
-  };
-
-  if (productsLoading || categoriesLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
-        <span className="ml-2">Cargando productos...</span>
-      </div>
-    );
-  }
-
-  if (productsError) {
-    return (
-      <div className="text-center text-red-600 p-4">
-        Error al cargar los productos. Por favor intenta de nuevo.
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
-      {/* Botones de categorías - fijo arriba */}
-      <div className="flex-shrink-0">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {sortedCategories?.map((category) => (
-            <Button
-              key={category.id}
-              variant={selectedCategory === category.id ? "default" : "outline"}
-              onClick={() => setSelectedCategory(category.id)}
-              className={`h-20 flex flex-col items-center justify-center space-y-2 text-sm font-semibold transition-all duration-200 ${
-                selectedCategory === category.id 
-                  ? "bg-yellow-500 text-white border-yellow-600 shadow-lg scale-105" 
-                  : "bg-white hover:bg-yellow-50 border-yellow-200"
-              }`}
-            >
-              <div className="text-2xl animate-bounce">
-                {category.image ? (
-                  <img 
-                    src={category.image} 
-                    alt={category.name} 
-                    className="w-8 h-8 object-cover rounded"
-                  />
-                ) : (
-                  category.name === 'Papas' ? '🍟' :
-                  category.name === 'Hamburguesas' ? '🍔' :
-                  category.name === 'Pinchos' ? '🍖' :
-                  category.name === 'Gaseosas' ? '🥤' : '🍽️'
-                )}
-              </div>
-              <span className="text-xs">{category.name}</span>
-            </Button>
-          ))}
-        </div>
+    <Card className="h-full flex flex-col">
+      <div className="p-4 border-b flex-shrink-0">
+        <h2 className="text-xl font-bold mb-4">Productos</h2>
+        
+        <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
+          <ScrollArea className="w-full">
+            <TabsList className="grid grid-flow-col auto-cols-max gap-2 w-max">
+              <TabsTrigger value="all" className="whitespace-nowrap">
+                Todos
+              </TabsTrigger>
+              {categories.map((category) => (
+                <TabsTrigger 
+                  key={category.id} 
+                  value={category.id}
+                  className="whitespace-nowrap"
+                >
+                  {category.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </ScrollArea>
+        </Tabs>
       </div>
 
-      {/* Lista de productos con scroll */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="space-y-3 pb-4">
-          {filteredProducts.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              {products?.length === 0 
-                ? "No hay productos disponibles" 
-                : "No se encontraron productos en esta categoría"}
-            </div>
-          ) : (
-            filteredProducts.map((product) => {
-              const basePrice = product.variants?.[0]?.price || product.base_price || 5000;
-              
-              return (
-                <Card key={product.id} className="relative w-full">
-                  {getPromotionBadge(product.id, product.category_id || '', basePrice) && (
-                    <div className="absolute top-2 right-2 z-10">
-                      {getPromotionBadge(product.id, product.category_id || '', basePrice)}
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center p-4 space-x-4">
-                    {/* Imagen del producto */}
-                    <div className="flex-shrink-0">
-                      {product.image ? (
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-20 h-20 object-cover rounded-md"
-                        />
-                      ) : (
-                        <div className="w-20 h-20 bg-gray-200 rounded-md flex items-center justify-center">
-                          <span className="text-gray-400 text-2xl">📦</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Información del producto */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-col space-y-2">
-                        <div>
-                          <h3 className="text-sm font-semibold text-gray-900 truncate">
-                            {product.name}
-                          </h3>
-                          {product.description && (
-                            <p className="text-xs text-gray-600 line-clamp-2">
-                              {product.description}
-                            </p>
+      <div className="flex-1 min-h-0">
+        <ScrollArea className="h-full">
+          <div className="p-4">
+            <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
+              <TabsContent value="all" className="mt-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {products.map((product) => (
+                    <Card key={product.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                          {product.image ? (
+                            <img 
+                              src={product.image} 
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-gray-400 text-4xl">🍽️</span>
                           )}
-                          <div className="text-xs text-gray-500 mt-1">
-                            Categoría: {product.category?.name || 'Sin categoría'}
-                          </div>
-                          <ProductVariantSelector 
-                            product={product}
-                            onAddToCart={(variant, selectedOptions) => handleAddToCart(product, variant, selectedOptions)}
-                          />
                         </div>
-                      </div>
-                    </div>
-                    
+                        
+                        <h3 className="font-semibold text-sm mb-2 line-clamp-2">
+                          {product.name}
+                        </h3>
+                        
+                        {product.description && (
+                          <p className="text-xs text-gray-600 mb-3 line-clamp-2">
+                            {product.description}
+                          </p>
+                        )}
+
+                        <div className="space-y-2">
+                          {product.variants?.length > 0 ? (
+                            product.variants.map((variant) => {
+                              const appliedPromotions = calculateItemPromotions(product.id, product.categoryId || '', variant.price);
+                              const hasPromotion = appliedPromotions.length > 0;
+                              const discountedPrice = hasPromotion 
+                                ? variant.price - appliedPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
+                                : variant.price;
+
+                              return (
+                                <div key={variant.id} className="border rounded-lg p-2">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="text-xs font-medium line-clamp-2 flex-1">
+                                      {variant.name}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                      {hasPromotion ? (
+                                        <div className="flex items-center space-x-1">
+                                          <span className="text-xs text-gray-500 line-through">
+                                            ${variant.price.toLocaleString()}
+                                          </span>
+                                          <span className="text-sm font-bold text-red-600">
+                                            ${discountedPrice.toLocaleString()}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-sm font-bold">
+                                          ${variant.price.toLocaleString()}
+                                        </span>
+                                      )}
+                                      
+                                      {hasPromotion && (
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {appliedPromotions.map((promo, index) => (
+                                            <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                              <Tag className="h-2 w-2 mr-1" />
+                                              {promo.promotionName}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <ProductVariantSelector
+                                      productId={product.id}
+                                      categoryId={product.categoryId || ''}
+                                      variant={variant}
+                                      productName={product.name}
+                                      onAddToCart={handleAddToCart}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="border rounded-lg p-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold">
+                                  ${(product.base_price || 0).toLocaleString()}
+                                </span>
+                                <button
+                                  onClick={() => handleAddToCart(
+                                    product.id,
+                                    product.categoryId || '',
+                                    '',
+                                    `${product.id}-default`,
+                                    product.name,
+                                    'Estándar',
+                                    product.base_price || 0
+                                  )}
+                                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors"
+                                >
+                                  Agregar
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+
+              {categories.map((category) => (
+                <TabsContent key={category.id} value={category.id} className="mt-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {products
+                      .filter(product => product.categoryId === category.id)
+                      .map((product) => (
+                        <Card key={product.id} className="hover:shadow-md transition-shadow">
+                          <CardContent className="p-4">
+                            <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                              {product.image ? (
+                                <img 
+                                  src={product.image} 
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-gray-400 text-4xl">🍽️</span>
+                              )}
+                            </div>
+                            
+                            <h3 className="font-semibold text-sm mb-2 line-clamp-2">
+                              {product.name}
+                            </h3>
+                            
+                            {product.description && (
+                              <p className="text-xs text-gray-600 mb-3 line-clamp-2">
+                                {product.description}
+                              </p>
+                            )}
+
+                            <div className="space-y-2">
+                              {product.variants?.length > 0 ? (
+                                product.variants.map((variant) => {
+                                  const appliedPromotions = calculateItemPromotions(product.id, product.categoryId || '', variant.price);
+                                  const hasPromotion = appliedPromotions.length > 0;
+                                  const discountedPrice = hasPromotion 
+                                    ? variant.price - appliedPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
+                                    : variant.price;
+
+                                  return (
+                                    <div key={variant.id} className="border rounded-lg p-2">
+                                      <div className="flex justify-between items-start mb-1">
+                                        <span className="text-xs font-medium line-clamp-2 flex-1">
+                                          {variant.name}
+                                        </span>
+                                      </div>
+                                      
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                          {hasPromotion ? (
+                                            <div className="flex items-center space-x-1">
+                                              <span className="text-xs text-gray-500 line-through">
+                                                ${variant.price.toLocaleString()}
+                                              </span>
+                                              <span className="text-sm font-bold text-red-600">
+                                                ${discountedPrice.toLocaleString()}
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            <span className="text-sm font-bold">
+                                              ${variant.price.toLocaleString()}
+                                            </span>
+                                          )}
+                                          
+                                          {hasPromotion && (
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              {appliedPromotions.map((promo, index) => (
+                                                <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                                  <Tag className="h-2 w-2 mr-1" />
+                                                  {promo.promotionName}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                        
+                                        <ProductVariantSelector
+                                          productId={product.id}
+                                          categoryId={product.categoryId || ''}
+                                          variant={variant}
+                                          productName={product.name}
+                                          onAddToCart={handleAddToCart}
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <div className="border rounded-lg p-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-bold">
+                                      ${(product.base_price || 0).toLocaleString()}
+                                    </span>
+                                    <button
+                                      onClick={() => handleAddToCart(
+                                        product.id,
+                                        product.categoryId || '',
+                                        '',
+                                        `${product.id}-default`,
+                                        product.name,
+                                        'Estándar',
+                                        product.base_price || 0
+                                      )}
+                                      className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors"
+                                    >
+                                      Agregar
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
                   </div>
-                </Card>
-              );
-            })
-          )}
-        </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </div>
+        </ScrollArea>
       </div>
-    </div>
+    </Card>
   );
 };

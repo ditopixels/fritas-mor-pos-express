@@ -57,7 +57,11 @@ export const usePromotionCalculator = () => {
   const calculatePromotions = (cartItems: CartItem[], subtotal: number) => {
     const appliedPromotions: AppliedPromotion[] = [];
     let totalDiscount = 0;
-    const updatedItems = [...cartItems];
+    const updatedItems = cartItems.map(item => ({
+      ...item,
+      originalPrice: item.originalPrice || item.price,
+      appliedPromotions: [] as AppliedPromotion[]
+    }));
 
     console.log('=== CALCULANDO PROMOCIONES ===');
     console.log('Items en carrito:', cartItems.length);
@@ -69,14 +73,6 @@ export const usePromotionCalculator = () => {
     })));
     console.log('Subtotal:', subtotal);
     console.log('Promociones activas:', activePromotions.length);
-    console.log('Promociones activas details:', activePromotions.map(p => ({
-      name: p.name,
-      type: p.type,
-      value: p.value,
-      applicability: p.applicability,
-      targetIds: p.targetIds,
-      minimumQuantity: p.conditions.minimumQuantity
-    })));
 
     // Verificar promociones que requieren compra mínima
     const eligiblePromotions = activePromotions.filter(promo => {
@@ -126,19 +122,18 @@ export const usePromotionCalculator = () => {
       // Calcular el descuento según el tipo de promoción
       if (promotion.type === 'percentage') {
         const itemsSubtotal = eligibleItems.reduce((sum, item) => 
-          sum + ((item.originalPrice || item.price) * item.quantity), 0
+          sum + (item.originalPrice * item.quantity), 0
         );
         discountAmount = (itemsSubtotal * promotion.value) / 100;
         console.log('Descuento porcentual - Subtotal items elegibles:', itemsSubtotal, 'Descuento:', discountAmount);
       } else if (promotion.type === 'fixed') {
-        // Para promociones fijas
         if (promotion.conditions.minimumQuantity && promotion.conditions.minimumQuantity >= 3) {
           // Promoción tipo 3x2: por cada grupo de cantidad mínima, aplicar descuento
           const groups = Math.floor(totalEligibleQuantity / promotion.conditions.minimumQuantity);
           discountAmount = groups * promotion.value;
-          console.log('Promoción 3x2 - Grupos:', groups, 'Descuento por grupo:', promotion.value, 'Descuento total:', discountAmount);
+          console.log('Promoción tipo 3x2 - Grupos:', groups, 'Descuento por grupo:', promotion.value, 'Descuento total:', discountAmount);
         } else {
-          // Descuento fijo por cantidad total de items elegibles
+          // Descuento fijo por unidad
           discountAmount = promotion.value * totalEligibleQuantity;
           console.log('Descuento fijo - Valor por item:', promotion.value, 'Cantidad:', totalEligibleQuantity, 'Descuento total:', discountAmount);
         }
@@ -161,19 +156,18 @@ export const usePromotionCalculator = () => {
         const totalAffectedQuantity = eligibleItems.reduce((sum, item) => sum + item.quantity, 0);
         const discountPerUnit = discountAmount / totalAffectedQuantity;
 
-        eligibleItems.forEach(item => {
-          const itemIndex = updatedItems.findIndex(i => i.sku === item.sku);
+        eligibleItems.forEach(eligibleItem => {
+          const itemIndex = updatedItems.findIndex(i => i.sku === eligibleItem.sku);
           if (itemIndex !== -1) {
             const currentItem = updatedItems[itemIndex];
             const itemTotalDiscount = discountPerUnit * currentItem.quantity;
-            const newPrice = Math.max(0, currentItem.price - (itemTotalDiscount / currentItem.quantity));
+            const newPrice = Math.max(0, currentItem.originalPrice - (itemTotalDiscount / currentItem.quantity));
             
             updatedItems[itemIndex] = {
               ...currentItem,
-              originalPrice: currentItem.originalPrice || currentItem.price,
               price: newPrice,
               appliedPromotions: [
-                ...(currentItem.appliedPromotions || []),
+                ...currentItem.appliedPromotions,
                 {
                   promotionId: promotion.id,
                   promotionName: promotion.name,
@@ -183,6 +177,8 @@ export const usePromotionCalculator = () => {
                 }
               ]
             };
+            
+            console.log(`Aplicado descuento a ${currentItem.productName}: precio original ${currentItem.originalPrice}, nuevo precio ${newPrice}`);
           }
         });
       } else {
