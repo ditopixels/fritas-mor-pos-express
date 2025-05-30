@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CartItem } from "@/pages/Index";
 
 // Importar iconos apropiados - usando iconos disponibles en lucide-react
@@ -28,10 +28,10 @@ const baseProducts = {
         { id: "grande", name: "Grande", multiplier: 1.6 }
       ],
       sauces: [
-        { id: "sin-salsa", name: "Sin Salsa", price: 0 },
-        { id: "salsa-rosada", name: "Salsa Rosada", price: 500 },
-        { id: "salsa-bbq", name: "Salsa BBQ", price: 500 },
-        { id: "todas-salsas", name: "Todas las Salsas", price: 800 }
+        { id: "sin-salsa", name: "Sin Salsa" },
+        { id: "salsa-rosada", name: "Salsa Rosada" },
+        { id: "salsa-bbq", name: "Salsa BBQ" },
+        { id: "todas-salsas", name: "Todas las Salsas" }
       ]
     },
     { 
@@ -44,10 +44,10 @@ const baseProducts = {
         { id: "grande", name: "Grande", multiplier: 1.6 }
       ],
       sauces: [
-        { id: "sin-salsa", name: "Sin Salsa", price: 0 },
-        { id: "salsa-rosada", name: "Salsa Rosada", price: 500 },
-        { id: "salsa-bbq", name: "Salsa BBQ", price: 500 },
-        { id: "todas-salsas", name: "Todas las Salsas", price: 800 }
+        { id: "sin-salsa", name: "Sin Salsa" },
+        { id: "salsa-rosada", name: "Salsa Rosada" },
+        { id: "salsa-bbq", name: "Salsa BBQ" },
+        { id: "todas-salsas", name: "Todas las Salsas" }
       ]
     }
     // Continuar con los otros 4 tipos...
@@ -74,7 +74,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
   const [selectedCategory, setSelectedCategory] = useState("papas");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedSize, setSelectedSize] = useState<string>("");
-  const [selectedSauce, setSelectedSauce] = useState<string>("");
+  const [selectedSauces, setSelectedSauces] = useState<string[]>([]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("es-CO", {
@@ -84,10 +84,23 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
     }).format(price);
   };
 
-  const handleAddVariantToCart = (product: any, size: any, sauce: any) => {
-    const finalPrice = Math.round((product.basePrice * size.multiplier) + sauce.price);
-    const variantName = `${size.name} - ${sauce.name}`;
-    const sku = `${product.id.toUpperCase()}-${size.id.toUpperCase()}-${sauce.id.toUpperCase()}`;
+  const handleSauceToggle = (sauceId: string) => {
+    setSelectedSauces(prev => {
+      if (prev.includes(sauceId)) {
+        return prev.filter(id => id !== sauceId);
+      } else {
+        return [...prev, sauceId];
+      }
+    });
+  };
+
+  const handleAddVariantToCart = (product: any, size: any, sauces: string[]) => {
+    const finalPrice = Math.round(product.basePrice * size.multiplier);
+    const sauceNames = sauces.map(sauceId => 
+      product.sauces.find((s: any) => s.id === sauceId)?.name
+    ).filter(Boolean);
+    const variantName = `${size.name} - ${sauceNames.join(', ') || 'Sin Salsa'}`;
+    const sku = `${product.id.toUpperCase()}-${size.id.toUpperCase()}-${sauces.join('-').toUpperCase()}`;
 
     onAddToCart({
       id: sku,
@@ -100,7 +113,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
     // Reset selections
     setSelectedProduct(null);
     setSelectedSize("");
-    setSelectedSauce("");
+    setSelectedSauces([]);
   };
 
   const handleDirectAddToCart = (product: any) => {
@@ -108,15 +121,14 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
   };
 
   const calculateVariantPrice = () => {
-    if (!selectedProduct || !selectedSize || !selectedSauce) return 0;
+    if (!selectedProduct || !selectedSize) return 0;
     
     const product = selectedProduct;
     const size = product.sizes.find((s: any) => s.id === selectedSize);
-    const sauce = product.sauces.find((s: any) => s.id === selectedSauce);
     
-    if (!size || !sauce) return 0;
+    if (!size) return 0;
     
-    return Math.round((product.basePrice * size.multiplier) + sauce.price);
+    return Math.round(product.basePrice * size.multiplier);
   };
 
   const getSizeColor = (variantName: string) => {
@@ -141,7 +153,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                   setSelectedCategory(category.id);
                   setSelectedProduct(null);
                   setSelectedSize("");
-                  setSelectedSauce("");
+                  setSelectedSauces([]);
                 }}
                 className={`h-20 flex flex-col space-y-2 text-lg font-semibold ${
                   selectedCategory === category.id 
@@ -165,43 +177,57 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
               <div className="bg-gradient-to-r from-yellow-50 to-red-50 rounded-lg p-4 border-2 border-yellow-200">
                 <h3 className="text-lg font-bold mb-4">{selectedProduct.name}</h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-6">
+                  {/* Size Selection with Buttons */}
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Tamaño:</label>
-                    <Select value={selectedSize} onValueChange={setSelectedSize}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar tamaño" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {selectedProduct.sizes.map((size: any) => (
-                          <SelectItem key={size.id} value={size.id}>
-                            {size.name} - {formatPrice(selectedProduct.basePrice * size.multiplier)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <label className="block text-sm font-semibold mb-3">Tamaño:</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {selectedProduct.sizes.map((size: any) => (
+                        <Button
+                          key={size.id}
+                          variant={selectedSize === size.id ? "default" : "outline"}
+                          onClick={() => setSelectedSize(size.id)}
+                          className={`p-4 h-auto flex flex-col space-y-1 ${
+                            selectedSize === size.id 
+                              ? "bg-gradient-to-r from-yellow-500 to-red-500 text-white" 
+                              : "hover:bg-yellow-50"
+                          }`}
+                        >
+                          <span className="font-semibold">{size.name}</span>
+                          <span className="text-sm">
+                            {formatPrice(selectedProduct.basePrice * size.multiplier)}
+                          </span>
+                        </Button>
+                      ))}
+                    </div>
                   </div>
 
+                  {/* Sauce Selection with Checkboxes */}
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Salsa:</label>
-                    <Select value={selectedSauce} onValueChange={setSelectedSauce}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar salsa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {selectedProduct.sauces.map((sauce: any) => (
-                          <SelectItem key={sauce.id} value={sauce.id}>
-                            {sauce.name} {sauce.price > 0 && `+${formatPrice(sauce.price)}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <label className="block text-sm font-semibold mb-3">Salsas (puedes seleccionar varias):</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedProduct.sauces.map((sauce: any) => (
+                        <div key={sauce.id} className="flex items-center space-x-2 p-2 border rounded-lg hover:bg-yellow-50">
+                          <Checkbox
+                            id={sauce.id}
+                            checked={selectedSauces.includes(sauce.id)}
+                            onCheckedChange={() => handleSauceToggle(sauce.id)}
+                          />
+                          <label 
+                            htmlFor={sauce.id} 
+                            className="text-sm font-medium cursor-pointer flex-1"
+                          >
+                            {sauce.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center justify-between mt-6">
                   <div className="text-lg font-bold text-red-600">
-                    Total: {selectedSize && selectedSauce ? formatPrice(calculateVariantPrice()) : "---"}
+                    Total: {selectedSize ? formatPrice(calculateVariantPrice()) : "Selecciona un tamaño"}
                   </div>
                   <div className="space-x-2">
                     <Button 
@@ -209,20 +235,19 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                       onClick={() => {
                         setSelectedProduct(null);
                         setSelectedSize("");
-                        setSelectedSauce("");
+                        setSelectedSauces([]);
                       }}
                     >
                       Cancelar
                     </Button>
                     <Button 
                       onClick={() => {
-                        if (selectedSize && selectedSauce) {
+                        if (selectedSize) {
                           const size = selectedProduct.sizes.find((s: any) => s.id === selectedSize);
-                          const sauce = selectedProduct.sauces.find((s: any) => s.id === selectedSauce);
-                          handleAddVariantToCart(selectedProduct, size, sauce);
+                          handleAddVariantToCart(selectedProduct, size, selectedSauces);
                         }
                       }}
-                      disabled={!selectedSize || !selectedSauce}
+                      disabled={!selectedSize}
                       className="bg-gradient-to-r from-yellow-500 to-red-500 hover:from-yellow-600 hover:to-red-600"
                     >
                       Agregar al Pedido
@@ -242,7 +267,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                     <div className="w-full">
                       <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
                       <p className="text-sm text-gray-600 mb-2">Desde {formatPrice(product.basePrice)}</p>
-                      <Badge className="bg-blue-100 text-blue-800">6 variantes</Badge>
+                      <Badge className="bg-blue-100 text-blue-800">Personalizable</Badge>
                     </div>
                   </Button>
                 ))}
