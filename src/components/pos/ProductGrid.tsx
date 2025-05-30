@@ -1,19 +1,108 @@
+
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { Product, ProductVariant } from "@/lib/api/products/queries";
-import { useProducts } from "@/lib/api/products/hooks";
 import { CartItem } from "@/types";
+
+interface ProductOption {
+  id: string;
+  name: string;
+  values: string[];
+  isRequired: boolean;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  categoryId: string;
+  image?: string;
+  options: ProductOption[];
+  isActive: boolean;
+  createdAt: Date;
+}
+
+interface ProductVariant {
+  id: string;
+  productId: string;
+  sku: string;
+  name: string;
+  price: number;
+  optionValues: Record<string, string>;
+  isActive: boolean;
+  stock?: number;
+}
 
 interface ProductGridProps {
   onAddToCart: (item: Omit<CartItem, "quantity">) => void;
 }
 
+// Mock data for demonstration
+const mockProducts: Product[] = [
+  {
+    id: "1",
+    name: "Papas Fritas",
+    description: "Deliciosas papas fritas crujientes",
+    categoryId: "cat1",
+    image: "/placeholder.svg",
+    options: [
+      {
+        id: "opt1",
+        name: "Tamaño",
+        values: ["Pequeño", "Mediano", "Grande"],
+        isRequired: true
+      },
+      {
+        id: "opt2", 
+        name: "Salsa",
+        values: ["Rosada", "Ajo", "Sin Salsa"],
+        isRequired: false
+      }
+    ],
+    isActive: true,
+    createdAt: new Date()
+  },
+  {
+    id: "2",
+    name: "Hamburguesa Clásica",
+    description: "Hamburguesa con carne, lechuga y tomate",
+    categoryId: "cat2",
+    image: "/placeholder.svg",
+    options: [
+      {
+        id: "opt3",
+        name: "Tamaño",
+        values: ["Simple", "Doble"],
+        isRequired: true
+      }
+    ],
+    isActive: true,
+    createdAt: new Date()
+  },
+  {
+    id: "3",
+    name: "Gaseosa",
+    description: "Bebida refrescante",
+    categoryId: "cat3",
+    image: "/placeholder.svg",
+    options: [
+      {
+        id: "opt4",
+        name: "Tamaño",
+        values: ["300ml", "500ml", "1L"],
+        isRequired: true
+      }
+    ],
+    isActive: true,
+    createdAt: new Date()
+  }
+];
+
 export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const { data: products, isLoading, isError } = useProducts();
+  const [products] = useState<Product[]>(mockProducts);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
 
   useEffect(() => {
@@ -30,14 +119,6 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
       setFilteredProducts(filtered);
     }
   }, [searchTerm, products]);
-
-  if (isLoading) {
-    return <div>Cargando productos...</div>;
-  }
-
-  if (isError) {
-    return <div>Error al cargar los productos.</div>;
-  }
 
   const handleAddToCart = (product: Product, variant: ProductVariant) => {
     const item = {
@@ -98,27 +179,22 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col items-center">
-              {/* Aquí podrías iterar sobre las variantes del producto */}
-              {/* Por ahora, asumimos que cada producto tiene una variante por defecto */}
-              {products && products.length > 0 && product.id ?
-                (products?.find(p => p.id === product.id)?.options.length === 0 ?
-                  <Button onClick={() => handleAddToCart(product, {
-                    id: product.id,
-                    productId: product.id,
-                    sku: product.id,
-                    name: product.name,
-                    price: 1000,
-                    optionValues: {},
-                    isActive: true,
-                  })}
-                  >
-                    Agregar al carrito
-                  </Button>
-                  :
-                  <p className="text-gray-500">Seleccione las opciones para agregar al carrito.</p>)
-                :
-                <p className="text-gray-500">No hay variantes disponibles.</p>
-              }
+              {product.options.length === 0 ? (
+                <Button onClick={() => handleAddToCart(product, {
+                  id: product.id,
+                  productId: product.id,
+                  sku: product.id,
+                  name: product.name,
+                  price: 5000,
+                  optionValues: {},
+                  isActive: true,
+                })}
+                >
+                  Agregar al carrito - $5.000
+                </Button>
+              ) : (
+                <p className="text-gray-500 text-center">Seleccione las opciones para agregar al carrito.</p>
+              )}
             </CardFooter>
           </Card>
         ))}

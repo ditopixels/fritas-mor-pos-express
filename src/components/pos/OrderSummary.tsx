@@ -1,35 +1,19 @@
+
 import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Check, CreditCard, FileImage, RefreshCcw, Truck } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { CartItem, Order } from "@/types";
+import { PaymentModal } from "./PaymentModal";
+import { Minus, Plus, Trash2 } from "lucide-react";
+import { CartItem } from "@/types";
 
 interface OrderSummaryProps {
   items: CartItem[];
   total: number;
-  onUpdateQuantity: (sku: string, quantity: number) => void;
+  onUpdateQuantity: (sku: string, newQuantity: number) => void;
   onRemoveItem: (sku: string) => void;
   onClearCart: () => void;
   onProceedToPayment: (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: File) => void;
@@ -43,190 +27,185 @@ export const OrderSummary = ({
   onClearCart,
   onProceedToPayment
 }: OrderSummaryProps) => {
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
-  const [cashReceived, setCashReceived] = useState<number | undefined>(undefined);
-  const [photoEvidence, setPhotoEvidence] = useState<File | undefined>(undefined);
 
-  const handleQuantityChange = (sku: string, event: React.ChangeEvent<HTMLInputElement>) => {
-    const newQuantity = parseInt(event.target.value);
-    if (!isNaN(newQuantity)) {
-      onUpdateQuantity(sku, newQuantity);
-    }
-  };
-
-  const handleProceedToPayment = () => {
-    setIsPaymentOpen(true);
-  };
-
-  const confirmPayment = () => {
+  const handlePayment = (paymentMethod: string, cashReceived?: number, photoEvidence?: File) => {
     onProceedToPayment(paymentMethod, customerName, cashReceived, photoEvidence);
-    setIsPaymentOpen(false);
+    setIsPaymentModalOpen(false);
     setCustomerName("");
-    setPaymentMethod("cash");
-    setCashReceived(undefined);
-    setPhotoEvidence(undefined);
   };
 
-  const handleCashReceivedChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(event.target.value);
-    setCashReceived(isNaN(value) ? undefined : value);
-  };
-
-  const handlePhotoEvidenceChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      setPhotoEvidence(event.target.files[0]);
-    }
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      minimumFractionDigits: 0,
-    }).format(price);
-  };
+  const subtotal = total;
+  const totalDiscount = items.reduce((sum, item) => {
+    const originalPrice = item.originalPrice || item.price;
+    return sum + ((originalPrice - item.price) * item.quantity);
+  }, 0);
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-fit">
       <CardHeader>
-        <CardTitle>Resumen de Orden</CardTitle>
+        <CardTitle>Resumen de Compra</CardTitle>
         <CardDescription>
-          Revisa los productos y completa la orden
+          {items.length} {items.length === 1 ? 'artículo' : 'artículos'} en el carrito
         </CardDescription>
       </CardHeader>
-      <CardContent className="overflow-auto h-full flex-grow">
-        <ScrollArea className="rounded-md border h-full">
-          <div className="p-4 space-y-4">
-            {items.length === 0 ? (
-              <div className="text-center text-gray-500">
-                No hay productos en el carrito
-              </div>
-            ) : (
-              items.map((item) => (
-                <div key={item.sku} className="flex items-center justify-between py-2 border-b">
-                  <div className="flex items-center space-x-2">
-                    <img src={item.image} alt={item.productName} className="w-12 h-12 rounded" />
-                    <div>
-                      <div className="font-semibold">{item.productName}</div>
-                      <div className="text-sm text-gray-500">{item.variantName}</div>
-                      {item.appliedPromotions && item.appliedPromotions.length > 0 && (
-                        <div className="text-xs text-green-600">
-                          {item.appliedPromotions.map(promo => (
-                            <Badge key={promo.promotionId} variant="outline" className="mr-1">
-                              {promo.promotionName} (-{formatPrice(promo.discountAmount)})
-                            </Badge>
-                          ))}
-                        </div>
+      
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="customer-name">Nombre del Cliente</Label>
+          <Input
+            id="customer-name"
+            type="text"
+            placeholder="Ingrese el nombre del cliente"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+          />
+        </div>
+
+        <Separator />
+
+        <div className="space-y-3 max-h-80 overflow-y-auto">
+          {items.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">
+              No hay artículos en el carrito
+            </p>
+          ) : (
+            items.map((item) => {
+              const originalPrice = item.originalPrice || item.price;
+              const hasDiscount = originalPrice > item.price;
+              
+              return (
+                <div key={item.sku} className="space-y-2 p-3 border rounded-lg">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm">{item.productName}</h4>
+                      {item.variantName && (
+                        <p className="text-xs text-gray-600">{item.variantName}</p>
                       )}
+                      <p className="text-xs text-gray-500">SKU: {item.sku}</p>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Input
-                      type="number"
-                      min="0"
-                      defaultValue={item.quantity}
-                      onChange={(e) => handleQuantityChange(item.sku, e)}
-                      className="w-16 text-center"
-                    />
-                    <Button variant="ghost" size="icon" onClick={() => onRemoveItem(item.sku)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onRemoveItem(item.sku)}
+                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onUpdateQuantity(item.sku, item.quantity - 1)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="w-8 text-center text-sm">{item.quantity}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onUpdateQuantity(item.sku, item.quantity + 1)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    
+                    <div className="text-right">
+                      {hasDiscount && (
+                        <div className="flex items-center space-x-1">
+                          <span className="text-xs text-gray-500 line-through">
+                            ${(originalPrice * item.quantity).toLocaleString()}
+                          </span>
+                          <Badge variant="secondary" className="text-xs">
+                            -{Math.round(((originalPrice - item.price) / originalPrice) * 100)}%
+                          </Badge>
+                        </div>
+                      )}
+                      <p className="font-medium text-sm">
+                        ${(item.price * item.quantity).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {item.appliedPromotions && item.appliedPromotions.length > 0 && (
+                    <div className="space-y-1">
+                      {item.appliedPromotions.map((promo, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <Badge variant="outline" className="text-xs">
+                            {promo.promotionName}
+                          </Badge>
+                          <span className="text-xs text-green-600">
+                            -{promo.type === 'percentage' ? `${promo.value}%` : `$${promo.value.toLocaleString()}`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      </CardContent>
-      <CardFooter className="flex flex-col space-y-4">
-        <div className="space-y-2">
-          <div className="text-xl font-semibold">Total: {formatPrice(total)}</div>
+              );
+            })
+          )}
         </div>
+
         {items.length > 0 && (
           <>
-            <Input
-              type="text"
-              placeholder="Nombre del cliente (opcional)"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-            />
-            <Button className="w-full" onClick={handleProceedToPayment}>
-              Proceder al Pago
-            </Button>
-          </>
-        )}
-        {items.length > 0 && (
-          <Button variant="destructive" className="w-full" onClick={onClearCart}>
-            <RefreshCcw className="h-4 w-4 mr-2" />
-            Limpiar Carrito
-          </Button>
-        )}
-      </CardFooter>
-
-      {/* Payment Dialog */}
-      <AlertDialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Pago</AlertDialogTitle>
-            <AlertDialogDescription>
-              Selecciona el método de pago y confirma la orden.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="paymentMethod" className="text-right">
-                Método de Pago
-              </Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Efectivo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Efectivo</SelectItem>
-                  <SelectItem value="transfer">Transferencia</SelectItem>
-                </SelectContent>
-              </Select>
+            <Separator />
+            
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Subtotal:</span>
+                <span>${subtotal.toLocaleString()}</span>
+              </div>
+              
+              {totalDiscount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Descuentos aplicados:</span>
+                  <span>-${totalDiscount.toLocaleString()}</span>
+                </div>
+              )}
+              
+              <Separator />
+              
+              <div className="flex justify-between font-bold text-lg">
+                <span>Total:</span>
+                <span>${total.toLocaleString()}</span>
+              </div>
             </div>
 
-            {paymentMethod === "cash" && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="cashReceived" className="text-right">
-                  Efectivo Recibido
-                </Label>
-                <Input
-                  type="number"
-                  id="cashReceived"
-                  placeholder="0.00"
-                  className="col-span-3"
-                  onChange={handleCashReceivedChange}
-                />
-              </div>
-            )}
+            <div className="space-y-2">
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={() => setIsPaymentModalOpen(true)}
+                disabled={!customerName.trim()}
+              >
+                Proceder al Pago
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={onClearCart}
+              >
+                Limpiar Carrito
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
 
-            {paymentMethod === "transfer" && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="photoEvidence" className="text-right">
-                  Foto de Evidencia
-                </Label>
-                <Input
-                  type="file"
-                  id="photoEvidence"
-                  className="col-span-3"
-                  onChange={handlePhotoEvidenceChange}
-                />
-              </div>
-            )}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsPaymentOpen(false)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmPayment}>
-              Confirmar Pago
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        total={total}
+        onConfirmPayment={handlePayment}
+      />
     </Card>
   );
 };
