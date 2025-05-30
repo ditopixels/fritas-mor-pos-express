@@ -2,625 +2,757 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Trash2, Edit, Plus, GripVertical, Eye, EyeOff } from "lucide-react";
-import { useAllCategories, useAllProducts, useCreateCategory, useUpdateCategory, useDeleteCategory, useCreateProduct, useUpdateProduct, useDeleteProduct, useUpdateCategoryOrder, useUpdateProductOrder, Category, Product } from "@/hooks/useProducts";
+import { Separator } from "@/components/ui/separator";
+import { Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { useToast } from "@/hooks/use-toast"
+import {
+  useProducts,
+  useCategories,
+  Product as ProductType,
+  Category as CategoryType,
+  useCreateProduct,
+  useUpdateProduct,
+  useDeleteProduct,
+  useCreateCategory,
+  useUpdateCategory,
+  useDeleteCategory,
+  useUpdateCategoryOrder,
+  useUpdateProductOrder,
+} from "@/hooks/useProducts";
 import { ProductOptionsManager } from "./ProductOptionsManager";
 import { ProductVariantsManager } from "./ProductVariantsManager";
-import { useToast } from "@/hooks/use-toast";
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
-export const CatalogManagement = () => {
-  const [newCategory, setNewCategory] = useState({
-    name: '',
-    description: '',
-    image: '',
-    is_active: true,
-    display_order: 0,
-  });
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  image?: string;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+}
 
-  const [newProduct, setNewProduct] = useState({
-    name: '',
-    description: '',
-    category_id: '',
-    image: '',
-    is_active: true,
-    display_order: 0,
-    base_price: 0,
-    options: [],
-    variants: [],
-  });
+interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  category_id: string;
+  image?: string;
+  base_price?: number;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  options?: ProductOption[];
+}
 
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [showInactiveCategories, setShowInactiveCategories] = useState(false);
-  const [showInactiveProducts, setShowInactiveProducts] = useState(false);
+interface ProductOption {
+  id: string;
+  product_id: string;
+  name: string;
+  values: string[];
+  is_required: boolean;
+  created_at: string;
+}
 
-  const { data: categories, isLoading: categoriesLoading } = useAllCategories();
-  const { data: products, isLoading: productsLoading } = useAllProducts();
-  const createCategoryMutation = useCreateCategory();
-  const updateCategoryMutation = useUpdateCategory();
-  const deleteCategoryMutation = useDeleteCategory();
+const CatalogManagement = () => {
+  const { toast } = useToast();
+  const { data: products, isLoading: isProductsLoading } = useProducts();
+  const { data: categories, isLoading: isCategoriesLoading } = useCategories();
+  const [categoriesState, setCategoriesState] = useState<CategoryType[]>([]);
+  const [productsState, setProductsState] = useState<ProductType[]>([]);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
+  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductType | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
+  const [newProductName, setNewProductName] = useState("");
+  const [newProductDescription, setNewProductDescription] = useState("");
+  const [newProductCategoryId, setNewProductCategoryId] = useState("");
+  const [newProductBasePrice, setNewProductBasePrice] = useState<number | undefined>(undefined);
+  const [isCategoryActive, setIsCategoryActive] = useState(true);
+  const [isProductActive, setIsProductActive] = useState(true);
   const createProductMutation = useCreateProduct();
   const updateProductMutation = useUpdateProduct();
   const deleteProductMutation = useDeleteProduct();
+  const createCategoryMutation = useCreateCategory();
+  const updateCategoryMutation = useUpdateCategory();
+  const deleteCategoryMutation = useDeleteCategory();
   const updateCategoryOrderMutation = useUpdateCategoryOrder();
   const updateProductOrderMutation = useUpdateProductOrder();
-  const { toast } = useToast();
+
+  useEffect(() => {
+    if (categories) {
+      setCategoriesState(categories);
+    }
+  }, [categories]);
+
+  useEffect(() => {
+    if (products) {
+      setProductsState(products);
+    }
+  }, [products]);
+
+  const handleReorderCategories = (newOrder: CategoryType[]) => {
+    setCategoriesState(newOrder);
+    const orderUpdates = newOrder.map((category, index) => ({
+      id: category.id,
+      display_order: index
+    }));
+    updateCategoryOrderMutation.mutate(orderUpdates);
+  };
+
+  const handleReorderProducts = (categoryId: string, newOrder: ProductType[]) => {
+    setProductsState(prev => 
+      prev.map(product => {
+        const reorderedProduct = newOrder.find(p => p.id === product.id);
+        return reorderedProduct || product;
+      })
+    );
+    
+    const orderUpdates = newOrder.map((product, index) => ({
+      id: product.id,
+      display_order: index
+    }));
+    updateProductOrderMutation.mutate(orderUpdates);
+  };
+
+  const onDragEndCategory = (result: any) => {
+    if (!result.destination) {
+      return;
+    }
+
+    const items = Array.from(categoriesState);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    handleReorderCategories(items);
+  };
+
+  const onDragEndProduct = (result: any, categoryId: string) => {
+    if (!result.destination) {
+      return;
+    }
+
+    const currentProducts = productsState.filter(product => product.category_id === categoryId);
+    const items = Array.from(currentProducts);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    handleReorderProducts(categoryId, items);
+  };
+
+  const handleOpenCategoryDialog = () => {
+    setSelectedCategory(null);
+    setNewCategoryName("");
+    setNewCategoryDescription("");
+    setIsCategoryActive(true);
+    setIsCategoryDialogOpen(true);
+  };
+
+  const handleOpenProductDialog = () => {
+    setSelectedProduct(null);
+    setNewProductName("");
+    setNewProductDescription("");
+    setNewProductCategoryId(categoriesState[0]?.id || "");
+    setNewProductBasePrice(undefined);
+    setIsProductActive(true);
+    setIsProductDialogOpen(true);
+  };
+
+  const handleEditCategory = (category: CategoryType) => {
+    setSelectedCategory(category);
+    setNewCategoryName(category.name);
+    setNewCategoryDescription(category.description || "");
+    setIsCategoryActive(category.is_active);
+    setIsCategoryDialogOpen(true);
+  };
+
+  const handleEditProduct = (product: ProductType) => {
+    setSelectedProduct(product);
+    setNewProductName(product.name);
+    setNewProductDescription(product.description || "");
+    setNewProductCategoryId(product.category_id);
+    setNewProductBasePrice(product.base_price);
+    setIsProductActive(product.is_active);
+    setIsProductDialogOpen(true);
+  };
+
+  const handleDeleteCategory = (category: CategoryType) => {
+    setSelectedCategory(category);
+    setIsDeleteConfirmationOpen(true);
+  };
+
+  const handleDeleteProduct = (product: ProductType) => {
+    setSelectedProduct(product);
+    setIsDeleteConfirmationOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (selectedCategory) {
+      await deleteCategoryMutation.mutateAsync(selectedCategory.id);
+      toast({
+        title: "Categoría eliminada",
+        description: `La categoría ${selectedCategory.name} ha sido eliminada.`,
+      });
+    } else if (selectedProduct) {
+      await deleteProductMutation.mutateAsync(selectedProduct.id);
+      toast({
+        title: "Producto eliminado",
+        description: `El producto ${selectedProduct.name} ha sido eliminado.`,
+      });
+    }
+    setIsDeleteConfirmationOpen(false);
+    setSelectedCategory(null);
+    setSelectedProduct(null);
+  };
 
   const handleCreateCategory = async () => {
-    if (!newCategory.name) return;
+    if (!newCategoryName.trim()) {
+      toast({
+        title: "Error",
+        description: "El nombre de la categoría es requerido.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       await createCategoryMutation.mutateAsync({
-        ...newCategory,
-        display_order: (categories?.length || 0) + 1,
-      });
-
-      setNewCategory({
-        name: '',
-        description: '',
-        image: '',
-        is_active: true,
-        display_order: 0,
+        name: newCategoryName,
+        description: newCategoryDescription,
+        is_active: isCategoryActive,
+        display_order: categoriesState.length,
       });
 
       toast({
         title: "Categoría creada",
-        description: "La categoría se ha creado exitosamente",
+        description: `La categoría ${newCategoryName} ha sido creada.`,
       });
+      setIsCategoryDialogOpen(false);
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Error al crear la categoría",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleCreateProduct = async () => {
-    if (!newProduct.name || !newProduct.category_id) return;
-
-    try {
-      await createProductMutation.mutateAsync({
-        name: newProduct.name,
-        description: newProduct.description,
-        category_id: newProduct.category_id,
-        image: newProduct.image,
-        is_active: newProduct.is_active,
-        display_order: (products?.length || 0) + 1,
-        base_price: newProduct.base_price,
-      });
-
-      setNewProduct({
-        name: '',
-        description: '',
-        category_id: '',
-        image: '',
-        is_active: true,
-        display_order: 0,
-        base_price: 0,
-        options: [],
-        variants: [],
-      });
-
-      toast({
-        title: "Producto creado",
-        description: "El producto se ha creado exitosamente",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Error al crear el producto",
+        description: error.message || "Error al crear la categoría.",
         variant: "destructive",
       });
     }
   };
 
   const handleUpdateCategory = async () => {
-    if (!editingCategory) return;
+    if (!newCategoryName.trim()) {
+      toast({
+        title: "Error",
+        description: "El nombre de la categoría es requerido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedCategory) return;
 
     try {
       await updateCategoryMutation.mutateAsync({
-        id: editingCategory.id,
+        id: selectedCategory.id,
         updates: {
-          name: editingCategory.name,
-          description: editingCategory.description,
-          image: editingCategory.image,
-          is_active: editingCategory.is_active,
-        }
+          name: newCategoryName,
+          description: newCategoryDescription,
+          is_active: isCategoryActive,
+        },
       });
-      setEditingCategory(null);
+
       toast({
         title: "Categoría actualizada",
-        description: "Los cambios se han guardado exitosamente",
+        description: `La categoría ${newCategoryName} ha sido actualizada.`,
       });
+      setIsCategoryDialogOpen(false);
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Error al actualizar la categoría",
+        description: error.message || "Error al actualizar la categoría.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateProduct = async () => {
+    if (!newProductName.trim() || !newProductCategoryId) {
+      toast({
+        title: "Error",
+        description: "Nombre y categoría son requeridos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await createProductMutation.mutateAsync({
+        name: newProductName,
+        description: newProductDescription,
+        category_id: newProductCategoryId,
+        base_price: newProductBasePrice,
+        is_active: isProductActive,
+        display_order: productsState.length,
+      });
+
+      toast({
+        title: "Producto creado",
+        description: `El producto ${newProductName} ha sido creado.`,
+      });
+      setIsProductDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Error al crear el producto.",
         variant: "destructive",
       });
     }
   };
 
   const handleUpdateProduct = async () => {
-    if (!editingProduct) return;
+    if (!newProductName.trim() || !newProductCategoryId) {
+      toast({
+        title: "Error",
+        description: "Nombre y categoría son requeridos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedProduct) return;
 
     try {
       await updateProductMutation.mutateAsync({
-        id: editingProduct.id,
+        id: selectedProduct.id,
         updates: {
-          name: editingProduct.name,
-          description: editingProduct.description,
-          category_id: editingProduct.category_id,
-          image: editingProduct.image,
-          is_active: editingProduct.is_active,
-          base_price: editingProduct.base_price,
-        }
+          name: newProductName,
+          description: newProductDescription,
+          category_id: newProductCategoryId,
+          base_price: newProductBasePrice,
+          is_active: isProductActive,
+          options: selectedProduct.options,
+        },
       });
-      setEditingProduct(null);
+
       toast({
         title: "Producto actualizado",
-        description: "Los cambios se han guardado exitosamente",
+        description: `El producto ${newProductName} ha sido actualizado.`,
       });
+      setIsProductDialogOpen(false);
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Error al actualizar el producto",
+        description: error.message || "Error al actualizar el producto.",
         variant: "destructive",
       });
     }
   };
-
-  const handleToggleCategoryStatus = async (id: string, isActive: boolean) => {
-    try {
-      await updateCategoryMutation.mutateAsync({
-        id,
-        updates: { is_active: isActive }
-      });
-      toast({
-        title: isActive ? "Categoría activada" : "Categoría desactivada",
-        description: "El estado se ha actualizado exitosamente",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Error al cambiar el estado",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleToggleProductStatus = async (id: string, isActive: boolean) => {
-    try {
-      await updateProductMutation.mutateAsync({
-        id,
-        updates: { is_active: isActive }
-      });
-      toast({
-        title: isActive ? "Producto activado" : "Producto desactivado",
-        description: "El estado se ha actualizado exitosamente",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Error al cambiar el estado",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleUpdateCategoryOrder = async (id: string, newOrder: number) => {
-    try {
-      await updateCategoryOrderMutation.mutateAsync({ id, newOrder });
-      toast({
-        title: "Orden actualizada",
-        description: "El orden de la categoría se ha actualizado exitosamente",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Error al actualizar el orden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleUpdateProductOrder = async (id: string, newOrder: number) => {
-    try {
-      await updateProductOrderMutation.mutateAsync({ id, newOrder });
-      toast({
-        title: "Orden actualizada",
-        description: "El orden del producto se ha actualizado exitosamente",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Error al actualizar el orden",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const filteredCategories = categories?.filter(cat => 
-    showInactiveCategories ? true : cat.is_active
-  ) || [];
-
-  const filteredProducts = products?.filter(prod => 
-    showInactiveProducts ? true : prod.is_active
-  ) || [];
-
-  if (categoriesLoading || productsLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
-        <span className="ml-2">Cargando catálogo...</span>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-8">
-      {/* Categories Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Gestión de Categorías</CardTitle>
-            <div className="flex items-center space-x-2">
-              <Switch
-                checked={showInactiveCategories}
-                onCheckedChange={setShowInactiveCategories}
-              />
-              <Label className="flex items-center space-x-2">
-                {showInactiveCategories ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                <span>Mostrar inactivas</span>
-              </Label>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Create Category Form */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg">
-            <div>
-              <Label htmlFor="category-name">Nombre de la Categoría</Label>
-              <Input
-                id="category-name"
-                placeholder="Ej: Hamburguesas"
-                value={newCategory.name}
-                onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="category-image">URL de la Imagen</Label>
-              <Input
-                id="category-image"
-                placeholder="https://..."
-                value={newCategory.image}
-                onChange={(e) => setNewCategory(prev => ({ ...prev, image: e.target.value }))}
-              />
-            </div>
-            
-            <div className="md:col-span-2">
-              <Label htmlFor="category-description">Descripción</Label>
-              <Textarea
-                id="category-description"
-                placeholder="Descripción de la categoría"
-                value={newCategory.description}
-                onChange={(e) => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
-              />
-            </div>
-            
-            <div className="md:col-span-2">
-              <Button 
-                onClick={handleCreateCategory}
-                disabled={!newCategory.name || createCategoryMutation.isPending}
-                className="w-full"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {createCategoryMutation.isPending ? "Creando..." : "Crear Categoría"}
-              </Button>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Administración del Catálogo</h2>
+        <div>
+          <Button onClick={handleOpenCategoryDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva Categoría
+          </Button>
+          <Button onClick={handleOpenProductDialog} className="ml-2">
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo Producto
+          </Button>
+        </div>
+      </div>
 
-          {/* Categories List */}
-          <div className="grid gap-4">
-            {filteredCategories.map((category) => (
-              <div key={category.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <GripVertical className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <h3 className="font-medium">{category.name}</h3>
-                      <Badge variant={category.is_active ? "default" : "secondary"}>
-                        {category.is_active ? "Activa" : "Inactiva"}
-                      </Badge>
-                    </div>
-                    {category.description && (
-                      <p className="text-sm text-gray-600">{category.description}</p>
+      <Tabs defaultValue="categories" className="w-full">
+        <TabsList className="w-full">
+          <TabsTrigger value="categories">Categorías</TabsTrigger>
+          <TabsTrigger value="products">Productos</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="categories" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista de Categorías</CardTitle>
+              <CardDescription>
+                Administra las categorías de tus productos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isCategoriesLoading ? (
+                <p>Cargando categorías...</p>
+              ) : (
+                <DragDropContext onDragEnd={onDragEndCategory}>
+                  <Droppable droppableId="categories">
+                    {(provided) => (
+                      <Table {...provided.droppableProps} ref={provided.innerRef}>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Orden</TableHead>
+                            <TableHead>Nombre</TableHead>
+                            <TableHead>Estado</TableHead>
+                            <TableHead className="text-right">Acciones</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {categoriesState.map((category, index) => (
+                            <Draggable key={category.id} draggableId={category.id} index={index}>
+                              {(provided) => (
+                                <TableRow 
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  ref={provided.innerRef}
+                                >
+                                  <TableCell>{index + 1}</TableCell>
+                                  <TableCell>{category.name}</TableCell>
+                                  <TableCell>
+                                    {category.is_active ? "Activa" : "Inactiva"}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleEditCategory(category)}
+                                    >
+                                      <Pencil className="h-4 w-4 mr-2" />
+                                      Editar
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteCategory(category)}
+                                      className="text-red-500"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Borrar
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </Draggable>
+                          ))}
+                        </TableBody>
+                      </Table>
                     )}
-                    <p className="text-xs text-gray-500">Orden: {category.display_order}</p>
-                  </div>
-                </div>
-                
-                <div className="flex space-x-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setEditingCategory(category)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleToggleCategoryStatus(category.id, !category.is_active)}
-                    className={category.is_active ? "text-red-600 hover:text-red-700" : "text-green-600 hover:text-green-700"}
-                  >
-                    {category.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+                  </Droppable>
+                </DragDropContext>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Products Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Gestión de Productos</CardTitle>
-            <div className="flex items-center space-x-2">
-              <Switch
-                checked={showInactiveProducts}
-                onCheckedChange={setShowInactiveProducts}
-              />
-              <Label className="flex items-center space-x-2">
-                {showInactiveProducts ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                <span>Mostrar inactivos</span>
-              </Label>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Create Product Form */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg">
+        <TabsContent value="products" className="space-y-4">
+          {categoriesState.map(category => (
+            <Card key={category.id}>
+              <CardHeader>
+                <CardTitle>Productos en {category.name}</CardTitle>
+                <CardDescription>
+                  Administra los productos de esta categoría.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isProductsLoading ? (
+                  <p>Cargando productos...</p>
+                ) : (
+                  <DragDropContext 
+                    onDragEnd={(result) => onDragEndProduct(result, category.id)}
+                  >
+                    <Droppable droppableId={`products-${category.id}`}>
+                      {(provided) => (
+                        <Table {...provided.droppableProps} ref={provided.innerRef}>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Orden</TableHead>
+                              <TableHead>Nombre</TableHead>
+                              <TableHead>Precio Base</TableHead>
+                              <TableHead>Estado</TableHead>
+                              <TableHead className="text-right">Acciones</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {productsState
+                              .filter(product => product.category_id === category.id)
+                              .map((product, index) => (
+                                <Draggable key={product.id} draggableId={product.id} index={index}>
+                                  {(provided) => (
+                                    <TableRow
+                                      {...provided.draggableProps}
+                                      {...provided.dragHandleProps}
+                                      ref={provided.innerRef}
+                                    >
+                                      <TableCell>{index + 1}</TableCell>
+                                      <TableCell>{product.name}</TableCell>
+                                      <TableCell>${product.base_price?.toLocaleString()}</TableCell>
+                                      <TableCell>
+                                        {product.is_active ? "Activo" : "Inactivo"}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleEditProduct(product)}
+                                        >
+                                          <Pencil className="h-4 w-4 mr-2" />
+                                          Editar
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleDeleteProduct(product)}
+                                          className="text-red-500"
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" />
+                                          Borrar
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </Draggable>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </TabsContent>
+      </Tabs>
+
+      {/* Product Form Dialog */}
+      <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedProduct ? "Editar Producto" : "Nuevo Producto"}
+            </DialogTitle>
+            <DialogDescription>
+              Administra la información del producto.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div>
-              <Label htmlFor="product-name">Nombre del Producto</Label>
+              <Label htmlFor="product-name">Nombre</Label>
               <Input
                 id="product-name"
-                placeholder="Ej: Hamburguesa Clásica"
-                value={newProduct.name}
-                onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
+                value={newProductName}
+                onChange={(e) => setNewProductName(e.target.value)}
               />
             </div>
-            
+
             <div>
               <Label htmlFor="product-category">Categoría</Label>
               <select
                 id="product-category"
-                className="w-full p-2 border rounded-md"
-                value={newProduct.category_id}
-                onChange={(e) => setNewProduct(prev => ({ ...prev, category_id: e.target.value }))}
+                className="w-full rounded-md border border-gray-200 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                value={newProductCategoryId}
+                onChange={(e) => setNewProductCategoryId(e.target.value)}
               >
-                <option value="">Seleccionar categoría</option>
-                {filteredCategories.filter(cat => cat.is_active).map(category => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
+                {categoriesState.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
                 ))}
               </select>
             </div>
-            
+
             <div>
-              <Label htmlFor="product-price">Precio Base</Label>
+              <Label htmlFor="product-base-price">Precio Base</Label>
               <Input
-                id="product-price"
+                id="product-base-price"
                 type="number"
-                placeholder="0"
-                value={newProduct.base_price || ''}
-                onChange={(e) => setNewProduct(prev => ({ ...prev, base_price: Number(e.target.value) || 0 }))}
+                value={newProductBasePrice === undefined ? '' : newProductBasePrice.toString()}
+                onChange={(e) => setNewProductBasePrice(Number(e.target.value))}
               />
             </div>
-            
+
             <div>
-              <Label htmlFor="product-image">URL de la Imagen</Label>
+              <Label htmlFor="product-status">Estado</Label>
+              <Switch
+                id="product-status"
+                checked={isProductActive}
+                onCheckedChange={setIsProductActive}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="product-description">Descripción</Label>
+            <Textarea
+              id="product-description"
+              value={newProductDescription}
+              onChange={(e) => setNewProductDescription(e.target.value)}
+            />
+          </div>
+          
+          <Separator />
+          
+          {selectedProduct && (
+            <ProductOptionsManager 
+              product={selectedProduct}
+              onUpdateOptions={(options) => {
+                setSelectedProduct(prev => prev ? { ...prev, options } : null);
+              }}
+            />
+          )}
+
+          {selectedProduct && (
+            <ProductVariantsManager 
+              product={selectedProduct}
+              options={selectedProduct.options || []}
+              variants={selectedProduct.variants || []}
+              onUpdateVariants={(variants) => {
+                setSelectedProduct(prev => prev ? { ...prev, variants } : null);
+              }}
+            />
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsProductDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={selectedProduct ? handleUpdateProduct : handleCreateProduct}
+            >
+              {selectedProduct ? "Actualizar Producto" : "Crear Producto"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Category Form Dialog */}
+      <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedCategory ? "Editar Categoría" : "Nueva Categoría"}
+            </DialogTitle>
+            <DialogDescription>
+              Administra la información de la categoría.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="category-name">Nombre</Label>
               <Input
-                id="product-image"
-                placeholder="https://..."
-                value={newProduct.image}
-                onChange={(e) => setNewProduct(prev => ({ ...prev, image: e.target.value }))}
+                id="category-name"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
               />
             </div>
-            
-            <div className="md:col-span-2">
-              <Label htmlFor="product-description">Descripción</Label>
+
+            <div>
+              <Label htmlFor="category-description">Descripción</Label>
               <Textarea
-                id="product-description"
-                placeholder="Descripción del producto"
-                value={newProduct.description}
-                onChange={(e) => setNewProduct(prev => ({ ...prev, description: e.target.value }))}
+                id="category-description"
+                value={newCategoryDescription}
+                onChange={(e) => setNewCategoryDescription(e.target.value)}
               />
             </div>
-            
-            <div className="md:col-span-2">
-              <Button 
-                onClick={handleCreateProduct}
-                disabled={!newProduct.name || !newProduct.category_id || createProductMutation.isPending}
-                className="w-full"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {createProductMutation.isPending ? "Creando..." : "Crear Producto"}
-              </Button>
+
+            <div>
+              <Label htmlFor="category-status">Estado</Label>
+              <Switch
+                id="category-status"
+                checked={isCategoryActive}
+                onCheckedChange={setIsCategoryActive}
+              />
             </div>
           </div>
 
-          {/* Products List */}
-          <div className="grid gap-4">
-            {filteredProducts.map((product) => (
-              <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <GripVertical className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <h3 className="font-medium">{product.name}</h3>
-                      <Badge variant={product.is_active ? "default" : "secondary"}>
-                        {product.is_active ? "Activo" : "Inactivo"}
-                      </Badge>
-                    </div>
-                    {product.description && (
-                      <p className="text-sm text-gray-600">{product.description}</p>
-                    )}
-                    <div className="flex items-center space-x-4 text-xs text-gray-500">
-                      <span>Categoría: {product.category?.name || 'Sin categoría'}</span>
-                      <span>Precio base: ${product.base_price?.toLocaleString() || 'No definido'}</span>
-                      <span>Orden: {product.display_order}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex space-x-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setEditingProduct(product)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleToggleProductStatus(product.id, !product.is_active)}
-                    className={product.is_active ? "text-red-600 hover:text-red-700" : "text-green-600 hover:text-green-700"}
-                  >
-                    {product.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsCategoryDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={selectedCategory ? handleUpdateCategory : handleCreateCategory}
+            >
+              {selectedCategory ? "Actualizar Categoría" : "Crear Categoría"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Edit Category Modal */}
-      {editingCategory && (
-        <Card className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Editar Categoría</h3>
-            {/* Edit form similar to create form */}
-            <div className="space-y-4">
-              <div>
-                <Label>Nombre</Label>
-                <Input
-                  value={editingCategory.name}
-                  onChange={(e) => setEditingCategory(prev => prev ? { ...prev, name: e.target.value } : null)}
-                />
-              </div>
-              <div>
-                <Label>Descripción</Label>
-                <Textarea
-                  value={editingCategory.description || ''}
-                  onChange={(e) => setEditingCategory(prev => prev ? { ...prev, description: e.target.value } : null)}
-                />
-              </div>
-              <div>
-                <Label>Imagen URL</Label>
-                <Input
-                  value={editingCategory.image || ''}
-                  onChange={(e) => setEditingCategory(prev => prev ? { ...prev, image: e.target.value } : null)}
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setEditingCategory(null)}>
-                  Cancelar
-                </Button>
-                <Button onClick={() => handleUpdateCategory()}>
-                  Guardar
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Edit Product Modal */}
-      {editingProduct && (
-        <Card className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Editar Producto</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <Label>Nombre</Label>
-                <Input
-                  value={editingProduct.name}
-                  onChange={(e) => setEditingProduct(prev => prev ? { ...prev, name: e.target.value } : null)}
-                />
-              </div>
-              <div>
-                <Label>Categoría</Label>
-                <select
-                  className="w-full p-2 border rounded-md"
-                  value={editingProduct.category_id}
-                  onChange={(e) => setEditingProduct(prev => prev ? { ...prev, category_id: e.target.value } : null)}
-                >
-                  {filteredCategories.filter(cat => cat.is_active).map(category => (
-                    <option key={category.id} value={category.id}>{category.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label>Precio Base</Label>
-                <Input
-                  type="number"
-                  value={editingProduct.base_price || ''}
-                  onChange={(e) => setEditingProduct(prev => prev ? { ...prev, base_price: Number(e.target.value) || 0 } : null)}
-                />
-              </div>
-              <div>
-                <Label>Imagen URL</Label>
-                <Input
-                  value={editingProduct.image || ''}
-                  onChange={(e) => setEditingProduct(prev => prev ? { ...prev, image: e.target.value } : null)}
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label>Descripción</Label>
-                <Textarea
-                  value={editingProduct.description || ''}
-                  onChange={(e) => setEditingProduct(prev => prev ? { ...prev, description: e.target.value } : null)}
-                />
-              </div>
-            </div>
-
-            {/* Product Options Manager */}
-            <ProductOptionsManager
-              product={editingProduct}
-              onClose={() => setEditingProduct(null)}
-            />
-
-            {/* Product Variants Manager */}
-            <ProductVariantsManager
-              product={editingProduct}
-              options={editingProduct.options || []}
-              variants={editingProduct.variants || []}
-              onUpdateVariants={(variants) => setEditingProduct(prev => prev ? { ...prev, variants } : null)}
-            />
-
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button variant="outline" onClick={() => setEditingProduct(null)}>
-                Cancelar
-              </Button>
-              <Button onClick={() => handleUpdateProduct()}>
-                Guardar Cambios
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteConfirmationOpen} onOpenChange={setIsDeleteConfirmationOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar Eliminación</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que quieres eliminar este{" "}
+              {selectedCategory ? "categoría" : "producto"}?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsDeleteConfirmationOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmDelete}
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+export default CatalogManagement;

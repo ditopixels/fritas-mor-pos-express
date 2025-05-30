@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,13 +36,16 @@ export const ProductOptionsManager = ({ product, onUpdateOptions }: ProductOptio
 
   const handleAddOption = () => {
     if (newOptionName.trim() && newOptionValues.length > 0) {
+      // Generar un UUID válido para la nueva opción
+      const tempId = crypto.randomUUID();
+      
       const newOption = {
-        id: `temp-${Date.now()}`,
+        id: tempId,
         product_id: product.id,
         name: newOptionName.trim(),
         values: newOptionValues,
         is_required: isRequired,
-        created_at: new Date().toISOString(), // Agregar created_at
+        created_at: new Date().toISOString(),
       };
 
       setOptions(prev => [...prev, newOption]);

@@ -150,7 +150,7 @@ export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantS
     );
   }
 
-  // Producto simple sin variantes - crear variante temporal con ID simple
+  // Producto simple sin variantes - crear variante temporal con ID único pero válido
   const basePrice = product.base_price || 5000;
   const finalPrice = getFinalPrice(basePrice);
   const hasDiscount = finalPrice < basePrice;
@@ -158,7 +158,7 @@ export const ProductVariantSelector = ({ product, onAddToCart }: ProductVariantS
   return (
     <div 
       onClick={() => onAddToCart({
-        id: `${product.id}-default-${Date.now()}`, // ID simple pero único
+        id: product.id, // Usar el ID del producto en lugar de generar uno temporal
         product_id: product.id,
         sku: `${product.name.replace(/\s+/g, '-').toUpperCase()}-DEFAULT`,
         name: product.name,
