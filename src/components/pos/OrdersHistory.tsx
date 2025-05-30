@@ -1,18 +1,9 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-interface Order {
-  id: string;
-  order_number: string;
-  customer_name: string;
-  total: number;
-  payment_method: string;
-  created_at: string;
-  status: string;
-}
+import { SupabaseOrder } from "@/hooks/useOrders";
 
 interface OrdersHistoryProps {
-  orders: Order[];
+  orders: SupabaseOrder[];
 }
 
 export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {

@@ -1,7 +1,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { CartItem } from '@/types';
+import { CartItem, AppliedPromotion } from '@/types';
 
 export interface CreateOrderData {
   customer_name: string;
@@ -9,6 +9,32 @@ export interface CreateOrderData {
   cash_received?: number;
   photo_evidence?: string;
   items: CartItem[];
+}
+
+// Definir el tipo que viene de Supabase
+export interface SupabaseOrder {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  total: number;
+  payment_method: string;
+  created_at: string;
+  status: string;
+  subtotal: number;
+  total_discount: number;
+  cash_received?: number;
+  photo_evidence?: string;
+  applied_promotions?: any;
+  order_items?: {
+    id: string;
+    product_name: string;
+    variant_name: string;
+    sku: string;
+    price: number;
+    original_price?: number;
+    quantity: number;
+    applied_promotions?: any;
+  }[];
 }
 
 export const useOrders = () => {
@@ -24,7 +50,7 @@ export const useOrders = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data as SupabaseOrder[];
     },
   });
 };
@@ -60,7 +86,7 @@ export const useCreateOrder = () => {
 
       if (orderError) throw orderError;
 
-      // Crear los items de la orden
+      // Crear los items de la orden - convertir applied_promotions a JSON
       const orderItems = orderData.items.map(item => ({
         order_id: order.id,
         product_id: item.id,
@@ -71,7 +97,7 @@ export const useCreateOrder = () => {
         price: item.price,
         original_price: item.originalPrice || item.price,
         quantity: item.quantity,
-        applied_promotions: item.appliedPromotions || [],
+        applied_promotions: JSON.stringify(item.appliedPromotions || []),
       }));
 
       const { error: itemsError } = await supabase
