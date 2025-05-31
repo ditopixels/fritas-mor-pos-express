@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig(({ mode }) => ({
-  base: '/fritas-mor-pos-express/',
+  base: '/',
   server: {
     host: "::",
     port: 8080,
@@ -24,22 +24,22 @@ export default defineConfig(({ mode }) => ({
         theme_color: '#E4DF33',
         background_color: '#ffffff',
         display: 'standalone',
-        start_url: '/fritas-mor-pos-express/',
-        scope: '/fritas-mor-pos-express/',
+        start_url: '/',
+        scope: '/',
         lang: 'es',
         icons: [
           {
-            src: '/fritas-mor-pos-express/pwa-192x192.jpg',
+            src: '/pwa-192x192.jpg',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: '/fritas-mor-pos-express/pwa-512x512.jpg',
+            src: '/pwa-512x512.jpg',
             sizes: '512x512',
             type: 'image/png'
           },
           {
-            src: '/fritas-mor-pos-express/pwa-512x512.jpg',
+            src: '/pwa-512x512.jpg',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any'
