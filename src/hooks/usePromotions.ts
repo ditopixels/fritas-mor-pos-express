@@ -1,9 +1,11 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth';
 import { Promotion } from '@/types';
 
 export const usePromotions = () => {
+  const { user } = useAuth();
+
   return useQuery({
     queryKey: ['promotions'],
     queryFn: async () => {
@@ -39,6 +41,7 @@ export const usePromotions = () => {
         };
       }) as Promotion[];
     },
+    enabled: !!user, // Solo ejecutar si hay usuario autenticado
   });
 };
 

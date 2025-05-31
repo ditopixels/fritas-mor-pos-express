@@ -2,15 +2,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth';
 import { SupabaseOrder } from './useOrders';
 
 // Hook optimizado para órdenes con estado local
 export const useOptimizedOrders = (limit: number = 25) => {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [localOrders, setLocalOrders] = useState<SupabaseOrder[]>([]);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
 
-  // Consulta inicial solo una vez
+  // Consulta inicial solo una vez y solo si está autenticado
   const query = useQuery({
     queryKey: ['orders', 'optimized'],
     queryFn: async () => {
@@ -33,6 +35,7 @@ export const useOptimizedOrders = (limit: number = 25) => {
       
       return data as SupabaseOrder[];
     },
+    enabled: !!user, // Solo ejecutar si hay usuario autenticado
     staleTime: Infinity, // No refetch automático
     gcTime: Infinity, // Mantener en cache indefinidamente
     refetchOnWindowFocus: false,
