@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/fritas-mor-pos-express/sw.js', { scope: '/fritas-mor-pos-express/' })})}
