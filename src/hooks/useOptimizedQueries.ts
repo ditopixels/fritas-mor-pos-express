@@ -1,9 +1,12 @@
 
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth';
 
 // Hook optimizado para cargar múltiples recursos de una vez
 export const useOptimizedPOSData = () => {
+  const { user } = useAuth();
+
   return useQueries({
     queries: [
       {
@@ -17,6 +20,7 @@ export const useOptimizedPOSData = () => {
           if (error) throw error;
           return data;
         },
+        enabled: !!user, // Solo ejecutar si hay usuario autenticado
         staleTime: 10 * 60 * 1000, // 10 minutos para categorías
       },
       {
@@ -30,6 +34,7 @@ export const useOptimizedPOSData = () => {
           if (error) throw error;
           return data;
         },
+        enabled: !!user, // Solo ejecutar si hay usuario autenticado
         staleTime: 15 * 60 * 1000, // 15 minutos para promociones
       }
     ],
@@ -49,6 +54,8 @@ export const useOptimizedPOSData = () => {
 
 // Hook con cache local para productos por categoría
 export const useOptimizedProducts = (selectedCategory: string) => {
+  const { user } = useAuth();
+
   return useQuery({
     queryKey: ['products', selectedCategory],
     queryFn: async () => {
@@ -70,7 +77,7 @@ export const useOptimizedProducts = (selectedCategory: string) => {
       if (error) throw error;
       return data;
     },
+    enabled: !!user && !!selectedCategory, // Solo fetch cuando hay usuario y categoría seleccionada
     staleTime: 8 * 60 * 1000, // 8 minutos
-    enabled: !!selectedCategory, // Solo fetch cuando hay categoría seleccionada
   });
 };

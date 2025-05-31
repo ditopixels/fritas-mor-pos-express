@@ -1,9 +1,12 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth';
 
 // Hook que carga todos los productos una sola vez y permite filtrado local
 export const useAllProductsOnce = () => {
+  const { user } = useAuth();
+
   return useQuery({
     queryKey: ['all-products'],
     queryFn: async () => {
@@ -20,6 +23,7 @@ export const useAllProductsOnce = () => {
       if (error) throw error;
       return data;
     },
+    enabled: !!user, // Solo ejecutar si hay usuario autenticado
     staleTime: 15 * 60 * 1000, // 15 minutos - más tiempo que antes
     gcTime: 30 * 60 * 1000, // 30 minutos en cache
   });
