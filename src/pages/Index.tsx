@@ -4,6 +4,7 @@ import { OptimizedProductGrid } from "@/components/pos/OptimizedProductGrid";
 import { OrderSummary } from "@/components/pos/OrderSummary";
 import { OrdersHistory } from "@/components/pos/OrdersHistory";
 import { Header } from "@/components/pos/Header";
+import { PrinterStatus } from "@/components/pos/PrinterStatus";
 import { AuthPage } from "@/components/auth/AuthPage";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +15,7 @@ import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
 const Index = () => {
   const { user, profile, loading, signOut } = useAuth();
-  const { data: orders, addOrderToLocal } = useOptimizedOrders(25); // Usar hook optimizado
+  const { data: orders, addOrderToLocal } = useOptimizedOrders(25);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("pos");
   const [currentView, setCurrentView] = useState("pos");
@@ -119,7 +120,12 @@ const Index = () => {
             </TabsList>
             
             <TabsContent value="pos" className="space-y-0">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+              {/* Estado de la impresora */}
+              <div className="mb-4">
+                <PrinterStatus />
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-250px)]">
                 <div className="lg:col-span-2">
                   <OptimizedProductGrid onAddToCart={addToCart} />
                 </div>
@@ -132,7 +138,7 @@ const Index = () => {
                     onRemoveItem={removeFromCart}
                     onClearCart={clearCart}
                     onProceedToPayment={handlePayment}
-                    onOrderCreated={addOrderToLocal} // Pasar callback para agregar al estado local
+                    onOrderCreated={addOrderToLocal}
                   />
                 </div>
               </div>

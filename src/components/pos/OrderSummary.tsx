@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash2, Minus, Plus, Camera, CreditCard, DollarSign, Tag } from "lucide-react";
+import { Trash2, Minus, Plus, Camera, CreditCard, DollarSign, Tag, Printer } from "lucide-react";
 import { CartItem } from "@/types";
 import { useCreateOrder, SupabaseOrder } from "@/hooks/useOrders";
 import { useToast } from "@/hooks/use-toast";
 import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
+import { usePrinterStatus } from "@/hooks/usePrinterStatus";
 
 interface OrderSummaryProps {
   items: CartItem[];
@@ -19,7 +19,7 @@ interface OrderSummaryProps {
   onRemoveItem: (sku: string) => void;
   onClearCart: () => void;
   onProceedToPayment: (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: File) => void;
-  onOrderCreated?: (order: SupabaseOrder) => void; // Nuevo callback para estado local
+  onOrderCreated?: (order: SupabaseOrder) => void;
 }
 
 export const OrderSummary = ({ 
@@ -37,9 +37,10 @@ export const OrderSummary = ({
   const [photoEvidence, setPhotoEvidence] = useState<File | undefined>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const createOrderMutation = useCreateOrder(onOrderCreated); // Pasar callback
+  const createOrderMutation = useCreateOrder(onOrderCreated);
   const { toast } = useToast();
   const { calculatePromotions } = usePromotionCalculator();
+  const { status: printerStatus, printInvoice } = usePrinterStatus();
 
   // Calcular promociones aplicadas a los items del carrito
   const subtotal = items.reduce((sum, item) => sum + ((item.originalPrice || item.price) * item.quantity), 0);
@@ -90,14 +91,7 @@ export const OrderSummary = ({
       return;
     }
 
-    if (paymentMethod === "transfer" && !photoEvidence) {
-      toast({
-        title: "Error",
-        description: "Por favor toma una foto del comprobante de transferencia",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Nota: Removida la validación obligatoria de foto para transferencias
 
     try {
       // Procesar foto en segundo plano si existe
@@ -134,11 +128,52 @@ export const OrderSummary = ({
       onProceedToPayment(paymentMethod, customerName, cashReceived, photoEvidence);
 
       // Guardar en segundo plano
-      createOrderMutation.mutateAsync(orderData).then(() => {
+      createOrderMutation.mutateAsync(orderData).then(async (order) => {
         toast({
           title: "¡Orden completada!",
           description: `Orden para ${orderData.customer_name} guardada exitosamente`,
         });
+
+        // Intentar imprimir facturas automáticamente
+        if (printerStatus.isConnected) {
+          try {
+            // Imprimir factura del cliente
+            await printInvoice(order, 'cliente');
+            
+            // Esperar un momento antes de imprimir la segunda factura
+            setTimeout(async () => {
+              try {
+                // Imprimir factura de la tienda
+                await printInvoice(order, 'tienda');
+                toast({
+                  title: "Facturas impresas",
+                  description: "Facturas del cliente y tienda impresas exitosamente",
+                });
+              } catch (error) {
+                console.error('Error al imprimir factura de tienda:', error);
+                toast({
+                  title: "Error al imprimir",
+                  description: "Factura del cliente impresa, error en factura de tienda",
+                  variant: "destructive",
+                });
+              }
+            }, 2000);
+            
+          } catch (error) {
+            console.error('Error al imprimir facturas:', error);
+            toast({
+              title: "Error de impresión",
+              description: "Orden guardada pero error al imprimir facturas",
+              variant: "destructive",
+            });
+          }
+        } else {
+          toast({
+            title: "Impresora desconectada",
+            description: "Orden guardada pero no se pudieron imprimir las facturas",
+            variant: "destructive",
+          });
+        }
       }).catch((error: any) => {
         toast({
           title: "Error al guardar",
@@ -331,7 +366,7 @@ export const OrderSummary = ({
 
                 {paymentMethod === "transfer" && (
                   <div>
-                    <Label className="text-sm">Comprobante de Transferencia</Label>
+                    <Label className="text-sm">Comprobante de Transferencia (Opcional)</Label>
                     <div className="mt-1">
                       <input
                         ref={fileInputRef}
@@ -349,7 +384,7 @@ export const OrderSummary = ({
                       >
                         <Camera className="h-4 w-4" />
                         <span>
-                          {photoEvidence ? "Foto Capturada" : "Tomar Foto"}
+                          {photoEvidence ? "Foto Capturada" : "Tomar Foto (Opcional)"}
                         </span>
                       </Button>
                       {photoEvidence && (
@@ -366,7 +401,12 @@ export const OrderSummary = ({
                     onClick={handlePayment}
                     className="w-full bg-green-600 hover:bg-green-700"
                   >
-                    Procesar Pago
+                    <div className="flex items-center space-x-2">
+                      <span>Procesar Pago</span>
+                      {printerStatus.isConnected && (
+                        <Printer className="h-4 w-4" />
+                      )}
+                    </div>
                   </Button>
                   
                   <Button
