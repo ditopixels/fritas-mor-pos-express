@@ -64,24 +64,36 @@ export const OrderSummary = ({
   };
 
   const handlePrintInvoices = async (order: SupabaseOrder) => {
+    console.log('=== INICIANDO PROCESO DE IMPRESIÓN ===');
+    console.log('Estado de impresora:', printerStatus);
+    console.log('Orden a imprimir:', order);
+    
     if (!printerStatus.isConnected) {
-      console.log('Impresora no conectada, saltando impresión');
+      console.log('❌ Impresora no conectada, saltando impresión');
+      toast({
+        title: "Impresora no disponible",
+        description: "La impresora no está conectada. Verifique la conexión.",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
-      console.log('Iniciando impresión de facturas para orden:', order.order_number);
+      console.log('✅ Iniciando impresión de facturas para orden:', order.order_number);
       
       // Imprimir factura del cliente
+      console.log('🖨️ Imprimiendo factura del cliente...');
       await printInvoice(order, 'cliente');
-      console.log('Factura del cliente impresa');
+      console.log('✅ Factura del cliente impresa exitosamente');
       
       // Esperar 3 segundos antes de imprimir la segunda factura
+      console.log('⏳ Esperando 3 segundos antes de imprimir factura de tienda...');
       await new Promise(resolve => setTimeout(resolve, 3000));
       
       // Imprimir factura de la tienda
+      console.log('🖨️ Imprimiendo factura de la tienda...');
       await printInvoice(order, 'tienda');
-      console.log('Factura de la tienda impresa');
+      console.log('✅ Factura de la tienda impresa exitosamente');
       
       toast({
         title: "Facturas impresas",
@@ -89,7 +101,7 @@ export const OrderSummary = ({
       });
       
     } catch (error) {
-      console.error('Error al imprimir facturas:', error);
+      console.error('❌ Error al imprimir facturas:', error);
       toast({
         title: "Error de impresión",
         description: `Error al imprimir: ${error instanceof Error ? error.message : 'Error desconocido'}`,
@@ -127,6 +139,8 @@ export const OrderSummary = ({
     }
 
     try {
+      console.log('=== PROCESANDO ORDEN ===');
+      
       // Procesar foto en segundo plano si existe
       let photoBase64 = undefined;
       if (photoEvidence) {
@@ -146,6 +160,8 @@ export const OrderSummary = ({
         items: promotionResult.updatedItems,
       };
 
+      console.log('Datos de la orden preparados:', orderData);
+
       // Mostrar toast de procesamiento
       toast({
         title: "¡Orden en proceso!",
@@ -161,20 +177,26 @@ export const OrderSummary = ({
       onProceedToPayment(paymentMethod, customerName, cashReceived, photoEvidence);
 
       // Guardar orden en segundo plano
+      console.log('💾 Guardando orden en base de datos...');
       const order = await createOrderMutation.mutateAsync(orderData);
+      console.log('✅ Orden guardada exitosamente:', order);
       
       toast({
         title: "¡Orden completada!",
         description: `Orden #${order.order_number} para ${orderData.customer_name} guardada exitosamente`,
       });
 
-      // Intentar imprimir en segundo plano
+      // Disparar impresión inmediatamente después de guardar la orden
+      console.log('🚀 Disparando proceso de impresión...');
+      // Usar setTimeout para asegurar que la impresión no bloquee la UI
       setTimeout(() => {
-        handlePrintInvoices(order);
-      }, 500);
+        handlePrintInvoices(order).catch(error => {
+          console.error('Error en impresión asíncrona:', error);
+        });
+      }, 100);
       
     } catch (error: any) {
-      console.error('Error al procesar orden:', error);
+      console.error('❌ Error al procesar orden:', error);
       toast({
         title: "Error",
         description: error.message || "Error al procesar la orden",
