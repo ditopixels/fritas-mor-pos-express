@@ -63,6 +63,41 @@ export const OrderSummary = ({
     }
   };
 
+  const handlePrintInvoices = async (order: SupabaseOrder) => {
+    if (!printerStatus.isConnected) {
+      console.log('Impresora no conectada, saltando impresión');
+      return;
+    }
+
+    try {
+      console.log('Iniciando impresión de facturas para orden:', order.order_number);
+      
+      // Imprimir factura del cliente
+      await printInvoice(order, 'cliente');
+      console.log('Factura del cliente impresa');
+      
+      // Esperar 3 segundos antes de imprimir la segunda factura
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Imprimir factura de la tienda
+      await printInvoice(order, 'tienda');
+      console.log('Factura de la tienda impresa');
+      
+      toast({
+        title: "Facturas impresas",
+        description: "Facturas del cliente y tienda impresas exitosamente",
+      });
+      
+    } catch (error) {
+      console.error('Error al imprimir facturas:', error);
+      toast({
+        title: "Error de impresión",
+        description: `Error al imprimir: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   const handlePayment = async () => {
     if (!customerName.trim()) {
       toast({
@@ -91,8 +126,6 @@ export const OrderSummary = ({
       return;
     }
 
-    // Nota: Removida la validación obligatoria de foto para transferencias
-
     try {
       // Procesar foto en segundo plano si existe
       let photoBase64 = undefined;
@@ -104,7 +137,7 @@ export const OrderSummary = ({
         });
       }
 
-      // Limpiar el carrito inmediatamente
+      // Preparar datos de la orden
       const orderData = {
         customer_name: customerName.trim(),
         payment_method: paymentMethod,
@@ -113,13 +146,13 @@ export const OrderSummary = ({
         items: promotionResult.updatedItems,
       };
 
-      // Mostrar toast de éxito inmediatamente
+      // Mostrar toast de procesamiento
       toast({
         title: "¡Orden en proceso!",
         description: `Orden para ${customerName} se está guardando...`,
       });
 
-      // Limpiar formulario inmediatamente
+      // Limpiar formulario inmediatamente para permitir nueva orden
       setCustomerName("");
       setPaymentMethod("");
       setCashReceived(undefined);
@@ -127,62 +160,21 @@ export const OrderSummary = ({
       onClearCart();
       onProceedToPayment(paymentMethod, customerName, cashReceived, photoEvidence);
 
-      // Guardar en segundo plano
-      createOrderMutation.mutateAsync(orderData).then(async (order) => {
-        toast({
-          title: "¡Orden completada!",
-          description: `Orden para ${orderData.customer_name} guardada exitosamente`,
-        });
-
-        // Intentar imprimir facturas automáticamente
-        if (printerStatus.isConnected) {
-          try {
-            // Imprimir factura del cliente
-            await printInvoice(order, 'cliente');
-            
-            // Esperar un momento antes de imprimir la segunda factura
-            setTimeout(async () => {
-              try {
-                // Imprimir factura de la tienda
-                await printInvoice(order, 'tienda');
-                toast({
-                  title: "Facturas impresas",
-                  description: "Facturas del cliente y tienda impresas exitosamente",
-                });
-              } catch (error) {
-                console.error('Error al imprimir factura de tienda:', error);
-                toast({
-                  title: "Error al imprimir",
-                  description: "Factura del cliente impresa, error en factura de tienda",
-                  variant: "destructive",
-                });
-              }
-            }, 2000);
-            
-          } catch (error) {
-            console.error('Error al imprimir facturas:', error);
-            toast({
-              title: "Error de impresión",
-              description: "Orden guardada pero error al imprimir facturas",
-              variant: "destructive",
-            });
-          }
-        } else {
-          toast({
-            title: "Impresora desconectada",
-            description: "Orden guardada pero no se pudieron imprimir las facturas",
-            variant: "destructive",
-          });
-        }
-      }).catch((error: any) => {
-        toast({
-          title: "Error al guardar",
-          description: error.message || "Error al procesar la orden en segundo plano",
-          variant: "destructive",
-        });
+      // Guardar orden en segundo plano
+      const order = await createOrderMutation.mutateAsync(orderData);
+      
+      toast({
+        title: "¡Orden completada!",
+        description: `Orden #${order.order_number} para ${orderData.customer_name} guardada exitosamente`,
       });
+
+      // Intentar imprimir en segundo plano
+      setTimeout(() => {
+        handlePrintInvoices(order);
+      }, 500);
       
     } catch (error: any) {
+      console.error('Error al procesar orden:', error);
       toast({
         title: "Error",
         description: error.message || "Error al procesar la orden",
