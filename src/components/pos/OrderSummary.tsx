@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,6 @@ export const OrderSummary = ({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [cashReceived, setCashReceived] = useState<number | undefined>();
   const [photoEvidence, setPhotoEvidence] = useState<File | undefined>();
-  const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const createOrderMutation = useCreateOrder(onOrderCreated); // Pasar callback
@@ -99,9 +99,8 @@ export const OrderSummary = ({
       return;
     }
 
-    setIsProcessing(true);
-
     try {
+      // Procesar foto en segundo plano si existe
       let photoBase64 = undefined;
       if (photoEvidence) {
         const reader = new FileReader();
@@ -111,25 +110,42 @@ export const OrderSummary = ({
         });
       }
 
-      await createOrderMutation.mutateAsync({
+      // Limpiar el carrito inmediatamente
+      const orderData = {
         customer_name: customerName.trim(),
         payment_method: paymentMethod,
         cash_received: paymentMethod === "cash" ? cashReceived : undefined,
         photo_evidence: photoBase64,
         items: promotionResult.updatedItems,
-      });
+      };
 
+      // Mostrar toast de éxito inmediatamente
       toast({
-        title: "¡Orden procesada!",
-        description: `Orden completada para ${customerName}`,
+        title: "¡Orden en proceso!",
+        description: `Orden para ${customerName} se está guardando...`,
       });
 
+      // Limpiar formulario inmediatamente
       setCustomerName("");
       setPaymentMethod("");
       setCashReceived(undefined);
       setPhotoEvidence(undefined);
       onClearCart();
       onProceedToPayment(paymentMethod, customerName, cashReceived, photoEvidence);
+
+      // Guardar en segundo plano
+      createOrderMutation.mutateAsync(orderData).then(() => {
+        toast({
+          title: "¡Orden completada!",
+          description: `Orden para ${orderData.customer_name} guardada exitosamente`,
+        });
+      }).catch((error: any) => {
+        toast({
+          title: "Error al guardar",
+          description: error.message || "Error al procesar la orden en segundo plano",
+          variant: "destructive",
+        });
+      });
       
     } catch (error: any) {
       toast({
@@ -137,8 +153,6 @@ export const OrderSummary = ({
         description: error.message || "Error al procesar la orden",
         variant: "destructive",
       });
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -350,17 +364,15 @@ export const OrderSummary = ({
                 <div className="space-y-2">
                   <Button
                     onClick={handlePayment}
-                    disabled={isProcessing || createOrderMutation.isPending}
                     className="w-full bg-green-600 hover:bg-green-700"
                   >
-                    {isProcessing || createOrderMutation.isPending ? "Procesando..." : "Procesar Pago"}
+                    Procesar Pago
                   </Button>
                   
                   <Button
                     onClick={onClearCart}
                     variant="outline"
                     className="w-full"
-                    disabled={isProcessing}
                   >
                     Limpiar Carrito
                   </Button>
