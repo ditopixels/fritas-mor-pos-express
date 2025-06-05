@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface PrinterStatus {
   isConnected: boolean;
@@ -18,29 +18,51 @@ export const usePrinterStatus = () => {
 
   const PRINTER_API_URL = 'http://localhost:8000';
   const PREFERRED_PRINTER = 'lasfritas';
-  const CHECK_INTERVAL = 10000; // 10 segundos
+  const CHECK_INTERVAL = 30000; // 30 segundos para evitar spam
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isCheckingRef = useRef(false);
 
   const checkPrinterStatus = useCallback(async () => {
+    // Evitar verificaciones simultáneas
+    if (isCheckingRef.current) {
+      console.log('Ya hay una verificación en curso, saltando...');
+      return;
+    }
+
+    isCheckingRef.current = true;
     setStatus(prev => ({ ...prev, isChecking: true }));
     
     try {
-      // Verificar si el servicio está disponible
+      console.log('Verificando estado de impresora...');
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
+      
       const response = await fetch(`${PRINTER_API_URL}/impresoras`, {
         method: 'GET',
-        timeout: 3000,
-      } as any);
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const printers = await response.json();
         console.log('Impresoras disponibles:', printers);
         
         // Buscar la impresora preferida o usar la primera disponible
-        let selectedPrinter = printers.find((p: any) => 
-          p.nombre?.toLowerCase().includes(PREFERRED_PRINTER.toLowerCase())
-        );
+        let selectedPrinter = null;
         
-        if (!selectedPrinter && printers.length > 0) {
-          selectedPrinter = printers[0];
+        if (Array.isArray(printers) && printers.length > 0) {
+          selectedPrinter = printers.find((p: any) => 
+            p.nombre?.toLowerCase().includes(PREFERRED_PRINTER.toLowerCase())
+          );
+          
+          if (!selectedPrinter) {
+            selectedPrinter = printers[0];
+          }
         }
         
         setStatus({
@@ -49,8 +71,14 @@ export const usePrinterStatus = () => {
           isChecking: false,
           lastCheck: new Date(),
         });
+        
+        console.log('Estado de impresora actualizado:', {
+          connected: !!selectedPrinter,
+          printer: selectedPrinter?.nombre
+        });
+        
       } else {
-        throw new Error('Servicio no disponible');
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
       console.log('Error al verificar impresora:', error);
@@ -60,15 +88,19 @@ export const usePrinterStatus = () => {
         isChecking: false,
         lastCheck: new Date(),
       });
+    } finally {
+      isCheckingRef.current = false;
     }
   }, []);
 
   const printInvoice = useCallback(async (orderData: any, type: 'cliente' | 'tienda') => {
-    if (!status.isConnected) {
+    if (!status.isConnected || !status.printerName) {
       throw new Error('Impresora no conectada');
     }
 
     try {
+      console.log(`Imprimiendo factura ${type} para orden:`, orderData.order_number);
+      
       const invoiceData = {
         impresora: status.printerName,
         operaciones: [
@@ -120,32 +152,55 @@ export const usePrinterStatus = () => {
         ]
       };
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
+
       const response = await fetch(`${PRINTER_API_URL}/imprimir`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(invoiceData),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error('Error al imprimir');
+        const errorText = await response.text();
+        throw new Error(`Error HTTP ${response.status}: ${errorText}`);
       }
 
       console.log(`Factura ${type} impresa exitosamente`);
       return true;
+      
     } catch (error) {
       console.error(`Error al imprimir factura ${type}:`, error);
       throw error;
     }
   }, [status.isConnected, status.printerName]);
 
-  // Verificar estado periódicamente
+  // Verificar estado periódicamente con control mejorado
   useEffect(() => {
+    // Verificación inicial
     checkPrinterStatus();
-    const interval = setInterval(checkPrinterStatus, CHECK_INTERVAL);
-    return () => clearInterval(interval);
-  }, [checkPrinterStatus]);
+    
+    // Configurar intervalo
+    intervalRef.current = setInterval(() => {
+      // Solo verificar si no hay una verificación en curso
+      if (!isCheckingRef.current) {
+        checkPrinterStatus();
+      }
+    }, CHECK_INTERVAL);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      isCheckingRef.current = false;
+    };
+  }, []); // Dependencias vacías para evitar recrear el efecto
 
   return {
     status,
