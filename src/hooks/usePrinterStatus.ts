@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface PrinterStatus {
@@ -22,6 +23,15 @@ export const usePrinterStatus = () => {
   const isCheckingRef = useRef(false);
   const mountedRef = useRef(true);
   const hasInitialCheckRef = useRef(false);
+  
+  // Refs para mantener el estado actual
+  const statusRef = useRef(status);
+
+  // Actualizar ref cada vez que cambie el estado
+  useEffect(() => {
+    statusRef.current = status;
+    console.log('🔄 Estado de impresora actualizado:', status);
+  }, [status]);
 
   const clearCheckInterval = useCallback(() => {
     if (intervalRef.current) {
@@ -141,23 +151,27 @@ export const usePrinterStatus = () => {
   }, [clearCheckInterval, startCheckInterval]);
 
   const printInvoice = useCallback(async (orderData: any, type: 'cliente' | 'tienda') => {
-    console.log('🖨️ Iniciando printInvoice - Estado actual:', status);
+    console.log('🖨️ Iniciando printInvoice');
+    console.log('📊 Estado actual del ref:', statusRef.current);
+    console.log('📊 Estado del hook:', status);
     
-    // Obtener el estado más actual directamente
-    if (!status.isConnected || !status.printerName) {
+    // Usar el estado del ref que siempre está actualizado
+    const currentStatus = statusRef.current;
+    
+    if (!currentStatus.isConnected || !currentStatus.printerName) {
       console.error('❌ Impresora no conectada:', { 
-        connected: status.isConnected, 
-        printer: status.printerName 
+        connected: currentStatus.isConnected, 
+        printer: currentStatus.printerName 
       });
       throw new Error('Impresora no conectada');
     }
 
     try {
       console.log(`📝 Imprimiendo factura ${type} para orden:`, orderData.order_number);
-      console.log('🖨️ Usando impresora:', status.printerName);
+      console.log('🖨️ Usando impresora:', currentStatus.printerName);
       
       const invoiceData = {
-        impresora: status.printerName,
+        impresora: currentStatus.printerName,
         operaciones: [
           // Header
           { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
@@ -236,7 +250,7 @@ export const usePrinterStatus = () => {
       console.error(`❌ Error al imprimir factura ${type}:`, error);
       throw error;
     }
-  }, [status.isConnected, status.printerName]);
+  }, []); // Sin dependencias para evitar recreaciones innecesarias
 
   // Efecto para la verificación inicial y manejo de intervalos
   useEffect(() => {

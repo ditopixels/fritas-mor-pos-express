@@ -65,29 +65,10 @@ export const OrderSummary = ({
 
   const handlePrintInvoices = async (order: SupabaseOrder) => {
     console.log('=== INICIANDO PROCESO DE IMPRESIÓN ===');
-    console.log('🖨️ Estado actual de impresora:', printerStatus);
     console.log('📄 Orden a imprimir:', order);
     
-    // Verificar estado actual de la impresora
-    if (!printerStatus.isConnected || !printerStatus.printerName) {
-      console.log('❌ Impresora no conectada, saltando impresión');
-      console.log('Estado detallado:', {
-        isConnected: printerStatus.isConnected,
-        printerName: printerStatus.printerName,
-        isChecking: printerStatus.isChecking
-      });
-      
-      toast({
-        title: "Impresora no disponible",
-        description: "La impresora no está conectada. Verifique la conexión.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       console.log('✅ Iniciando impresión de facturas para orden:', order.order_number);
-      console.log('🖨️ Usando impresora:', printerStatus.printerName);
       
       // Imprimir factura del cliente
       console.log('📄 Imprimiendo factura del cliente...');
@@ -148,7 +129,6 @@ export const OrderSummary = ({
 
     try {
       console.log('=== PROCESANDO ORDEN ===');
-      console.log('🖨️ Estado de impresora antes de procesar:', printerStatus);
       
       // Procesar foto en segundo plano si existe
       let photoBase64 = undefined;
@@ -195,31 +175,14 @@ export const OrderSummary = ({
         description: `Orden #${order.order_number} para ${orderData.customer_name} guardada exitosamente`,
       });
 
-      // Verificar estado de impresora antes de intentar imprimir
-      console.log('🔍 Verificando estado de impresora antes de imprimir...');
-      console.log('Estado actual:', {
-        isConnected: printerStatus.isConnected,
-        printerName: printerStatus.printerName,
-        isChecking: printerStatus.isChecking
-      });
-
       // Disparar impresión inmediatamente después de guardar la orden
-      if (printerStatus.isConnected && printerStatus.printerName) {
-        console.log('🚀 Disparando proceso de impresión...');
-        // Usar setTimeout para asegurar que la impresión no bloquee la UI
-        setTimeout(() => {
-          handlePrintInvoices(order).catch(error => {
-            console.error('Error en impresión asíncrona:', error);
-          });
-        }, 100);
-      } else {
-        console.log('⚠️ No se puede imprimir - impresora no conectada');
-        toast({
-          title: "Orden guardada",
-          description: "Orden guardada exitosamente pero no se pudo imprimir - impresora no conectada",
-          variant: "destructive",
+      console.log('🚀 Disparando proceso de impresión...');
+      // Usar setTimeout para asegurar que la impresión no bloquee la UI
+      setTimeout(() => {
+        handlePrintInvoices(order).catch(error => {
+          console.error('Error en impresión asíncrona:', error);
         });
-      }
+      }, 100);
       
     } catch (error: any) {
       console.error('❌ Error al procesar orden:', error);
