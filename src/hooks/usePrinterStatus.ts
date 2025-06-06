@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface PrinterStatus {
@@ -24,13 +23,18 @@ export const usePrinterStatus = () => {
   const mountedRef = useRef(true);
   const hasInitialCheckRef = useRef(false);
   
-  // Refs para mantener el estado actual
+  // Refs para mantener el estado actual - CRÍTICO para printInvoice
   const statusRef = useRef(status);
 
   // Actualizar ref cada vez que cambie el estado
   useEffect(() => {
     statusRef.current = status;
-    console.log('🔄 Estado de impresora actualizado:', status);
+    console.log('🔄 Estado de impresora actualizado:', {
+      isConnected: status.isConnected,
+      printerName: status.printerName,
+      isChecking: status.isChecking,
+      lastCheck: status.lastCheck
+    });
   }, [status]);
 
   const clearCheckInterval = useCallback(() => {
@@ -42,7 +46,7 @@ export const usePrinterStatus = () => {
   }, []);
 
   const startCheckInterval = useCallback(() => {
-    clearCheckInterval(); // Limpiar cualquier intervalo existente
+    clearCheckInterval();
     
     console.log('🔄 Iniciando verificaciones periódicas de impresora (cada 30s)');
     intervalRef.current = setInterval(() => {
@@ -53,15 +57,13 @@ export const usePrinterStatus = () => {
   }, []);
 
   const checkPrinterStatus = useCallback(async () => {
-    // Evitar verificaciones simultáneas
     if (isCheckingRef.current || !mountedRef.current) {
-      console.log('Verificación saltada - ya en curso o componente desmontado');
+      console.log('⏸️ Verificación saltada - ya en curso o componente desmontado');
       return;
     }
 
     isCheckingRef.current = true;
     
-    // Solo actualizar isChecking si el componente está montado
     if (mountedRef.current) {
       setStatus(prev => ({ ...prev, isChecking: true }));
     }
@@ -89,38 +91,46 @@ export const usePrinterStatus = () => {
         let selectedPrinter = null;
         
         if (Array.isArray(printers) && printers.length > 0) {
+          // Buscar impresora preferida
           selectedPrinter = printers.find((p: any) => 
             p.nombre?.toLowerCase().includes(PREFERRED_PRINTER.toLowerCase())
           );
           
+          // Si no encuentra la preferida, usar la primera disponible
           if (!selectedPrinter) {
             selectedPrinter = printers[0];
           }
+          
+          console.log('🎯 Impresora seleccionada:', selectedPrinter);
         }
         
-        const isConnected = !!selectedPrinter;
+        // CORREGIR: Asegurar que tanto isConnected como printerName se establezcan correctamente
+        const isConnected = !!(selectedPrinter && selectedPrinter.nombre);
+        const printerName = selectedPrinter?.nombre || null;
+        
         const newStatus = {
           isConnected,
-          printerName: selectedPrinter?.nombre || null,
+          printerName,
           isChecking: false,
           lastCheck: new Date(),
         };
         
-        console.log('✅ Estado de impresora actualizado:', {
-          connected: isConnected,
-          printer: selectedPrinter?.nombre
+        console.log('✅ Nuevo estado calculado:', {
+          isConnected,
+          printerName,
+          selectedPrinter: selectedPrinter
         });
         
         setStatus(newStatus);
         
-        // Si la impresora se conectó, detener verificaciones periódicas
-        if (isConnected) {
-          console.log('🎯 Impresora conectada - deteniendo verificaciones periódicas');
+        // Solo detener verificaciones si realmente está conectada CON nombre
+        if (isConnected && printerName) {
+          console.log('🎯 Impresora conectada correctamente - deteniendo verificaciones periódicas');
           clearCheckInterval();
         }
-        // Si la impresora se desconectó y no hay intervalo activo, iniciarlo
+        // Si no está conectada correctamente, continuar verificando
         else if (!intervalRef.current) {
-          console.log('❌ Impresora desconectada - iniciando verificaciones periódicas');
+          console.log('❌ Impresora no conectada correctamente - iniciando verificaciones periódicas');
           startCheckInterval();
         }
         
@@ -139,7 +149,6 @@ export const usePrinterStatus = () => {
         
         setStatus(disconnectedStatus);
         
-        // Si hay error y no hay intervalo activo, iniciarlo para reintentar
         if (!intervalRef.current) {
           console.log('❌ Error de conexión - iniciando verificaciones periódicas para reintentar');
           startCheckInterval();
@@ -151,19 +160,22 @@ export const usePrinterStatus = () => {
   }, [clearCheckInterval, startCheckInterval]);
 
   const printInvoice = useCallback(async (orderData: any, type: 'cliente' | 'tienda') => {
-    console.log('🖨️ Iniciando printInvoice');
-    console.log('📊 Estado actual del ref:', statusRef.current);
+    console.log('🖨️ === INICIANDO PROCESO DE IMPRESIÓN ===');
+    console.log('📊 Estado actual del statusRef:', statusRef.current);
     console.log('📊 Estado del hook:', status);
     
     // Usar el estado del ref que siempre está actualizado
     const currentStatus = statusRef.current;
     
-    if (!currentStatus.isConnected || !currentStatus.printerName) {
-      console.error('❌ Impresora no conectada:', { 
-        connected: currentStatus.isConnected, 
-        printer: currentStatus.printerName 
-      });
+    // VALIDACIÓN MEJORADA: Verificar tanto conexión como nombre de impresora
+    if (!currentStatus.isConnected) {
+      console.error('❌ Impresora no conectada - isConnected:', currentStatus.isConnected);
       throw new Error('Impresora no conectada');
+    }
+    
+    if (!currentStatus.printerName) {
+      console.error('❌ Nombre de impresora no disponible - printerName:', currentStatus.printerName);
+      throw new Error('Nombre de impresora no disponible');
     }
 
     try {
@@ -221,7 +233,8 @@ export const usePrinterStatus = () => {
         ]
       };
 
-      console.log('📤 Enviando datos de impresión:', invoiceData);
+      console.log('📤 Enviando datos de impresión a:', `${PRINTER_API_URL}/imprimir`);
+      console.log('📤 Datos de impresión:', JSON.stringify(invoiceData, null, 2));
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -243,21 +256,21 @@ export const usePrinterStatus = () => {
         throw new Error(`Error HTTP ${response.status}: ${errorText}`);
       }
 
-      console.log(`✅ Factura ${type} impresa exitosamente`);
+      const responseData = await response.text();
+      console.log(`✅ Factura ${type} impresa exitosamente. Respuesta:`, responseData);
       return true;
       
     } catch (error) {
       console.error(`❌ Error al imprimir factura ${type}:`, error);
       throw error;
     }
-  }, []); // Sin dependencias para evitar recreaciones innecesarias
+  }, []);
 
-  // Efecto para la verificación inicial y manejo de intervalos
+  // Efecto para la verificación inicial
   useEffect(() => {
     console.log('🔄 Inicializando usePrinterStatus...');
     mountedRef.current = true;
     
-    // Solo hacer verificación inicial si no se ha hecho antes
     if (!hasInitialCheckRef.current) {
       hasInitialCheckRef.current = true;
       console.log('🎯 Realizando verificación inicial de impresora...');
@@ -270,9 +283,8 @@ export const usePrinterStatus = () => {
       clearCheckInterval();
       isCheckingRef.current = false;
     };
-  }, []); // Array vacío para ejecutar solo una vez
+  }, []);
 
-  // Función manual para verificar estado (para el botón de refresh)
   const manualCheckPrinterStatus = useCallback(async () => {
     console.log('🔄 Verificación manual solicitada');
     await checkPrinterStatus();
