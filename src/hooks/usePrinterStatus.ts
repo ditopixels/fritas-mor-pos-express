@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface PrinterStatus {
@@ -160,53 +161,54 @@ export const usePrinterStatus = () => {
       console.log('🖨️ Usando impresora:', currentStatus.printerName || 'Primera disponible');
       
       const invoiceData = {
-        impresora: currentStatus.printerName || 'lasfritas', // Usar nombre por defecto si no hay
+        impresora: currentStatus.printerName || 'lasfritas',
+        serial: "",
         operaciones: [
           // Header
-          { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
-          { tipo: 'texto', texto: 'LAS FRITAS MOR', alineacion: 'centro', negrita: true },
-          { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
-          { tipo: 'texto', texto: `FACTURA - ${type.toUpperCase()}`, alineacion: 'centro' },
-          { tipo: 'texto', texto: '-'.repeat(32) },
+          { nombre: "EscribirTexto", argumentos: ['='.repeat(32)] },
+          { nombre: "EscribirTexto", argumentos: ['LAS FRITAS MOR'] },
+          { nombre: "EscribirTexto", argumentos: ['='.repeat(32)] },
+          { nombre: "EscribirTexto", argumentos: [`FACTURA - ${type.toUpperCase()}`] },
+          { nombre: "EscribirTexto", argumentos: ['-'.repeat(32)] },
           
           // Información de la orden
-          { tipo: 'texto', texto: `Orden: ${orderData.order_number}` },
-          { tipo: 'texto', texto: `Cliente: ${orderData.customer_name}` },
-          { tipo: 'texto', texto: `Fecha: ${new Date(orderData.created_at).toLocaleString('es-ES')}` },
-          { tipo: 'texto', texto: `Pago: ${orderData.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}` },
-          { tipo: 'texto', texto: '-'.repeat(32) },
+          { nombre: "EscribirTexto", argumentos: [`Orden: ${orderData.order_number}`] },
+          { nombre: "EscribirTexto", argumentos: [`Cliente: ${orderData.customer_name}`] },
+          { nombre: "EscribirTexto", argumentos: [`Fecha: ${new Date(orderData.created_at).toLocaleString('es-ES')}`] },
+          { nombre: "EscribirTexto", argumentos: [`Pago: ${orderData.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}`] },
+          { nombre: "EscribirTexto", argumentos: ['-'.repeat(32)] },
           
           // Items
-          { tipo: 'texto', texto: 'PRODUCTOS:', negrita: true },
+          { nombre: "EscribirTexto", argumentos: ['PRODUCTOS:'] },
           ...orderData.order_items.map((item: any) => [
-            { tipo: 'texto', texto: `${item.product_name}` },
-            { tipo: 'texto', texto: `  ${item.variant_name}` },
-            { tipo: 'texto', texto: `  ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}`, alineacion: 'derecha' },
+            { nombre: "EscribirTexto", argumentos: [`${item.product_name}`] },
+            { nombre: "EscribirTexto", argumentos: [`  ${item.variant_name}`] },
+            { nombre: "EscribirTexto", argumentos: [`  ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}`] },
           ]).flat(),
           
-          { tipo: 'texto', texto: '-'.repeat(32) },
+          { nombre: "EscribirTexto", argumentos: ['-'.repeat(32)] },
           
           // Totales
-          { tipo: 'texto', texto: `Subtotal: $${orderData.subtotal.toLocaleString()}`, alineacion: 'derecha' },
+          { nombre: "EscribirTexto", argumentos: [`Subtotal: $${orderData.subtotal.toLocaleString()}`] },
           ...(orderData.total_discount > 0 ? [
-            { tipo: 'texto', texto: `Descuentos: -$${orderData.total_discount.toLocaleString()}`, alineacion: 'derecha' }
+            { nombre: "EscribirTexto", argumentos: [`Descuentos: -$${orderData.total_discount.toLocaleString()}`] }
           ] : []),
-          { tipo: 'texto', texto: `TOTAL: $${orderData.total.toLocaleString()}`, alineacion: 'derecha', negrita: true },
+          { nombre: "EscribirTexto", argumentos: [`TOTAL: $${orderData.total.toLocaleString()}`] },
           
           // Información de pago
           ...(orderData.payment_method === 'cash' && orderData.cash_received ? [
-            { tipo: 'texto', texto: `Recibido: $${orderData.cash_received.toLocaleString()}`, alineacion: 'derecha' },
-            { tipo: 'texto', texto: `Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}`, alineacion: 'derecha' },
+            { nombre: "EscribirTexto", argumentos: [`Recibido: $${orderData.cash_received.toLocaleString()}`] },
+            { nombre: "EscribirTexto", argumentos: [`Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}`] },
           ] : []),
           
-          { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
-          { tipo: 'texto', texto: type === 'cliente' ? '¡Gracias por su compra!' : 'COPIA TIENDA', alineacion: 'centro' },
-          { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
+          { nombre: "EscribirTexto", argumentos: ['='.repeat(32)] },
+          { nombre: "EscribirTexto", argumentos: [type === 'cliente' ? '¡Gracias por su compra!' : 'COPIA TIENDA'] },
+          { nombre: "EscribirTexto", argumentos: ['='.repeat(32)] },
           
           // Espacios en blanco y corte
-          { tipo: 'texto', texto: '' },
-          { tipo: 'texto', texto: '' },
-          { tipo: 'corte', lineas: 3 },
+          { nombre: "EscribirTexto", argumentos: [''] },
+          { nombre: "EscribirTexto", argumentos: [''] },
+          { nombre: "Cortar", argumentos: ['3'] },
         ]
       };
 
