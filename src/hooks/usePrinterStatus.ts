@@ -161,7 +161,7 @@ export const usePrinterStatus = () => {
       console.log('🖨️ Usando impresora:', currentStatus.printerName || 'Primera disponible');
       
       const invoiceData = {
-        impresora: currentStatus.printerName || 'lasfritas',
+        nombreImpresora: currentStatus.printerName || 'lasfritas',
         serial: "",
         operaciones: [
           // Header

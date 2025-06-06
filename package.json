@@ -3,7 +3,6 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://ditopixels.github.io/fritas-mor-pos-express",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

@@ -24,8 +24,8 @@ export default defineConfig(({ mode }) => ({
         theme_color: '#E4DF33',
         background_color: '#ffffff',
         display: 'standalone',
-        start_url: '/fritas-mor-pos-express',
-        scope: '/fritas-mor-pos-express',
+        start_url: '/',
+        scope: '/',
         lang: 'es',
         icons: [
           {
