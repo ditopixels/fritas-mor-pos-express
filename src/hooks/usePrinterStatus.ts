@@ -38,7 +38,7 @@ export const usePrinterStatus = () => {
     }
     
     try {
-      console.log('Verificando estado de impresora...');
+      console.log('🔍 Verificando estado de impresora...');
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -55,7 +55,7 @@ export const usePrinterStatus = () => {
       
       if (response.ok && mountedRef.current) {
         const printers = await response.json();
-        console.log('Impresoras disponibles:', printers);
+        console.log('📄 Impresoras disponibles:', printers);
         
         let selectedPrinter = null;
         
@@ -76,18 +76,18 @@ export const usePrinterStatus = () => {
           lastCheck: new Date(),
         };
         
-        setStatus(newStatus);
-        
-        console.log('Estado de impresora actualizado:', {
+        console.log('✅ Estado de impresora actualizado:', {
           connected: !!selectedPrinter,
           printer: selectedPrinter?.nombre
         });
+        
+        setStatus(newStatus);
         
       } else if (mountedRef.current) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
-      console.log('Error al verificar impresora:', error);
+      console.log('❌ Error al verificar impresora:', error);
       if (mountedRef.current) {
         setStatus({
           isConnected: false,
@@ -99,17 +99,23 @@ export const usePrinterStatus = () => {
     } finally {
       isCheckingRef.current = false;
     }
-  }, []);
+  }, []); // Sin dependencias para evitar re-creaciones
 
   const printInvoice = useCallback(async (orderData: any, type: 'cliente' | 'tienda') => {
-    // Verificar estado actual sin depender del estado React
+    console.log('🖨️ Iniciando printInvoice - Estado actual:', status);
+    
+    // Obtener el estado más actual directamente
     if (!status.isConnected || !status.printerName) {
-      console.error('Impresora no conectada:', { connected: status.isConnected, printer: status.printerName });
+      console.error('❌ Impresora no conectada:', { 
+        connected: status.isConnected, 
+        printer: status.printerName 
+      });
       throw new Error('Impresora no conectada');
     }
 
     try {
-      console.log(`Imprimiendo factura ${type} para orden:`, orderData.order_number);
+      console.log(`📝 Imprimiendo factura ${type} para orden:`, orderData.order_number);
+      console.log('🖨️ Usando impresora:', status.printerName);
       
       const invoiceData = {
         impresora: status.printerName,
@@ -162,6 +168,8 @@ export const usePrinterStatus = () => {
         ]
       };
 
+      console.log('📤 Enviando datos de impresión:', invoiceData);
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -178,35 +186,36 @@ export const usePrinterStatus = () => {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ Error en respuesta del servidor:', errorText);
         throw new Error(`Error HTTP ${response.status}: ${errorText}`);
       }
 
-      console.log(`Factura ${type} impresa exitosamente`);
+      console.log(`✅ Factura ${type} impresa exitosamente`);
       return true;
       
     } catch (error) {
-      console.error(`Error al imprimir factura ${type}:`, error);
+      console.error(`❌ Error al imprimir factura ${type}:`, error);
       throw error;
     }
-  }, [status.isConnected, status.printerName]);
+  }, [status.isConnected, status.printerName]); // Dependencias específicas
 
-  // Efecto para manejar verificaciones periódicas
+  // Efecto para manejar verificaciones periódicas - SIN dependencias para evitar re-ejecuciones
   useEffect(() => {
+    console.log('🔄 Inicializando usePrinterStatus...');
     mountedRef.current = true;
     
     // Verificación inicial
     checkPrinterStatus();
     
-    // Configurar intervalo solo si no existe
-    if (!intervalRef.current) {
-      intervalRef.current = setInterval(() => {
-        if (!isCheckingRef.current && mountedRef.current) {
-          checkPrinterStatus();
-        }
-      }, CHECK_INTERVAL);
-    }
+    // Configurar intervalo
+    intervalRef.current = setInterval(() => {
+      if (!isCheckingRef.current && mountedRef.current) {
+        checkPrinterStatus();
+      }
+    }, CHECK_INTERVAL);
 
     return () => {
+      console.log('🧹 Limpiando usePrinterStatus...');
       mountedRef.current = false;
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -214,7 +223,7 @@ export const usePrinterStatus = () => {
       }
       isCheckingRef.current = false;
     };
-  }, [checkPrinterStatus]);
+  }, []); // Array vacío para ejecutar solo una vez
 
   return {
     status,
