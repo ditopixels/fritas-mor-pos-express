@@ -16,7 +16,6 @@ export const usePrinterStatus = () => {
   });
 
   const PRINTER_API_URL = 'http://localhost:8000';
-  const PREFERRED_PRINTER = 'lasfritas';
   const CHECK_INTERVAL = 30000; // 30 segundos
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isCheckingRef = useRef(false);
@@ -86,27 +85,17 @@ export const usePrinterStatus = () => {
       
       if (response.ok && mountedRef.current) {
         const printers = await response.json();
-        console.log('📄 Impresoras disponibles:', printers);
+        console.log('📄 Respuesta de impresoras:', printers);
         
-        let selectedPrinter = null;
+        // Simplificado: solo verificar si hay impresoras disponibles
+        const isConnected = Array.isArray(printers) && printers.length > 0;
+        const printerName = isConnected ? (typeof printers[0] === 'string' ? printers[0] : printers[0]?.nombre || printers[0]) : null;
         
-        if (Array.isArray(printers) && printers.length > 0) {
-          // Buscar impresora preferida
-          selectedPrinter = printers.find((p: any) => 
-            p.nombre?.toLowerCase().includes(PREFERRED_PRINTER.toLowerCase())
-          );
-          
-          // Si no encuentra la preferida, usar la primera disponible
-          if (!selectedPrinter) {
-            selectedPrinter = printers[0];
-          }
-          
-          console.log('🎯 Impresora seleccionada:', selectedPrinter);
-        }
-        
-        // CORREGIR: Asegurar que tanto isConnected como printerName se establezcan correctamente
-        const isConnected = !!(selectedPrinter && selectedPrinter.nombre);
-        const printerName = selectedPrinter?.nombre || null;
+        console.log('✅ Estado calculado:', {
+          isConnected,
+          printerName,
+          printers
+        });
         
         const newStatus = {
           isConnected,
@@ -115,22 +104,16 @@ export const usePrinterStatus = () => {
           lastCheck: new Date(),
         };
         
-        console.log('✅ Nuevo estado calculado:', {
-          isConnected,
-          printerName,
-          selectedPrinter: selectedPrinter
-        });
-        
         setStatus(newStatus);
         
-        // Solo detener verificaciones si realmente está conectada CON nombre
-        if (isConnected && printerName) {
-          console.log('🎯 Impresora conectada correctamente - deteniendo verificaciones periódicas');
+        // Detener verificaciones si está conectada
+        if (isConnected) {
+          console.log('🎯 Impresora conectada - deteniendo verificaciones periódicas');
           clearCheckInterval();
         }
-        // Si no está conectada correctamente, continuar verificando
+        // Si no está conectada, continuar verificando
         else if (!intervalRef.current) {
-          console.log('❌ Impresora no conectada correctamente - iniciando verificaciones periódicas');
+          console.log('❌ Impresora no conectada - iniciando verificaciones periódicas');
           startCheckInterval();
         }
         
@@ -162,28 +145,22 @@ export const usePrinterStatus = () => {
   const printInvoice = useCallback(async (orderData: any, type: 'cliente' | 'tienda') => {
     console.log('🖨️ === INICIANDO PROCESO DE IMPRESIÓN ===');
     console.log('📊 Estado actual del statusRef:', statusRef.current);
-    console.log('📊 Estado del hook:', status);
     
     // Usar el estado del ref que siempre está actualizado
     const currentStatus = statusRef.current;
     
-    // VALIDACIÓN MEJORADA: Verificar tanto conexión como nombre de impresora
+    // VALIDACIÓN SIMPLIFICADA: Solo verificar conexión
     if (!currentStatus.isConnected) {
       console.error('❌ Impresora no conectada - isConnected:', currentStatus.isConnected);
       throw new Error('Impresora no conectada');
     }
-    
-    if (!currentStatus.printerName) {
-      console.error('❌ Nombre de impresora no disponible - printerName:', currentStatus.printerName);
-      throw new Error('Nombre de impresora no disponible');
-    }
 
     try {
       console.log(`📝 Imprimiendo factura ${type} para orden:`, orderData.order_number);
-      console.log('🖨️ Usando impresora:', currentStatus.printerName);
+      console.log('🖨️ Usando impresora:', currentStatus.printerName || 'Primera disponible');
       
       const invoiceData = {
-        impresora: currentStatus.printerName,
+        impresora: currentStatus.printerName || 'lasfritas', // Usar nombre por defecto si no hay
         operaciones: [
           // Header
           { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
