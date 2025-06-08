@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface PrinterStatus {
@@ -147,10 +146,8 @@ export const usePrinterStatus = () => {
     console.log('🖨️ === INICIANDO PROCESO DE IMPRESIÓN ===');
     console.log('📊 Estado actual del statusRef:', statusRef.current);
     
-    // Usar el estado del ref que siempre está actualizado
     const currentStatus = statusRef.current;
     
-    // VALIDACIÓN SIMPLIFICADA: Solo verificar conexión
     if (!currentStatus.isConnected) {
       console.error('❌ Impresora no conectada - isConnected:', currentStatus.isConnected);
       throw new Error('Impresora no conectada');
@@ -160,55 +157,47 @@ export const usePrinterStatus = () => {
       console.log(`📝 Imprimiendo factura ${type} para orden:`, orderData.order_number);
       console.log('🖨️ Usando impresora:', currentStatus.printerName || 'Primera disponible');
       
+      // Crear el texto completo de la factura con saltos de línea
+      const facturaTexto = [
+        '================================',
+        'LAS FRITAS MOR',
+        '================================',
+        `FACTURA - ${type.toUpperCase()}`,
+        '--------------------------------',
+        `Orden: ${orderData.order_number}`,
+        `Cliente: ${orderData.customer_name}`,
+        `Fecha: ${new Date(orderData.created_at).toLocaleString('es-ES')}`,
+        `Pago: ${orderData.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}`,
+        '--------------------------------',
+        'PRODUCTOS:',
+        ...orderData.order_items.map((item: any) => [
+          `${item.product_name}`,
+          `  ${item.variant_name}`,
+          `  ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}`
+        ]).flat(),
+        '--------------------------------',
+        `Subtotal: $${orderData.subtotal.toLocaleString()}`,
+        ...(orderData.total_discount > 0 ? [
+          `Descuentos: -$${orderData.total_discount.toLocaleString()}`
+        ] : []),
+        `TOTAL: $${orderData.total.toLocaleString()}`,
+        ...(orderData.payment_method === 'cash' && orderData.cash_received ? [
+          `Recibido: $${orderData.cash_received.toLocaleString()}`,
+          `Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}`
+        ] : []),
+        '================================',
+        type === 'cliente' ? '¡Gracias por su compra!' : 'COPIA TIENDA',
+        '================================',
+        '',
+        ''
+      ].join('\n');
+
       const invoiceData = {
         nombreImpresora: currentStatus.printerName || 'lasfritas',
         serial: "",
         operaciones: [
-          // Header
-          { nombre: "EscribirTexto", argumentos: ['='.repeat(32)] },
-          { nombre: "EscribirTexto", argumentos: ['LAS FRITAS MOR'] },
-          { nombre: "EscribirTexto", argumentos: ['='.repeat(32)] },
-          { nombre: "EscribirTexto", argumentos: [`FACTURA - ${type.toUpperCase()}`] },
-          { nombre: "EscribirTexto", argumentos: ['-'.repeat(32)] },
-          
-          // Información de la orden
-          { nombre: "EscribirTexto", argumentos: [`Orden: ${orderData.order_number}`] },
-          { nombre: "EscribirTexto", argumentos: [`Cliente: ${orderData.customer_name}`] },
-          { nombre: "EscribirTexto", argumentos: [`Fecha: ${new Date(orderData.created_at).toLocaleString('es-ES')}`] },
-          { nombre: "EscribirTexto", argumentos: [`Pago: ${orderData.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}`] },
-          { nombre: "EscribirTexto", argumentos: ['-'.repeat(32)] },
-          
-          // Items
-          { nombre: "EscribirTexto", argumentos: ['PRODUCTOS:'] },
-          ...orderData.order_items.map((item: any) => [
-            { nombre: "EscribirTexto", argumentos: [`${item.product_name}`] },
-            { nombre: "EscribirTexto", argumentos: [`  ${item.variant_name}`] },
-            { nombre: "EscribirTexto", argumentos: [`  ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}`] },
-          ]).flat(),
-          
-          { nombre: "EscribirTexto", argumentos: ['-'.repeat(32)] },
-          
-          // Totales
-          { nombre: "EscribirTexto", argumentos: [`Subtotal: $${orderData.subtotal.toLocaleString()}`] },
-          ...(orderData.total_discount > 0 ? [
-            { nombre: "EscribirTexto", argumentos: [`Descuentos: -$${orderData.total_discount.toLocaleString()}`] }
-          ] : []),
-          { nombre: "EscribirTexto", argumentos: [`TOTAL: $${orderData.total.toLocaleString()}`] },
-          
-          // Información de pago
-          ...(orderData.payment_method === 'cash' && orderData.cash_received ? [
-            { nombre: "EscribirTexto", argumentos: [`Recibido: $${orderData.cash_received.toLocaleString()}`] },
-            { nombre: "EscribirTexto", argumentos: [`Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}`] },
-          ] : []),
-          
-          { nombre: "EscribirTexto", argumentos: ['='.repeat(32)] },
-          { nombre: "EscribirTexto", argumentos: [type === 'cliente' ? '¡Gracias por su compra!' : 'COPIA TIENDA'] },
-          { nombre: "EscribirTexto", argumentos: ['='.repeat(32)] },
-          
-          // Espacios en blanco y corte
-          { nombre: "EscribirTexto", argumentos: [''] },
-          { nombre: "EscribirTexto", argumentos: [''] },
-          { nombre: "Cortar", argumentos: ['3'] },
+          { nombre: "EscribirTexto", argumentos: [facturaTexto] },
+          { nombre: "Cortar", argumentos: ['3'] }
         ]
       };
 
