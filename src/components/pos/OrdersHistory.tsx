@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,7 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
     customerName: string;
   } | null>(null);
   
-  const { status: printerStatus, printInvoice } = usePrinterStatus();
+  const { printInvoice } = usePrinterStatus();
   const { toast } = useToast();
 
   const handlePrintOrder = async (order: SupabaseOrder) => {
@@ -120,7 +121,6 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                         size="sm"
                         variant="outline"
                         onClick={() => handlePrintOrder(order)}
-                        disabled={!printerStatus.isConnected}
                         className="text-xs"
                       >
                         <Printer className="h-3 w-3 mr-1" />

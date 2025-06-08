@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,7 +41,7 @@ export const OrderSummary = ({
   const createOrderMutation = useCreateOrder(onOrderCreated);
   const { toast } = useToast();
   const { calculatePromotions } = usePromotionCalculator();
-  const { status: printerStatus, printInvoice } = usePrinterStatus();
+  const { printInvoice } = usePrinterStatus();
 
   // Calcular promociones aplicadas a los items del carrito
   const subtotal = items.reduce((sum, item) => sum + ((item.originalPrice || item.price) * item.quantity), 0);
@@ -162,6 +161,16 @@ export const OrderSummary = ({
       
       // Guardar la orden creada para el preview
       setLastCreatedOrder(order);
+      
+      // IMPRIMIR AUTOMÁTICAMENTE LA PRIMERA VEZ
+      console.log('🖨️ Imprimiendo automáticamente la orden creada...');
+      try {
+        await printInvoice(order, 'cliente');
+        console.log('✅ Impresión automática exitosa');
+      } catch (printError) {
+        console.error('❌ Error en impresión automática:', printError);
+        // No mostrar error aquí, la impresión manual estará disponible
+      }
       
       toast({
         title: "¡Orden completada!",
@@ -284,7 +293,6 @@ export const OrderSummary = ({
                   variant="outline"
                   size="sm"
                   className="bg-white hover:bg-gray-50"
-                  disabled={!printerStatus.isConnected}
                 >
                   <Printer className="h-3 w-3 mr-1" />
                   Imprimir

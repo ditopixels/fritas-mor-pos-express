@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface PrinterStatus {
@@ -16,9 +17,6 @@ export const usePrinterStatus = () => {
   });
 
   const PRINTER_API_URL = 'http://localhost:8000';
-  const CHECK_INTERVAL = 30000; // 30 segundos
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isCheckingRef = useRef(false);
   const mountedRef = useRef(true);
   const hasInitialCheckRef = useRef(false);
   
@@ -36,33 +34,12 @@ export const usePrinterStatus = () => {
     });
   }, [status]);
 
-  const clearCheckInterval = useCallback(() => {
-    if (intervalRef.current) {
-      console.log('🔄 Deteniendo verificaciones periódicas de impresora');
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
-
-  const startCheckInterval = useCallback(() => {
-    clearCheckInterval();
-    
-    console.log('🔄 Iniciando verificaciones periódicas de impresora (cada 30s)');
-    intervalRef.current = setInterval(() => {
-      if (!isCheckingRef.current && mountedRef.current) {
-        checkPrinterStatus();
-      }
-    }, CHECK_INTERVAL);
-  }, []);
-
   const checkPrinterStatus = useCallback(async () => {
-    if (isCheckingRef.current || !mountedRef.current) {
-      console.log('⏸️ Verificación saltada - ya en curso o componente desmontado');
+    if (!mountedRef.current) {
+      console.log('⏸️ Verificación saltada - componente desmontado');
       return;
     }
 
-    isCheckingRef.current = true;
-    
     if (mountedRef.current) {
       setStatus(prev => ({ ...prev, isChecking: true }));
     }
@@ -106,17 +83,6 @@ export const usePrinterStatus = () => {
         
         setStatus(newStatus);
         
-        // Detener verificaciones si está conectada
-        if (isConnected) {
-          console.log('🎯 Impresora conectada - deteniendo verificaciones periódicas');
-          clearCheckInterval();
-        }
-        // Si no está conectada, continuar verificando
-        else if (!intervalRef.current) {
-          console.log('❌ Impresora no conectada - iniciando verificaciones periódicas');
-          startCheckInterval();
-        }
-        
       } else if (mountedRef.current) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -131,31 +97,17 @@ export const usePrinterStatus = () => {
         };
         
         setStatus(disconnectedStatus);
-        
-        if (!intervalRef.current) {
-          console.log('❌ Error de conexión - iniciando verificaciones periódicas para reintentar');
-          startCheckInterval();
-        }
       }
-    } finally {
-      isCheckingRef.current = false;
     }
-  }, [clearCheckInterval, startCheckInterval]);
+  }, []);
 
   const printInvoice = useCallback(async (orderData: any, type: 'cliente' | 'tienda') => {
     console.log('🖨️ === INICIANDO PROCESO DE IMPRESIÓN ===');
     console.log('📊 Estado actual del statusRef:', statusRef.current);
     
-    const currentStatus = statusRef.current;
-    
-    if (!currentStatus.isConnected) {
-      console.error('❌ Impresora no conectada - isConnected:', currentStatus.isConnected);
-      throw new Error('Impresora no conectada');
-    }
-
     try {
       console.log(`📝 Imprimiendo factura ${type} para orden:`, orderData.order_number);
-      console.log('🖨️ Usando impresora:', currentStatus.printerName || 'Primera disponible');
+      console.log('🖨️ Usando impresora:', statusRef.current.printerName || 'Primera disponible');
       
       // Crear el texto completo de la factura con saltos de línea
       const facturaTexto = [
@@ -193,7 +145,7 @@ export const usePrinterStatus = () => {
       ].join('\n');
 
       const invoiceData = {
-        nombreImpresora: currentStatus.printerName || 'lasfritas',
+        nombreImpresora: statusRef.current.printerName || 'lasfritas',
         serial: "",
         operaciones: [
           { nombre: "EscribirTexto", argumentos: [facturaTexto] },
@@ -234,7 +186,7 @@ export const usePrinterStatus = () => {
     }
   }, []);
 
-  // Efecto para la verificación inicial
+  // Efecto para la verificación inicial ÚNICAMENTE
   useEffect(() => {
     console.log('🔄 Inicializando usePrinterStatus...');
     mountedRef.current = true;
@@ -248,8 +200,6 @@ export const usePrinterStatus = () => {
     return () => {
       console.log('🧹 Limpiando usePrinterStatus...');
       mountedRef.current = false;
-      clearCheckInterval();
-      isCheckingRef.current = false;
     };
   }, []);
 
