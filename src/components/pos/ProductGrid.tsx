@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -61,34 +60,51 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
       const { data, error } = await query;
       if (error) throw error;
 
-      return data.map(product => ({
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        categoryId: product.category_id,
-        image: product.image,
-        base_price: product.base_price,
-        isActive: product.is_active,
-        displayOrder: product.display_order,
-        createdAt: new Date(product.created_at),
-        additional_options: product.additional_options || [],
-        variants: product.product_variants?.map((variant: any) => ({
-          id: variant.id,
-          productId: variant.product_id,
-          sku: variant.sku,
-          name: variant.name,
-          price: variant.price,
-          optionValues: variant.option_values || {},
-          isActive: variant.is_active,
-          stock: variant.stock,
-        })) || [],
-        options: product.product_options?.map((option: any) => ({
-          id: option.id,
-          name: option.name,
-          values: option.values || [],
-          isRequired: option.is_required,
-        })) || []
-      }));
+      return data.map(product => {
+        // Parse additional_options safely
+        let additionalOptions = [];
+        if (product.additional_options) {
+          try {
+            if (typeof product.additional_options === 'string') {
+              additionalOptions = JSON.parse(product.additional_options);
+            } else if (Array.isArray(product.additional_options)) {
+              additionalOptions = product.additional_options;
+            }
+          } catch (error) {
+            console.error('Error parsing additional_options:', error);
+            additionalOptions = [];
+          }
+        }
+
+        return {
+          id: product.id,
+          name: product.name,
+          description: product.description,
+          categoryId: product.category_id,
+          image: product.image,
+          base_price: product.base_price,
+          isActive: product.is_active,
+          displayOrder: product.display_order,
+          createdAt: new Date(product.created_at),
+          additional_options: additionalOptions,
+          variants: product.product_variants?.map((variant: any) => ({
+            id: variant.id,
+            productId: variant.product_id,
+            sku: variant.sku,
+            name: variant.name,
+            price: variant.price,
+            optionValues: variant.option_values || {},
+            isActive: variant.is_active,
+            stock: variant.stock,
+          })) || [],
+          options: product.product_options?.map((option: any) => ({
+            id: option.id,
+            name: option.name,
+            values: option.values || [],
+            isRequired: option.is_required,
+          })) || []
+        };
+      });
     },
   });
 
