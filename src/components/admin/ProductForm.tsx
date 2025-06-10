@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,11 +31,9 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
     is_active: product?.is_active ?? true,
   });
 
-  // Estados simplificados para opciones y variantes
   const [currentOptions, setCurrentOptions] = useState<ProductOption[]>(product?.options || []);
   const [currentVariants, setCurrentVariants] = useState<ProductVariant[]>(product?.variants || []);
 
-  // Reinicializar cuando cambie el producto
   useEffect(() => {
     if (product) {
       setCurrentOptions(product.options || []);
@@ -51,22 +48,38 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
     e.preventDefault();
     
     try {
-      console.log('🚀 SUBMIT - ENVIANDO DATOS:', {
+      console.log('📋 FORM SUBMIT - DATOS COMPLETOS ANTES DE ENVIAR:', {
         formData,
-        optionsCount: currentOptions.length,
+        options: currentOptions,
+        variants: currentVariants,
         variantsCount: currentVariants.length,
+        variantsDetailed: currentVariants.map(v => ({
+          name: v.name,
+          sku: v.sku,
+          price: v.price,
+          option_values: v.option_values
+        }))
+      });
+
+      // Preparar datos con variantes explícitas
+      const dataToSend = {
+        ...formData,
+        options: currentOptions,
         variants: currentVariants
+      };
+
+      console.log('🚀 ENVIANDO DATOS A useUpdateProduct:', {
+        id: product?.id,
+        updates: dataToSend,
+        variantsInUpdate: dataToSend.variants,
+        variantsCount: dataToSend.variants.length
       });
       
       if (product) {
         // Actualizar producto existente
         await updateProduct.mutateAsync({
           id: product.id,
-          updates: {
-            ...formData,
-            options: currentOptions,
-            variants: currentVariants
-          }
+          updates: dataToSend
         });
         
         toast({
@@ -176,13 +189,11 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         </CardContent>
       </Card>
 
-      {/* Options Manager */}
       <ProductOptionsManager
         product={product || { ...formData, id: 'temp' } as Product}
         onUpdateOptions={setCurrentOptions}
       />
 
-      {/* Variants Manager */}
       <ProductVariantsManager
         product={product || { ...formData, id: 'temp' } as Product}
         options={currentOptions}
@@ -206,7 +217,6 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         )}
       </div>
 
-      {/* Debug simplificado */}
       <div className="text-xs text-gray-500 mt-4 p-2 bg-gray-50 rounded">
         <strong>Debug ProductForm:</strong><br/>
         Opciones: {currentOptions.length} | Variantes: {currentVariants.length}<br/>

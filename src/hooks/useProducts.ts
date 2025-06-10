@@ -130,14 +130,15 @@ export const useUpdateProduct = () => {
       console.log('🚀 useUpdateProduct - DATOS RECIBIDOS:', { 
         id, 
         updates,
-        variantsCount: updates.variants?.length || 0,
-        variants: updates.variants
+        hasVariants: 'variants' in updates,
+        variantsValue: updates.variants,
+        variantsCount: updates.variants?.length || 0
       });
 
       // Separar opciones y variantes del resto
       const { options, variants, ...productUpdates } = updates;
       
-      // Actualizar producto básico
+      // Actualizar producto básico primero
       const { data, error } = await supabase
         .from('products')
         .update(productUpdates)
@@ -147,7 +148,7 @@ export const useUpdateProduct = () => {
 
       if (error) throw error;
 
-      // MANEJAR OPCIONES
+      // PROCESAR OPCIONES
       if (options !== undefined) {
         console.log('🔧 PROCESANDO OPCIONES:', options.length);
         
@@ -170,39 +171,44 @@ export const useUpdateProduct = () => {
         }
       }
 
-      // MANEJAR VARIANTES - SIMPLIFICADO
+      // PROCESAR VARIANTES
       if (variants !== undefined) {
-        console.log('🔥 PROCESANDO VARIANTES:', variants.length);
+        console.log('🔥 PROCESANDO VARIANTES - DATOS RECIBIDOS:', {
+          variantsType: typeof variants,
+          variantsIsArray: Array.isArray(variants),
+          variantsLength: variants.length,
+          variantsData: variants
+        });
         
         // Eliminar variantes existentes
         await supabase.from('product_variants').delete().eq('product_id', id);
 
         // Insertar nuevas variantes si las hay
         if (variants.length > 0) {
-          const variantsToInsert = variants
-            .filter(variant => variant.name && variant.sku && variant.price !== undefined)
-            .map(variant => ({
-              product_id: id,
-              name: variant.name,
-              sku: variant.sku,
-              price: Number(variant.price),
-              option_values: variant.option_values || {},
-              is_active: variant.is_active !== false,
-              stock: variant.stock || null,
-            }));
+          const variantsToInsert = variants.map(variant => ({
+            product_id: id,
+            name: variant.name,
+            sku: variant.sku,
+            price: Number(variant.price),
+            option_values: variant.option_values || {},
+            is_active: variant.is_active !== false,
+            stock: variant.stock || null,
+          }));
 
-          if (variantsToInsert.length > 0) {
-            const { error: insertVariantsError } = await supabase
-              .from('product_variants')
-              .insert(variantsToInsert);
+          console.log('📝 INSERTANDO VARIANTES:', variantsToInsert);
 
-            if (insertVariantsError) {
-              console.error('❌ ERROR INSERTANDO VARIANTES:', insertVariantsError);
-              throw insertVariantsError;
-            }
-            
-            console.log('✅ VARIANTES GUARDADAS:', variantsToInsert.length);
+          const { error: insertVariantsError } = await supabase
+            .from('product_variants')
+            .insert(variantsToInsert);
+
+          if (insertVariantsError) {
+            console.error('❌ ERROR INSERTANDO VARIANTES:', insertVariantsError);
+            throw insertVariantsError;
           }
+          
+          console.log('✅ VARIANTES GUARDADAS EXITOSAMENTE:', variantsToInsert.length);
+        } else {
+          console.log('ℹ️ NO HAY VARIANTES PARA INSERTAR');
         }
       }
 
