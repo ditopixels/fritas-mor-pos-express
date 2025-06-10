@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -63,7 +62,15 @@ export const useProducts = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Product[];
+      
+      // Transform the data to match our interface
+      return data.map(product => ({
+        ...product,
+        options: product.options?.map(option => ({
+          ...option,
+          selection_type: option.selection_type || 'single'
+        })) || []
+      })) as Product[];
     },
   });
 };
@@ -120,9 +127,10 @@ export const useUpdateProduct = () => {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Product> }) => {
-      // Separar las opciones del resto de updates para no incluirlas en la actualización de products
-      const { options, ...productUpdates } = updates;
+      // Separar las opciones y variantes del resto de updates
+      const { options, variants, ...productUpdates } = updates;
       
+      // Actualizar el producto
       const { data, error } = await supabase
         .from('products')
         .update(productUpdates)
@@ -131,6 +139,53 @@ export const useUpdateProduct = () => {
         .single();
 
       if (error) throw error;
+
+      // Si hay opciones, eliminar las existentes y crear las nuevas
+      if (options && options.length > 0) {
+        // Eliminar opciones existentes
+        await supabase
+          .from('product_options')
+          .delete()
+          .eq('product_id', id);
+
+        // Insertar nuevas opciones
+        const optionsToInsert = options.map(option => ({
+          product_id: id,
+          name: option.name,
+          values: option.values,
+          is_required: option.is_required,
+          selection_type: option.selection_type,
+        }));
+
+        await supabase
+          .from('product_options')
+          .insert(optionsToInsert);
+      }
+
+      // Si hay variantes, eliminar las existentes y crear las nuevas
+      if (variants && variants.length > 0) {
+        // Eliminar variantes existentes
+        await supabase
+          .from('product_variants')
+          .delete()
+          .eq('product_id', id);
+
+        // Insertar nuevas variantes
+        const variantsToInsert = variants.map(variant => ({
+          product_id: id,
+          name: variant.name,
+          sku: variant.sku,
+          price: variant.price,
+          option_values: variant.option_values,
+          is_active: variant.is_active,
+          stock: variant.stock,
+        }));
+
+        await supabase
+          .from('product_variants')
+          .insert(variantsToInsert);
+      }
+
       return data;
     },
     onSuccess: () => {
