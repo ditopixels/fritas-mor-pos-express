@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import qz from 'qz-tray';
 
@@ -212,7 +211,6 @@ export const usePrinterStatus = () => {
         'LAS FRITAS MOR\n',
         '\x1B\x45\x00', // Negrita OFF
         '================================\n',
-        `FACTURA - ${type.toUpperCase()}\n`,
         '\x1B\x61\x00', // Alinear izquierda
         '--------------------------------\n',
         
@@ -223,16 +221,25 @@ export const usePrinterStatus = () => {
         `Pago: ${orderData.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}\n`,
         '--------------------------------\n',
         
-        // Items
+        // Items - Productos con fuente más grande
         '\x1B\x45\x01', // Negrita ON
         'PRODUCTOS:\n',
         '\x1B\x45\x00', // Negrita OFF
       ];
 
-      // Agregar items
+      // Agregar items con fuente más grande para nombres de productos y opciones
       orderData.order_items.forEach((item: any) => {
+        // Producto principal con fuente doble
+        printData.push('\x1D\x21\x11'); // Fuente doble tamaño
         printData.push(`${item.product_name}\n`);
+        printData.push('\x1D\x21\x00'); // Volver a fuente normal
+        
+        // Variante con fuente doble
+        printData.push('\x1D\x21\x11'); // Fuente doble tamaño
         printData.push(`  ${item.variant_name}\n`);
+        printData.push('\x1D\x21\x00'); // Volver a fuente normal
+        
+        // Precio y cantidad en fuente normal
         printData.push(`  ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}\n`);
       });
 
@@ -254,13 +261,15 @@ export const usePrinterStatus = () => {
         printData.push(`Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}\n`);
       }
 
-      // Footer
+      // Footer reducido
       printData.push('\x1B\x61\x01'); // Centrar
       printData.push('================================\n');
-      printData.push(type === 'cliente' ? '¡Gracias por su compra!\n' : 'COPIA TIENDA\n');
+      if (type === 'tienda') {
+        printData.push('COPIA TIENDA\n');
+      }
       printData.push('================================\n');
       printData.push('\x1B\x61\x00'); // Alinear izquierda
-      printData.push('\n\n\n'); // Espacios en blanco
+      printData.push('\n'); // Solo un espacio
       printData.push('\x1D\x56\x42\x03'); // Cortar papel
 
       console.log('📤 Enviando datos de impresión a QZ Tray...');
