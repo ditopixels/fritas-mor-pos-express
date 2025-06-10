@@ -1,10 +1,11 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Zap } from "lucide-react";
 import { Product, ProductOption, ProductVariant } from "@/hooks/useProducts";
 
 interface ProductVariantsManagerProps {
@@ -51,6 +52,72 @@ export const ProductVariantsManager = ({
     });
   };
 
+  const generateAllVariants = () => {
+    if (options.length === 0) {
+      console.log('No hay opciones disponibles para generar variantes');
+      return;
+    }
+
+    // Generar todas las combinaciones posibles
+    const combinations = generateCombinations(options);
+    
+    // Crear variantes basadas en las combinaciones
+    const newVariants = combinations.map((combination, index) => {
+      const optionValues: Record<string, string> = {};
+      let variantName = product.name;
+      let skuParts = [product.name.substring(0, 3).toUpperCase()];
+
+      combination.forEach((value, optionIndex) => {
+        const option = options[optionIndex];
+        optionValues[option.name] = value;
+        variantName += ` - ${value}`;
+        skuParts.push(value.substring(0, 2).toUpperCase());
+      });
+
+      const sku = `${skuParts.join('-')}-${String(index + 1).padStart(3, '0')}`;
+
+      return {
+        id: `temp-${Date.now()}-${index}`,
+        product_id: product.id,
+        name: variantName,
+        sku: sku,
+        price: product.base_price || 0,
+        option_values: optionValues,
+        is_active: true,
+      };
+    });
+
+    // Filtrar variantes que no existan ya
+    const existingCombinations = variants.map(v => JSON.stringify(v.option_values));
+    const uniqueNewVariants = newVariants.filter(v => 
+      !existingCombinations.includes(JSON.stringify(v.option_values))
+    );
+
+    if (uniqueNewVariants.length > 0) {
+      onUpdateVariants([...variants, ...uniqueNewVariants]);
+      console.log(`✅ Se generaron ${uniqueNewVariants.length} nuevas variantes`);
+    } else {
+      console.log('ℹ️ Todas las combinaciones ya existen como variantes');
+    }
+  };
+
+  const generateCombinations = (options: ProductOption[]): string[][] => {
+    if (options.length === 0) return [[]];
+    
+    const [firstOption, ...restOptions] = options;
+    const restCombinations = generateCombinations(restOptions);
+    
+    const combinations: string[][] = [];
+    
+    firstOption.values.forEach(value => {
+      restCombinations.forEach(restCombination => {
+        combinations.push([value, ...restCombination]);
+      });
+    });
+    
+    return combinations;
+  };
+
   const removeVariant = (variantId: string) => {
     onUpdateVariants(variants.filter(v => v.id !== variantId));
   };
@@ -71,6 +138,20 @@ export const ProductVariantsManager = ({
         <CardTitle>Variantes del Producto</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Botón para generar todas las variaciones */}
+        {options.length > 0 && (
+          <div className="flex justify-end">
+            <Button
+              onClick={generateAllVariants}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Zap className="h-4 w-4" />
+              Generar Todas las Variaciones
+            </Button>
+          </div>
+        )}
+
         {/* Lista de variantes existentes */}
         <div className="space-y-2">
           {variants.map(variant => (
