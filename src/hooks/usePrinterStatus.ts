@@ -260,7 +260,7 @@ export const usePrinterStatus = () => {
       printData.push(type === 'cliente' ? '¡Gracias por su compra!\n' : 'COPIA TIENDA\n');
       printData.push('================================\n');
       printData.push('\x1B\x61\x00'); // Alinear izquierda
-      printData.push('\n\n\n'); // Espacios en blanco
+      printData.push('\n'); // Espacios en blanco
       printData.push('\x1D\x56\x42\x03'); // Cortar papel
 
       console.log('📤 Enviando datos de impresión a QZ Tray...');
