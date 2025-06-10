@@ -3,9 +3,11 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, Tag } from "lucide-react";
+import { Eye, Tag, Printer } from "lucide-react";
 import { SupabaseOrder } from "@/hooks/useOrders";
 import { TransferViewModal } from "./TransferViewModal";
+import { usePrinterStatus } from "@/hooks/usePrinterStatus";
+import { useToast } from "@/hooks/use-toast";
 
 interface OrdersHistoryProps {
   orders: SupabaseOrder[];
@@ -16,6 +18,28 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
     imageUrl: string;
     customerName: string;
   } | null>(null);
+  
+  const { printInvoice } = usePrinterStatus();
+  const { toast } = useToast();
+
+  const handlePrintOrder = async (order: SupabaseOrder) => {
+    try {
+      console.log('🖨️ Imprimiendo orden desde historial:', order.order_number);
+      await printInvoice(order, 'cliente');
+      
+      toast({
+        title: "Factura impresa",
+        description: `Factura de orden #${order.order_number} impresa exitosamente`,
+      });
+    } catch (error) {
+      console.error('❌ Error al imprimir desde historial:', error);
+      toast({
+        title: "Error de impresión",
+        description: `Error al imprimir: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        variant: "destructive",
+      });
+    }
+  };
 
   const getPaymentMethodBadge = (method: string) => {
     switch (method) {
@@ -78,20 +102,31 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                   </div>
                   <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2 shrink-0">
                     {getPaymentMethodBadge(order.payment_method)}
-                    {order.payment_method === 'transfer' && order.photo_evidence && (
+                    <div className="flex space-x-2">
+                      {order.payment_method === 'transfer' && order.photo_evidence && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedTransfer({
+                            imageUrl: order.photo_evidence!,
+                            customerName: order.customer_name
+                          })}
+                          className="text-xs"
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          Ver Transf.
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setSelectedTransfer({
-                          imageUrl: order.photo_evidence!,
-                          customerName: order.customer_name
-                        })}
-                        className="text-xs w-full sm:w-auto"
+                        onClick={() => handlePrintOrder(order)}
+                        className="text-xs"
                       >
-                        <Eye className="h-3 w-3 mr-1" />
-                        Ver Transf.
+                        <Printer className="h-3 w-3 mr-1" />
+                        Imprimir
                       </Button>
-                    )}
+                    </div>
                   </div>
                 </div>
               </CardHeader>

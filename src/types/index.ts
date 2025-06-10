@@ -1,4 +1,3 @@
-
 export interface CartItem {
   id: string;
   productName: string;
@@ -11,7 +10,6 @@ export interface CartItem {
   variantId?: string;
   categoryId?: string;
   appliedPromotions?: AppliedPromotion[];
-  additionalSelections?: string;
 }
 
 export interface Order {
@@ -53,13 +51,6 @@ export interface ProductOption {
   isRequired: boolean;
 }
 
-export interface AdditionalOption {
-  name: string;
-  options: string[];
-  multiple: boolean;
-  required: boolean;
-}
-
 export interface Product {
   id: string;
   name: string;
@@ -68,7 +59,6 @@ export interface Product {
   image?: string;
   base_price?: number;
   options: ProductOption[];
-  additionalOptions?: AdditionalOption[];
   isActive: boolean;
   displayOrder: number;
   createdAt: Date;

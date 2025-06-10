@@ -35,12 +35,13 @@ export const OrderSummary = ({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [cashReceived, setCashReceived] = useState<number | undefined>();
   const [photoEvidence, setPhotoEvidence] = useState<File | undefined>();
+  const [lastCreatedOrder, setLastCreatedOrder] = useState<SupabaseOrder | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const createOrderMutation = useCreateOrder(onOrderCreated);
   const { toast } = useToast();
   const { calculatePromotions } = usePromotionCalculator();
-  const { status: printerStatus, printInvoice } = usePrinterStatus();
+  const { printInvoice } = usePrinterStatus();
 
   // Calcular promociones aplicadas a los items del carrito
   const subtotal = items.reduce((sum, item) => sum + ((item.originalPrice || item.price) * item.quantity), 0);
@@ -63,34 +64,23 @@ export const OrderSummary = ({
     }
   };
 
-  const handlePrintInvoices = async (order: SupabaseOrder) => {
-    console.log('=== INICIANDO PROCESO DE IMPRESIÓN ===');
+  const handlePrintInvoice = async (order: SupabaseOrder) => {
+    console.log('=== IMPRIMIENDO FACTURA ===');
     console.log('📄 Orden a imprimir:', order);
     
     try {
-      console.log('✅ Iniciando impresión de facturas para orden:', order.order_number);
+      console.log('✅ Iniciando impresión de factura para orden:', order.order_number);
       
-      // Imprimir factura del cliente
-      console.log('📄 Imprimiendo factura del cliente...');
       await printInvoice(order, 'cliente');
-      console.log('✅ Factura del cliente impresa exitosamente');
-      
-      // Esperar 3 segundos antes de imprimir la segunda factura
-      console.log('⏳ Esperando 3 segundos antes de imprimir factura de tienda...');
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Imprimir factura de la tienda
-      console.log('📄 Imprimiendo factura de la tienda...');
-      await printInvoice(order, 'tienda');
-      console.log('✅ Factura de la tienda impresa exitosamente');
+      console.log('✅ Factura impresa exitosamente');
       
       toast({
-        title: "Facturas impresas",
-        description: "Facturas del cliente y tienda impresas exitosamente",
+        title: "Factura impresa",
+        description: "Factura impresa exitosamente",
       });
       
     } catch (error) {
-      console.error('❌ Error al imprimir facturas:', error);
+      console.error('❌ Error al imprimir factura:', error);
       toast({
         title: "Error de impresión",
         description: `Error al imprimir: ${error instanceof Error ? error.message : 'Error desconocido'}`,
@@ -118,7 +108,8 @@ export const OrderSummary = ({
       return;
     }
 
-    if (paymentMethod === "cash" && (!cashReceived || cashReceived < totalWithPromotions)) {
+    // Quitar validación obligatoria del cambio - solo validar que sea mayor o igual si se ingresa
+    if (paymentMethod === "cash" && cashReceived && cashReceived < totalWithPromotions) {
       toast({
         title: "Error",
         description: "El monto en efectivo debe ser mayor o igual al total",
@@ -140,7 +131,6 @@ export const OrderSummary = ({
         });
       }
 
-      // Preparar datos de la orden
       const orderData = {
         customer_name: customerName.trim(),
         payment_method: paymentMethod,
@@ -151,13 +141,12 @@ export const OrderSummary = ({
 
       console.log('Datos de la orden preparados:', orderData);
 
-      // Mostrar toast de procesamiento
       toast({
         title: "¡Orden en proceso!",
         description: `Orden para ${customerName} se está guardando...`,
       });
 
-      // Limpiar formulario inmediatamente para permitir nueva orden
+      // Limpiar formulario inmediatamente
       setCustomerName("");
       setPaymentMethod("");
       setCashReceived(undefined);
@@ -165,24 +154,28 @@ export const OrderSummary = ({
       onClearCart();
       onProceedToPayment(paymentMethod, customerName, cashReceived, photoEvidence);
 
-      // Guardar orden en segundo plano
+      // Guardar orden
       console.log('💾 Guardando orden en base de datos...');
       const order = await createOrderMutation.mutateAsync(orderData);
       console.log('✅ Orden guardada exitosamente:', order);
+      
+      // Guardar la orden creada para el preview
+      setLastCreatedOrder(order);
+      
+      // IMPRIMIR AUTOMÁTICAMENTE LA PRIMERA VEZ
+      console.log('🖨️ Imprimiendo automáticamente la orden creada...');
+      try {
+        await printInvoice(order, 'cliente');
+        console.log('✅ Impresión automática exitosa');
+      } catch (printError) {
+        console.error('❌ Error en impresión automática:', printError);
+        // No mostrar error aquí, la impresión manual estará disponible
+      }
       
       toast({
         title: "¡Orden completada!",
         description: `Orden #${order.order_number} para ${orderData.customer_name} guardada exitosamente`,
       });
-
-      // Disparar impresión inmediatamente después de guardar la orden
-      console.log('🚀 Disparando proceso de impresión...');
-      // Usar setTimeout para asegurar que la impresión no bloquee la UI
-      setTimeout(() => {
-        handlePrintInvoices(order).catch(error => {
-          console.error('Error en impresión asíncrona:', error);
-        });
-      }, 100);
       
     } catch (error: any) {
       console.error('❌ Error al procesar orden:', error);
@@ -287,6 +280,27 @@ export const OrderSummary = ({
             )}
           </div>
 
+          {/* Preview de última orden creada */}
+          {lastCreatedOrder && (
+            <div className="flex-shrink-0 mt-4 p-3 border rounded-lg bg-green-50">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-800">Última orden creada</p>
+                  <p className="text-xs text-green-600">#{lastCreatedOrder.order_number} - {lastCreatedOrder.customer_name}</p>
+                </div>
+                <Button
+                  onClick={() => handlePrintInvoice(lastCreatedOrder)}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white hover:bg-gray-50"
+                >
+                  <Printer className="h-3 w-3 mr-1" />
+                  Imprimir
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Totales y formulario de pago - sticky al bottom */}
           {items.length > 0 && (
             <div className="flex-shrink-0 space-y-4 border-t pt-4 mt-4 bg-white">
@@ -350,7 +364,7 @@ export const OrderSummary = ({
 
                 {paymentMethod === "cash" && (
                   <div>
-                    <Label htmlFor="cash-received" className="text-sm">Efectivo Recibido</Label>
+                    <Label htmlFor="cash-received" className="text-sm">Efectivo Recibido (Opcional)</Label>
                     <Input
                       id="cash-received"
                       type="number"
@@ -404,12 +418,7 @@ export const OrderSummary = ({
                     onClick={handlePayment}
                     className="w-full bg-green-600 hover:bg-green-700"
                   >
-                    <div className="flex items-center space-x-2">
-                      <span>Procesar Pago</span>
-                      {printerStatus.isConnected && (
-                        <Printer className="h-4 w-4" />
-                      )}
-                    </div>
+                    <span>Procesar Pago</span>
                   </Button>
                   
                   <Button
