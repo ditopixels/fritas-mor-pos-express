@@ -1,3 +1,4 @@
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -119,9 +120,12 @@ export const useUpdateProduct = () => {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Product> }) => {
+      // Separar las opciones del resto de updates para no incluirlas en la actualización de products
+      const { options, ...productUpdates } = updates;
+      
       const { data, error } = await supabase
         .from('products')
-        .update(updates)
+        .update(productUpdates)
         .eq('id', id)
         .select()
         .single();
