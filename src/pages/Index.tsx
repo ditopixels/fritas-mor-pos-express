@@ -27,7 +27,15 @@ const Index = () => {
   const [selectedTransferImage, setSelectedTransferImage] = useState<string | null>(null);
   
   const { calculatePromotions } = useOptimizedPromotionCalculator();
-  const { data: orders = [] } = useOrders();
+  const { data: orders = [], isLoading, error } = useOrders();
+
+  console.log('🔍 Index - Orders data:', { 
+    ordersCount: orders.length, 
+    isLoading, 
+    error, 
+    firstOrder: orders[0],
+    user: user?.role 
+  });
 
   useEffect(() => {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -50,7 +58,7 @@ const Index = () => {
   }, [cart.length, calculatePromotions]);
 
   if (!user) {
-    return <LoginForm />;
+    return <LoginForm onLogin={() => {}} />;
   }
 
   const addToCart = (item: Omit<CartItem, "quantity">) => {
@@ -107,7 +115,7 @@ const Index = () => {
             </div>
             <div className="w-full lg:w-96 flex-shrink-0">
               <OrderSummary
-                cart={cart}
+                items={cart}
                 customerName={customerName}
                 onCustomerNameChange={setCustomerName}
                 onUpdateItem={updateCartItem}
@@ -120,7 +128,7 @@ const Index = () => {
         );
       
       case "orders":
-        return <OrdersHistory onTransferImageClick={handleTransferImageClick} />;
+        return <OrdersHistory orders={orders} onTransferImageClick={handleTransferImageClick} />;
       
       case "admin":
         return user.role === "admin" ? (
@@ -139,7 +147,12 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header 
-        user={user} 
+        user={{
+          id: user.id,
+          username: user.username || user.email || '',
+          role: user.role,
+          name: user.name || user.username || user.email || ''
+        }} 
         currentView={currentView} 
         onViewChange={setCurrentView} 
         onLogout={logout} 
@@ -153,7 +166,7 @@ const Index = () => {
 
       {showPaymentModal && (
         <PaymentModal
-          cart={cart}
+          items={cart}
           customerName={customerName}
           onSuccess={handlePaymentSuccess}
           onCancel={() => setShowPaymentModal(false)}
@@ -163,14 +176,16 @@ const Index = () => {
 
       {showTransferImageModal && (
         <TransferImageModal
+          isOpen={showTransferImageModal}
           onClose={() => setShowTransferImageModal(false)}
-          onImageCapture={() => setShowTransferImageModal(false)}
         />
       )}
 
       {showTransferViewModal && selectedTransferImage && (
         <TransferViewModal
+          isOpen={showTransferViewModal}
           imageUrl={selectedTransferImage}
+          customerName={customerName}
           onClose={() => {
             setShowTransferViewModal(false);
             setSelectedTransferImage(null);

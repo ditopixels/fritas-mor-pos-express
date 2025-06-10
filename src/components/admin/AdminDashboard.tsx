@@ -69,11 +69,21 @@ export const AdminDashboard = ({ orders }: AdminDashboardProps) => {
   // Transformar las órdenes de Supabase al formato esperado
   const transformedOrders: Order[] = orders.map(transformSupabaseOrderToOrder);
 
+  console.log('🏛️ AdminDashboard - Datos recibidos:', {
+    originalOrders: orders.length,
+    transformedOrders: transformedOrders.length,
+    firstOriginal: orders[0],
+    firstTransformed: transformedOrders[0]
+  });
+
   return (
     <div className="container mx-auto p-2 sm:p-4 lg:p-6">
       <div className="mb-4 sm:mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Panel de Administración</h1>
         <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Gestiona tu negocio de manera integral</p>
+        <div className="text-xs text-gray-500 mt-2">
+          Órdenes cargadas: {transformedOrders.length}
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

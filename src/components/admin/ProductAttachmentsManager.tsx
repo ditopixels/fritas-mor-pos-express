@@ -20,6 +20,12 @@ export const ProductAttachmentsManager = ({ product, onUpdateAttachments }: Prod
   const [newAttachmentName, setNewAttachmentName] = useState("");
   const [newAttachmentValue, setNewAttachmentValue] = useState("");
 
+  console.log('🔧 ProductAttachmentsManager - Props:', { 
+    productId: product?.id, 
+    productAttachments: product?.attachments,
+    attachmentsCount: product?.attachments?.length || 0
+  });
+
   useEffect(() => {
     // Convertir attachments de la base de datos al formato de la interfaz
     if (product?.attachments) {
@@ -29,11 +35,16 @@ export const ProductAttachmentsManager = ({ product, onUpdateAttachments }: Prod
         values: attachment.values || [],
         isRequired: attachment.is_required || false,
       }));
+      console.log('🔄 Convirtiendo attachments:', convertedAttachments);
       setAttachments(convertedAttachments);
+    } else {
+      console.log('📭 No hay attachments en el producto');
+      setAttachments([]);
     }
-  }, [product?.id]);
+  }, [product?.id, product?.attachments]);
 
   useEffect(() => {
+    console.log('📤 Enviando attachments actualizados:', attachments);
     onUpdateAttachments(attachments);
   }, [attachments, onUpdateAttachments]);
 
@@ -47,17 +58,20 @@ export const ProductAttachmentsManager = ({ product, onUpdateAttachments }: Prod
       isRequired: false,
     };
 
+    console.log('➕ Agregando nuevo attachment:', newAttachment);
     setAttachments([...attachments, newAttachment]);
     setNewAttachmentName("");
   };
 
   const removeAttachment = (index: number) => {
+    console.log('🗑️ Eliminando attachment en índice:', index);
     setAttachments(attachments.filter((_, i) => i !== index));
   };
 
   const updateAttachment = (index: number, field: keyof ProductAttachment, value: any) => {
     const updated = [...attachments];
     updated[index] = { ...updated[index], [field]: value };
+    console.log('✏️ Actualizando attachment:', { index, field, value, updated: updated[index] });
     setAttachments(updated);
   };
 
@@ -69,6 +83,7 @@ export const ProductAttachmentsManager = ({ product, onUpdateAttachments }: Prod
       ...updated[attachmentIndex],
       values: [...updated[attachmentIndex].values, newAttachmentValue]
     };
+    console.log('📝 Agregando valor a attachment:', { attachmentIndex, value: newAttachmentValue });
     setAttachments(updated);
     setNewAttachmentValue("");
   };
@@ -79,16 +94,20 @@ export const ProductAttachmentsManager = ({ product, onUpdateAttachments }: Prod
       ...updated[attachmentIndex],
       values: updated[attachmentIndex].values.filter((_, i) => i !== valueIndex)
     };
+    console.log('🗑️ Eliminando valor de attachment:', { attachmentIndex, valueIndex });
     setAttachments(updated);
   };
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader>
         <CardTitle>Elementos Adicionales del Producto (Attachments)</CardTitle>
         <p className="text-sm text-gray-600">
           Los attachments permiten selección múltiple sin costo adicional (ej: salsas, extras)
         </p>
+        <div className="text-xs text-gray-500">
+          Attachments actuales: {attachments.length}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Agregar nuevo attachment */}

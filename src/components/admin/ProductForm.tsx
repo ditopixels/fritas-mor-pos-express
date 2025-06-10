@@ -1,5 +1,4 @@
 
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +38,13 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
   const [currentVariants, setCurrentVariants] = useState<ProductVariant[]>(product?.variants || []);
   const [currentAttachments, setCurrentAttachments] = useState<TypesProductAttachment[]>([]);
 
+  console.log('📋 ProductForm - Estado inicial:', {
+    productId: product?.id,
+    productAttachments: product?.attachments,
+    currentAttachments: currentAttachments.length,
+    formData
+  });
+
   useEffect(() => {
     if (product) {
       setCurrentOptions(product.options || []);
@@ -50,6 +56,7 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         values: attachment.values || [],
         isRequired: attachment.is_required || false,
       }));
+      console.log('🔄 ProductForm - Convertir attachments:', convertedAttachments);
       setCurrentAttachments(convertedAttachments);
     } else {
       setCurrentOptions([]);
@@ -59,6 +66,7 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
   }, [product?.id]);
 
   const handleAttachmentsUpdate = (attachments: TypesProductAttachment[]) => {
+    console.log('📥 ProductForm - Recibiendo attachments actualizados:', attachments);
     setCurrentAttachments(attachments);
   };
 
@@ -227,7 +235,7 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
       />
 
       <ProductAttachmentsManager
-        product={product || { ...formData, id: 'temp' } as Product}
+        product={product || { ...formData, id: 'temp', attachments: [] } as Product}
         onUpdateAttachments={handleAttachmentsUpdate}
       />
 
@@ -272,4 +280,3 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
     </form>
   );
 };
-
