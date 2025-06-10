@@ -46,7 +46,7 @@ export const ProductVariantsManager = ({
     setLocalVariants(variants);
   }, [variants]);
 
-  // 🔥 NOTIFICAR CAMBIOS AL PADRE
+  // 🔥 NOTIFICAR CAMBIOS AL PADRE - MEJORADO
   const updateVariants = (newVariants: ProductVariant[]) => {
     console.log('📤 ProductVariantsManager - ENVIANDO VARIANTES AL PADRE:', {
       count: newVariants.length,
@@ -56,10 +56,18 @@ export const ProductVariantsManager = ({
         sku: v.sku,
         price: v.price,
         option_values: v.option_values
-      }))
+      })),
+      actualVariants: newVariants
     });
+    
+    // 🔥 ACTUALIZAR ESTADO LOCAL PRIMERO
     setLocalVariants(newVariants);
+    
+    // 🔥 LUEGO NOTIFICAR AL PADRE
     onUpdateVariants(newVariants);
+    
+    // 🔥 VERIFICAR QUE LA FUNCIÓN FUE LLAMADA
+    console.log('📤 ProductVariantsManager - FUNCIÓN onUpdateVariants LLAMADA CON:', newVariants);
   };
 
   const generateAllCombinations = () => {
@@ -105,7 +113,10 @@ export const ProductVariantsManager = ({
       newVariants: newVariants.map(v => ({ name: v.name, sku: v.sku, price: v.price }))
     });
 
-    updateVariants([...localVariants, ...newVariants]);
+    // 🔥 REEMPLAZAR TODAS LAS VARIANTES CON LAS NUEVAS
+    const allVariants = [...newVariants];
+    console.log('⚡ ProductVariantsManager - ENVIANDO TODAS LAS VARIANTES:', allVariants);
+    updateVariants(allVariants);
   };
 
   const addVariant = () => {
@@ -349,13 +360,17 @@ export const ProductVariantsManager = ({
           </Button>
         </div>
 
-        {/* 🔍 DEBUG INFO */}
+        {/* 🔍 DEBUG INFO MEJORADO */}
         <div className="text-xs text-gray-400 mt-4 p-2 bg-gray-50 rounded">
           <strong>Debug Variants Manager:</strong><br/>
           Variantes locales: {localVariants.length}<br/>
           Variantes props: {variants.length}<br/>
           {localVariants.length > 0 && (
-            <>Variantes: {localVariants.map(v => v.name).join(', ')}</>
+            <>
+              Variantes locales: {localVariants.map(v => v.name).join(', ')}<br/>
+              IDs locales: {localVariants.map(v => v.id).join(', ')}<br/>
+              SKUs locales: {localVariants.map(v => v.sku).join(', ')}
+            </>
           )}
         </div>
       </CardContent>

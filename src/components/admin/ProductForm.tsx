@@ -91,17 +91,26 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
       });
       
       if (product) {
-        // 🔥 PAYLOAD GARANTIZADO PARA ACTUALIZACIÓN
+        // 🔥 VERIFICACIÓN CRÍTICA ANTES DE ENVIAR
+        console.log('🎯 ProductForm - VERIFICACIÓN FINAL ANTES DE ENVIO:', {
+          variantsState: variants,
+          variantsLength: variants.length,
+          variantsIsArray: Array.isArray(variants),
+          variantsType: typeof variants,
+          variantsActual: variants
+        });
+
+        // 🔥 PAYLOAD GARANTIZADO PARA ACTUALIZACIÓN - ASEGURAR QUE VARIANTS SIEMPRE ESTÉ INCLUIDO
         const updatePayload = {
           ...formData,
           options: options,
-          variants: variants
+          variants: variants // ⚠️ CRÍTICO: Asegurar que variants esté aquí
         };
         
         console.log('🎯 ProductForm - ENVIANDO PAYLOAD FINAL:', {
           id: product.id,
           payload: updatePayload,
-          variantsIncluded: updatePayload.variants !== undefined,
+          variantsIncluded: 'variants' in updatePayload,
           variantsCount: updatePayload.variants.length,
           variantsDetails: updatePayload.variants.map(v => ({
             id: v.id,
@@ -109,7 +118,8 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
             sku: v.sku,
             price: v.price,
             option_values: v.option_values
-          }))
+          })),
+          fullPayload: updatePayload
         });
         
         await updateProduct.mutateAsync({
@@ -172,9 +182,27 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         sku: v.sku,
         price: v.price,
         option_values: v.option_values
-      }))
+      })),
+      actualData: newVariants
     });
+    
+    // 🔥 VERIFICACIÓN CRÍTICA AL RECIBIR VARIANTES
+    console.log('🔧 ProductForm - ESTABLECIENDO VARIANTES EN EL ESTADO:', {
+      receivedVariants: newVariants,
+      isArray: Array.isArray(newVariants),
+      length: newVariants.length,
+      type: typeof newVariants
+    });
+    
     setVariants(newVariants);
+    
+    // 🔥 VERIFICAR INMEDIATAMENTE DESPUÉS DE SET
+    setTimeout(() => {
+      console.log('🔧 ProductForm - ESTADO DESPUÉS DE SET:', {
+        variantsState: variants,
+        variantsLength: variants.length
+      });
+    }, 100);
   };
 
   return (
@@ -278,12 +306,16 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         )}
       </div>
 
-      {/* 🔍 DEBUG INFO */}
+      {/* 🔍 DEBUG INFO MEJORADO */}
       <div className="text-xs text-gray-500 mt-4 p-2 bg-gray-50 rounded">
-        <strong>Debug Info:</strong><br/>
+        <strong>Debug Info ProductForm:</strong><br/>
         Opciones: {options.length} | Variantes: {variants.length}<br/>
         {variants.length > 0 && (
-          <>Variantes: {variants.map(v => v.name).join(', ')}</>
+          <>
+            Variantes: {variants.map(v => v.name).join(', ')}<br/>
+            IDs: {variants.map(v => v.id).join(', ')}<br/>
+            SKUs: {variants.map(v => v.sku).join(', ')}
+          </>
         )}
       </div>
     </form>
