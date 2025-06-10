@@ -27,8 +27,19 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
   // Filtrar productos localmente según la categoría seleccionada
   const filteredProducts = useFilteredProducts(selectedCategory, allProducts);
 
-  const handleAddToCart = (productId: string, categoryId: string, variantId: string, sku: string, productName: string, variantName: string, price: number) => {
-    console.log('OptimizedProductGrid - Adding to cart:', { productId, categoryId, variantId, sku, productName, variantName, price });
+  const handleAddToCart = (
+    productId: string, 
+    categoryId: string, 
+    variantId: string, 
+    sku: string, 
+    productName: string, 
+    variantName: string, 
+    price: number,
+    selectedOptions?: Record<string, string | string[]>
+  ) => {
+    console.log('OptimizedProductGrid - Adding to cart:', { 
+      productId, categoryId, variantId, sku, productName, variantName, price, selectedOptions 
+    });
     
     const appliedPromotions = calculateItemPromotions(productId, categoryId, price);
     
@@ -41,6 +52,7 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
       variantId,
       categoryId,
       appliedPromotions,
+      selectedOptions: selectedOptions || {},
     };
 
     console.log('OptimizedProductGrid - Cart item created:', cartItem);
@@ -112,6 +124,7 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
                           name: option.name,
                           values: option.values || [],
                           isRequired: option.is_required,
+                          selection_type: option.selection_type || 'single',
                         }))}
                         productName={product.name}
                         onAddToCart={handleAddToCart}

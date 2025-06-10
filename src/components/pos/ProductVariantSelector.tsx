@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ProductVariant, ProductOption } from "@/types";
 import { Tag } from "lucide-react";
 
@@ -12,7 +13,7 @@ interface ProductVariantSelectorProps {
   variants: ProductVariant[];
   options: ProductOption[];
   productName: string;
-  onAddToCart: (productId: string, categoryId: string, variantId: string, sku: string, productName: string, variantName: string, price: number) => void;
+  onAddToCart: (productId: string, categoryId: string, variantId: string, sku: string, productName: string, variantName: string, price: number, selectedOptions?: Record<string, string | string[]>) => void;
   calculateItemPromotions: (productId: string, categoryId: string, price: number) => any[];
 }
 
@@ -25,14 +26,28 @@ export const ProductVariantSelector = ({
   onAddToCart,
   calculateItemPromotions
 }: ProductVariantSelectorProps) => {
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string | string[]>>({});
   const [matchedVariant, setMatchedVariant] = useState<ProductVariant | null>(null);
+
+  console.log('ProductVariantSelector - Options received:', options);
 
   // Find matching variant based on selected options
   useEffect(() => {
-    if (Object.keys(selectedOptions).length === options.length && options.length > 0) {
+    // Para encontrar variantes, solo consideramos las opciones de selección simple
+    const singleSelectionOptions = Object.entries(selectedOptions).reduce((acc, [key, value]) => {
+      const option = options.find(opt => opt.name === key);
+      if (option?.selection_type === 'single' && typeof value === 'string') {
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as Record<string, string>);
+
+    const requiredSingleOptions = options.filter(opt => opt.isRequired && opt.selection_type === 'single');
+    const hasAllRequiredSingleOptions = requiredSingleOptions.every(opt => singleSelectionOptions[opt.name]);
+
+    if (hasAllRequiredSingleOptions) {
       const variant = variants.find(v => {
-        return Object.entries(selectedOptions).every(([optionName, selectedValue]) => {
+        return Object.entries(singleSelectionOptions).every(([optionName, selectedValue]) => {
           return v.optionValues[optionName] === selectedValue;
         });
       });
@@ -42,17 +57,44 @@ export const ProductVariantSelector = ({
     }
   }, [selectedOptions, variants, options]);
 
-  const handleOptionChange = (optionName: string, value: string) => {
+  const handleSingleOptionChange = (optionName: string, value: string) => {
     setSelectedOptions(prev => ({
       ...prev,
       [optionName]: value
     }));
   };
 
+  const handleMultipleOptionChange = (optionName: string, value: string, checked: boolean) => {
+    setSelectedOptions(prev => {
+      const currentValues = Array.isArray(prev[optionName]) ? prev[optionName] as string[] : [];
+      
+      if (checked) {
+        return {
+          ...prev,
+          [optionName]: [...currentValues, value]
+        };
+      } else {
+        return {
+          ...prev,
+          [optionName]: currentValues.filter(v => v !== value)
+        };
+      }
+    });
+  };
+
   const handleAddToCart = () => {
     if (matchedVariant) {
-      console.log('ProductVariantSelector - Adding to cart:', { productId, categoryId, variant: matchedVariant });
-      onAddToCart(productId, categoryId, matchedVariant.id, matchedVariant.sku, productName, matchedVariant.name, matchedVariant.price);
+      console.log('ProductVariantSelector - Adding to cart with selected options:', selectedOptions);
+      onAddToCart(
+        productId, 
+        categoryId, 
+        matchedVariant.id, 
+        matchedVariant.sku, 
+        productName, 
+        matchedVariant.name, 
+        matchedVariant.price,
+        selectedOptions
+      );
     }
   };
 
@@ -64,7 +106,15 @@ export const ProductVariantSelector = ({
     ? matchedVariant.price - appliedPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
     : matchedVariant?.price || 0;
 
-  const allOptionsSelected = options.length > 0 && Object.keys(selectedOptions).length === options.length;
+  // Verificar si todas las opciones requeridas están seleccionadas
+  const allRequiredOptionsSelected = options.filter(opt => opt.isRequired).every(option => {
+    const selectedValue = selectedOptions[option.name];
+    if (option.selection_type === 'single') {
+      return typeof selectedValue === 'string' && selectedValue.length > 0;
+    } else {
+      return Array.isArray(selectedValue) && selectedValue.length > 0;
+    }
+  });
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -74,35 +124,70 @@ export const ProductVariantSelector = ({
           <label className="text-xs sm:text-sm font-medium text-gray-700 block">
             {option.name}
             {option.isRequired && <span className="text-red-500 ml-1">*</span>}
+            <span className="text-xs text-gray-500 ml-2">
+              ({option.selection_type === 'single' ? 'Selección única' : 'Selección múltiple'})
+            </span>
           </label>
-          <ToggleGroup
-            type="single"
-            value={selectedOptions[option.name] || ""}
-            onValueChange={(value) => value && handleOptionChange(option.name, value)}
-            className="flex flex-wrap gap-1 sm:gap-2 justify-start"
-          >
-            {option.values.map((optionValue, index) => (
-              <ToggleGroupItem
-                key={index}
-                value={typeof optionValue === 'string' ? optionValue : optionValue.value}
-                className="border border-gray-300 hover:bg-gray-100 data-[state=on]:bg-yellow-500 data-[state=on]:text-white text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 h-auto min-h-[32px] sm:min-h-[40px]"
-              >
-                <div className="flex flex-col items-center text-center">
-                  <span>{typeof optionValue === 'string' ? optionValue : optionValue.value}</span>
-                  {typeof optionValue === 'object' && optionValue.additionalPrice && (
-                    <span className="text-xs">
-                      (+${optionValue.additionalPrice.toLocaleString()})
-                    </span>
-                  )}
-                </div>
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+
+          {option.selection_type === 'single' ? (
+            <ToggleGroup
+              type="single"
+              value={typeof selectedOptions[option.name] === 'string' ? selectedOptions[option.name] as string : ""}
+              onValueChange={(value) => value && handleSingleOptionChange(option.name, value)}
+              className="flex flex-wrap gap-1 sm:gap-2 justify-start"
+            >
+              {option.values.map((optionValue, index) => (
+                <ToggleGroupItem
+                  key={index}
+                  value={typeof optionValue === 'string' ? optionValue : optionValue.value}
+                  className="border border-gray-300 hover:bg-gray-100 data-[state=on]:bg-yellow-500 data-[state=on]:text-white text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 h-auto min-h-[32px] sm:min-h-[40px]"
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <span>{typeof optionValue === 'string' ? optionValue : optionValue.value}</span>
+                    {typeof optionValue === 'object' && optionValue.additionalPrice && (
+                      <span className="text-xs">
+                        (+${optionValue.additionalPrice.toLocaleString()})
+                      </span>
+                    )}
+                  </div>
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {option.values.map((optionValue, index) => {
+                const value = typeof optionValue === 'string' ? optionValue : optionValue.value;
+                const currentSelection = Array.isArray(selectedOptions[option.name]) ? selectedOptions[option.name] as string[] : [];
+                const isChecked = currentSelection.includes(value);
+                
+                return (
+                  <div key={index} className="flex items-center space-x-2 border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-50">
+                    <Checkbox
+                      id={`${option.name}-${index}`}
+                      checked={isChecked}
+                      onCheckedChange={(checked) => handleMultipleOptionChange(option.name, value, checked as boolean)}
+                    />
+                    <label 
+                      htmlFor={`${option.name}-${index}`} 
+                      className="text-xs sm:text-sm cursor-pointer flex flex-col"
+                    >
+                      <span>{value}</span>
+                      {typeof optionValue === 'object' && optionValue.additionalPrice && (
+                        <span className="text-xs text-gray-500">
+                          (+${optionValue.additionalPrice.toLocaleString()})
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       ))}
 
       {/* Price and Add Button Section */}
-      {allOptionsSelected && matchedVariant && (
+      {allRequiredOptionsSelected && matchedVariant && (
         <div className="space-y-2 sm:space-y-3 pt-2 border-t">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center space-x-2">
@@ -144,13 +229,34 @@ export const ProductVariantSelector = ({
           <div className="text-xs text-gray-500">
             SKU: {matchedVariant.sku}
           </div>
+
+          {/* Mostrar selecciones múltiples */}
+          {Object.entries(selectedOptions).some(([key, value]) => {
+            const option = options.find(opt => opt.name === key);
+            return option?.selection_type === 'multiple' && Array.isArray(value) && value.length > 0;
+          }) && (
+            <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+              <strong>Opciones adicionales:</strong>
+              {Object.entries(selectedOptions).map(([optionName, values]) => {
+                const option = options.find(opt => opt.name === optionName);
+                if (option?.selection_type === 'multiple' && Array.isArray(values) && values.length > 0) {
+                  return (
+                    <div key={optionName} className="mt-1">
+                      {optionName}: {values.join(', ')}
+                    </div>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {/* Instructions when options are not complete */}
-      {options.length > 0 && !allOptionsSelected && (
+      {options.length > 0 && !allRequiredOptionsSelected && (
         <div className="text-xs sm:text-sm text-gray-500 text-center py-2">
-          Selecciona todas las opciones para ver el precio y agregar al carrito
+          Selecciona todas las opciones requeridas para ver el precio y agregar al carrito
         </div>
       )}
     </div>

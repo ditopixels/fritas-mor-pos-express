@@ -206,6 +206,17 @@ export const OrderSummary = ({
                         <p className="text-sm font-medium truncate">{item.productName}</p>
                         <p className="text-xs text-gray-500 break-words line-clamp-2">{item.variantName}</p>
                         
+                        {/* Mostrar opciones seleccionadas */}
+                        {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                          <div className="text-xs text-blue-600 bg-blue-50 p-1 rounded mt-1">
+                            {Object.entries(item.selectedOptions).map(([optionName, value]) => (
+                              <div key={optionName}>
+                                <strong>{optionName}:</strong> {Array.isArray(value) ? value.join(', ') : value}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
                         <div className="flex items-center space-x-2 mt-1">
                           {item.originalPrice && item.originalPrice > item.price ? (
                             <>

@@ -93,7 +93,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
 
       if (orderError) throw orderError;
 
-      // Crear los items de la orden con información completa de promociones
+      // Crear los items de la orden con información completa de promociones y opciones seleccionadas
       const orderItems = orderData.items.map(item => ({
         order_id: order.id,
         product_id: item.id,
@@ -105,7 +105,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
         original_price: item.originalPrice || item.price,
         quantity: item.quantity,
         applied_promotions: JSON.stringify(item.appliedPromotions || []),
-        variant_options: JSON.stringify({}), // Por ahora vacío, se llenará con las opciones seleccionadas
+        variant_options: JSON.stringify(item.selectedOptions || {}),
       }));
 
       const { data: createdItems, error: itemsError } = await supabase
