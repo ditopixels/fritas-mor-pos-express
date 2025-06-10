@@ -164,6 +164,7 @@ export type Database = {
           is_required: boolean
           name: string
           product_id: string
+          selection_type: string
           values: string[]
         }
         Insert: {
@@ -172,6 +173,7 @@ export type Database = {
           is_required?: boolean
           name: string
           product_id: string
+          selection_type?: string
           values: string[]
         }
         Update: {
@@ -180,6 +182,7 @@ export type Database = {
           is_required?: boolean
           name?: string
           product_id?: string
+          selection_type?: string
           values?: string[]
         }
         Relationships: [
