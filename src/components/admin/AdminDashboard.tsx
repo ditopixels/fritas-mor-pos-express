@@ -37,26 +37,29 @@ const safeJsonParse = (jsonString: any): any[] => {
 const transformSupabaseOrderToOrder = (supabaseOrder: SupabaseOrder): Order => {
   return {
     id: supabaseOrder.id,
-    items: supabaseOrder.order_items?.map(item => ({
+    order_number: supabaseOrder.order_number,
+    customer_name: supabaseOrder.customer_name,
+    total: supabaseOrder.total,
+    payment_method: supabaseOrder.payment_method,
+    created_at: supabaseOrder.created_at,
+    status: supabaseOrder.status,
+    subtotal: supabaseOrder.subtotal,
+    total_discount: supabaseOrder.total_discount,
+    cash_received: supabaseOrder.cash_received,
+    photo_evidence: supabaseOrder.photo_evidence,
+    applied_promotions: safeJsonParse(supabaseOrder.applied_promotions),
+    order_items: supabaseOrder.order_items?.map(item => ({
       id: item.id,
-      productName: item.product_name,
-      variantName: item.variant_name,
+      product_name: item.product_name,
+      variant_name: item.variant_name,
       sku: item.sku,
       price: item.price,
-      originalPrice: item.original_price || item.price,
+      original_price: item.original_price || item.price,
       quantity: item.quantity,
-      appliedPromotions: safeJsonParse(item.applied_promotions)
-    })) || [],
-    total: supabaseOrder.total,
-    subtotal: supabaseOrder.subtotal,
-    totalDiscount: supabaseOrder.total_discount,
-    paymentMethod: supabaseOrder.payment_method,
-    customerName: supabaseOrder.customer_name,
-    cashReceived: supabaseOrder.cash_received,
-    photoEvidence: supabaseOrder.photo_evidence,
-    createdAt: new Date(supabaseOrder.created_at),
-    status: supabaseOrder.status,
-    appliedPromotions: safeJsonParse(supabaseOrder.applied_promotions)
+      applied_promotions: safeJsonParse(item.applied_promotions),
+      variant_options: item.variant_options,
+      variant_attachments: item.variant_attachments,
+    })) || []
   };
 };
 
