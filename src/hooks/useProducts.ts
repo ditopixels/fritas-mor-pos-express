@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -128,53 +127,23 @@ export const useUpdateProduct = () => {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Product> }) => {
-      console.log('🚀 useUpdateProduct - INICIO MUTACIÓN DETALLADO:', { 
+      console.log('🚀 useUpdateProduct - RECIBIENDO ACTUALIZACIÓN:', { 
         id, 
         updates,
-        updatesType: typeof updates,
-        updatesKeys: Object.keys(updates),
         hasOptions: 'options' in updates,
         hasVariants: 'variants' in updates,
-        optionsValue: updates.options,
         variantsValue: updates.variants,
-        optionsType: typeof updates.options,
-        variantsType: typeof updates.variants,
-        optionsIsArray: Array.isArray(updates.options),
-        variantsIsArray: Array.isArray(updates.variants),
-        optionsCount: updates.options?.length || 0,
-        variantsCount: updates.variants?.length || 0,
-        variantsData: updates.variants?.map(v => ({
-          name: v.name,
-          sku: v.sku,
-          price: v.price,
-          option_values: v.option_values
-        })) || [],
-        fullUpdatesObject: JSON.stringify(updates, null, 2)
+        variantsCount: updates.variants?.length || 0
       });
-
-      // 🔥 VERIFICACIÓN CRÍTICA ANTES DE CONTINUAR
-      if (updates.variants === undefined) {
-        console.error('💥 CRÍTICO: VARIANTS ES UNDEFINED EN useUpdateProduct');
-        console.error('💥 OBJETO UPDATES COMPLETO:', updates);
-        console.error('💥 TODAS LAS KEYS:', Object.keys(updates));
-        console.error('💥 VARIANTS VALUE:', updates.variants);
-        // FORZAR ARRAY VACÍO SI ES UNDEFINED
-        updates.variants = [];
-        console.log('🔧 CORREGIDO: variants forzado a array vacío');
-      }
 
       // Separar las opciones y variantes del resto de updates
       const { options, variants, ...productUpdates } = updates;
       
-      console.log('📋 DATOS SEPARADOS VERIFICADOS:', { 
+      console.log('📋 DATOS SEPARADOS:', { 
         productUpdates, 
-        optionsProvided: !!options,
-        variantsProvided: !!variants,
         optionsCount: options?.length || 0, 
         variantsCount: variants?.length || 0,
-        variantsDetalle: variants?.map(v => ({ name: v.name, sku: v.sku, price: v.price })) || [],
-        variantsIsActuallyArray: Array.isArray(variants),
-        variantsActualValue: variants
+        variantsData: variants
       });
       
       // Actualizar el producto básico
@@ -232,31 +201,15 @@ export const useUpdateProduct = () => {
         }
       }
 
-      // 🔥 MANEJAR VARIANTES - VERIFICACIÓN ULTRA DETALLADA
-      console.log('🔍 VERIFICACIÓN FINAL DE VARIANTES ANTES DEL IF:', {
-        variantsValue: variants,
-        variantsType: typeof variants,
-        variantsIsUndefined: variants === undefined,
-        variantsIsNull: variants === null,
-        variantsIsArray: Array.isArray(variants),
-        variantsLength: variants?.length,
-        stringifiedVariants: JSON.stringify(variants)
-      });
-
+      // MANEJAR VARIANTES
       if (variants !== undefined) {
-        console.log('🔥 ¡VARIANTES INCLUIDAS! PROCESANDO:', {
+        console.log('🔥 PROCESANDO VARIANTES:', {
           productId: id,
           variantsLength: variants.length,
-          variants: variants.map(v => ({
-            id: v.id,
-            name: v.name,
-            sku: v.sku,
-            price: v.price,
-            option_values: v.option_values
-          }))
+          variants: variants
         });
         
-        // PASO 1: Eliminar variantes existentes
+        // Eliminar variantes existentes
         console.log('🗑️ ELIMINANDO VARIANTES EXISTENTES...');
         const { error: deleteVariantsError } = await supabase
           .from('product_variants')
@@ -270,7 +223,7 @@ export const useUpdateProduct = () => {
 
         console.log('✅ VARIANTES EXISTENTES ELIMINADAS');
 
-        // PASO 2: Insertar nuevas variantes
+        // Insertar nuevas variantes
         if (variants.length > 0) {
           const variantsToInsert = variants
             .filter(variant => {
@@ -280,19 +233,15 @@ export const useUpdateProduct = () => {
               }
               return isValid;
             })
-            .map(variant => {
-              const variantData = {
-                product_id: id,
-                name: variant.name,
-                sku: variant.sku,
-                price: Number(variant.price),
-                option_values: variant.option_values || {},
-                is_active: variant.is_active !== false,
-                stock: variant.stock || null,
-              };
-              console.log('📦 PREPARANDO VARIANTE:', variantData);
-              return variantData;
-            });
+            .map(variant => ({
+              product_id: id,
+              name: variant.name,
+              sku: variant.sku,
+              price: Number(variant.price),
+              option_values: variant.option_values || {},
+              is_active: variant.is_active !== false,
+              stock: variant.stock || null,
+            }));
 
           console.log('🚀 INSERTANDO VARIANTES:', {
             count: variantsToInsert.length,
@@ -319,8 +268,6 @@ export const useUpdateProduct = () => {
         }
       } else {
         console.log('❌ VARIANTES NO INCLUIDAS EN LA ACTUALIZACIÓN (undefined)');
-        console.error('💥 ESTE ES EL ERROR QUE REPORTAS - variants es undefined aquí');
-        console.error('💥 OBJETO UPDATES ORIGINAL:', updates);
       }
 
       return data;
