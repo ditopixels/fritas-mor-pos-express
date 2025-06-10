@@ -32,16 +32,21 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
     is_active: product?.is_active ?? true,
   });
 
+  // 🔥 FORZAR ARRAYS VACÍOS EN LUGAR DE UNDEFINED
   const [options, setOptions] = useState<ProductOption[]>(product?.options || []);
   const [variants, setVariants] = useState<ProductVariant[]>(product?.variants || []);
 
   // Log inicial para debug
   useEffect(() => {
-    console.log('ProductForm - ESTADO INICIAL:', {
-      product: product?.id,
-      optionsLength: options.length,
-      variantsLength: variants.length,
-      variants: variants
+    console.log('🔍 ProductForm - ESTADO INICIAL COMPLETO:', {
+      productId: product?.id,
+      productName: product?.name,
+      optionsFromProduct: product?.options?.length || 0,
+      variantsFromProduct: product?.variants?.length || 0,
+      optionsState: options.length,
+      variantsState: variants.length,
+      optionsData: options,
+      variantsData: variants
     });
   }, [product, options, variants]);
 
@@ -49,31 +54,37 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
     e.preventDefault();
     
     try {
-      console.log('ProductForm - SUBMIT INICIADO:', { 
+      console.log('🚀 ProductForm - SUBMIT INICIADO CON ESTADOS:', { 
         formData, 
-        optionsCount: options.length, 
-        variantsCount: variants.length,
-        variants: variants.map(v => ({ 
+        optionsState: options,
+        variantsState: variants,
+        optionsCount: options?.length || 0, 
+        variantsCount: variants?.length || 0,
+        variantsDetails: variants?.map(v => ({ 
           id: v.id, 
           name: v.name, 
           sku: v.sku, 
           price: v.price,
           option_values: v.option_values 
-        }))
+        })) || []
       });
       
       if (product) {
-        // 🔥 CRÍTICO: SIEMPRE INCLUIR VARIANTES EN EL PAYLOAD
+        // 🔥 GARANTIZAR QUE VARIANTS NUNCA SEA UNDEFINED
+        const safeVariants = variants || [];
+        const safeOptions = options || [];
+        
         const updatePayload = {
           ...formData,
-          options: options,
-          variants: variants // ✅ ASEGURAR QUE SIEMPRE SE INCLUYAN
+          options: safeOptions,
+          variants: safeVariants
         };
         
-        console.log('ProductForm - PAYLOAD FINAL PARA UPDATE:', {
+        console.log('🎯 ProductForm - PAYLOAD FINAL GARANTIZADO:', {
           id: product.id,
           updatePayload: updatePayload,
-          variantsIncluded: updatePayload.variants ? 'SÍ' : 'NO',
+          variantsIncluded: updatePayload.variants !== undefined ? 'SÍ' : 'NO',
+          variantsIsArray: Array.isArray(updatePayload.variants) ? 'SÍ' : 'NO',
           variantsCount: updatePayload.variants?.length || 0,
           variantsData: updatePayload.variants?.map(v => ({
             id: v.id,
@@ -81,12 +92,13 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
             sku: v.sku,
             price: v.price,
             option_values: v.option_values
-          }))
+          })) || [],
+          fullPayload: JSON.stringify(updatePayload, null, 2)
         });
         
         await updateProduct.mutateAsync({
           id: product.id,
-          updates: updatePayload // ✅ ENVIANDO VARIANTES EXPLÍCITAMENTE
+          updates: updatePayload
         });
         
         toast({
@@ -116,7 +128,7 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
       
       onSuccess?.();
     } catch (error) {
-      console.error('ProductForm - ERROR AL GUARDAR:', error);
+      console.error('❌ ProductForm - ERROR AL GUARDAR:', error);
       toast({
         title: "Error",
         description: "No se pudo guardar el producto. Inténtalo de nuevo.",
@@ -126,23 +138,27 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
   };
 
   const handleUpdateOptions = (newOptions: ProductOption[]) => {
-    console.log('ProductForm - ACTUALIZANDO OPTIONS:', newOptions);
-    setOptions(newOptions);
+    console.log('📋 ProductForm - ACTUALIZANDO OPTIONS:', {
+      previousCount: options.length,
+      newCount: newOptions.length,
+      newOptions: newOptions
+    });
+    setOptions(newOptions || []); // 🔥 GARANTIZAR ARRAY
   };
 
   const handleUpdateVariants = (newVariants: ProductVariant[]) => {
-    console.log('ProductForm - ACTUALIZANDO VARIANTS DESDE MANAGER:', {
+    console.log('🔧 ProductForm - ACTUALIZANDO VARIANTS DESDE MANAGER:', {
       previousCount: variants.length,
-      newCount: newVariants.length,
-      newVariants: newVariants.map(v => ({ 
+      newCount: newVariants?.length || 0,
+      newVariants: newVariants?.map(v => ({ 
         id: v.id, 
         name: v.name, 
         sku: v.sku, 
         price: v.price,
         option_values: v.option_values
-      }))
+      })) || []
     });
-    setVariants(newVariants);
+    setVariants(newVariants || []); // 🔥 GARANTIZAR ARRAY
   };
 
   return (
@@ -225,8 +241,8 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
       {/* Variants Manager */}
       <ProductVariantsManager
         product={product || { ...formData, id: 'temp' } as Product}
-        options={options}
-        variants={variants}
+        options={options || []}
+        variants={variants || []}
         onUpdateVariants={handleUpdateVariants}
       />
 
