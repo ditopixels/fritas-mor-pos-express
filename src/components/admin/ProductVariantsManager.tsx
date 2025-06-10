@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Zap } from "lucide-react";
+import { Trash2, Plus, Zap, Edit2, Save, X } from "lucide-react";
 import { Product, ProductOption, ProductVariant } from "@/hooks/useProducts";
 
 interface ProductVariantsManagerProps {
@@ -28,6 +28,9 @@ export const ProductVariantsManager = ({
     option_values: {},
     is_active: true,
   });
+
+  const [editingVariant, setEditingVariant] = useState<string | null>(null);
+  const [editedVariant, setEditedVariant] = useState<Partial<ProductVariant>>({});
 
   const generateAllCombinations = () => {
     if (options.length === 0) return;
@@ -91,6 +94,30 @@ export const ProductVariantsManager = ({
     onUpdateVariants(variants.filter(v => v.id !== variantId));
   };
 
+  const startEditingVariant = (variant: ProductVariant) => {
+    setEditingVariant(variant.id);
+    setEditedVariant({ ...variant });
+  };
+
+  const saveEditedVariant = () => {
+    if (!editingVariant || !editedVariant.name || !editedVariant.sku || !editedVariant.price) return;
+
+    const updatedVariants = variants.map(v => 
+      v.id === editingVariant 
+        ? { ...v, ...editedVariant, price: Number(editedVariant.price) }
+        : v
+    );
+    
+    onUpdateVariants(updatedVariants);
+    setEditingVariant(null);
+    setEditedVariant({});
+  };
+
+  const cancelEditing = () => {
+    setEditingVariant(null);
+    setEditedVariant({});
+  };
+
   const updateVariantOptionValue = (optionName: string, value: string) => {
     setNewVariant(prev => ({
       ...prev,
@@ -124,29 +151,84 @@ export const ProductVariantsManager = ({
         <div className="space-y-2">
           {variants.map(variant => (
             <div key={variant.id} className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <div className="font-medium">{variant.name}</div>
-                <div className="text-sm text-gray-500">
-                  SKU: {variant.sku} • Precio: ${variant.price.toLocaleString()}
+              {editingVariant === variant.id ? (
+                <div className="flex-1 grid grid-cols-3 gap-2 mr-2">
+                  <Input
+                    placeholder="Nombre"
+                    value={editedVariant.name || ''}
+                    onChange={(e) => setEditedVariant(prev => ({ ...prev, name: e.target.value }))}
+                  />
+                  <Input
+                    placeholder="SKU"
+                    value={editedVariant.sku || ''}
+                    onChange={(e) => setEditedVariant(prev => ({ ...prev, sku: e.target.value }))}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Precio"
+                    value={editedVariant.price || ''}
+                    onChange={(e) => setEditedVariant(prev => ({ ...prev, price: Number(e.target.value) }))}
+                  />
                 </div>
-                {Object.keys(variant.option_values).length > 0 && (
-                  <div className="flex gap-1 mt-1">
-                    {Object.entries(variant.option_values).map(([key, value]) => (
-                      <Badge key={key} variant="outline" className="text-xs">
-                        {key}: {value}
-                      </Badge>
-                    ))}
+              ) : (
+                <div>
+                  <div className="font-medium">{variant.name}</div>
+                  <div className="text-sm text-gray-500">
+                    SKU: {variant.sku} • Precio: ${variant.price.toLocaleString()}
                   </div>
+                  {Object.keys(variant.option_values).length > 0 && (
+                    <div className="flex gap-1 mt-1">
+                      {Object.entries(variant.option_values).map(([key, value]) => (
+                        <Badge key={key} variant="outline" className="text-xs">
+                          {key}: {value}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <div className="flex gap-1">
+                {editingVariant === variant.id ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={saveEditedVariant}
+                      className="text-green-600 hover:text-green-700"
+                    >
+                      <Save className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={cancelEditing}
+                      className="text-gray-600 hover:text-gray-700"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => startEditingVariant(variant)}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => removeVariant(variant.id)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
                 )}
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => removeVariant(variant.id)}
-                className="text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
             </div>
           ))}
         </div>
