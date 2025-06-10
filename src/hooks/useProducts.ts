@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -131,7 +130,13 @@ export const useUpdateProduct = () => {
       // Separar las opciones y variantes del resto de updates
       const { options, variants, ...productUpdates } = updates;
       
-      console.log('Updating product with:', { id, productUpdates, optionsCount: options?.length, variantsCount: variants?.length });
+      console.log('useUpdateProduct - Updating product with:', { 
+        id, 
+        productUpdates, 
+        optionsCount: options?.length, 
+        variantsCount: variants?.length,
+        variants 
+      });
       
       // Actualizar el producto
       const { data, error } = await supabase
@@ -181,6 +186,8 @@ export const useUpdateProduct = () => {
 
       // Manejar variantes
       if (variants !== undefined) {
+        console.log('Processing variants:', variants);
+        
         // Eliminar variantes existentes
         const { error: deleteVariantsError } = await supabase
           .from('product_variants')
@@ -192,31 +199,38 @@ export const useUpdateProduct = () => {
           throw deleteVariantsError;
         }
 
-        // Insertar nuevas variantes solo si hay variantes
+        // Insertar nuevas variantes solo si hay variantes válidas
         if (variants.length > 0) {
           const variantsToInsert = variants
-            .filter(variant => variant.name && variant.sku && variant.price) // Filtrar variantes válidas
-            .map(variant => ({
-              product_id: id,
-              name: variant.name,
-              sku: variant.sku,
-              price: Number(variant.price),
-              option_values: variant.option_values || {},
-              is_active: variant.is_active !== false, // Default to true
-              stock: variant.stock || null,
-            }));
+            .filter(variant => variant.name && variant.sku && variant.price !== undefined && variant.price !== null) // Filtrar variantes válidas
+            .map(variant => {
+              const variantToInsert = {
+                product_id: id,
+                name: variant.name,
+                sku: variant.sku,
+                price: Number(variant.price),
+                option_values: variant.option_values || {},
+                is_active: variant.is_active !== false, // Default to true
+                stock: variant.stock || null,
+              };
+              console.log('Preparing variant for insert:', variantToInsert);
+              return variantToInsert;
+            });
 
           console.log('Inserting variants:', variantsToInsert);
 
           if (variantsToInsert.length > 0) {
-            const { error: insertVariantsError } = await supabase
+            const { data: insertedVariants, error: insertVariantsError } = await supabase
               .from('product_variants')
-              .insert(variantsToInsert);
+              .insert(variantsToInsert)
+              .select();
 
             if (insertVariantsError) {
               console.error('Error inserting variants:', insertVariantsError);
               throw insertVariantsError;
             }
+            
+            console.log('Successfully inserted variants:', insertedVariants);
           }
         }
       }
@@ -224,6 +238,7 @@ export const useUpdateProduct = () => {
       return data;
     },
     onSuccess: () => {
+      console.log('Product update successful, invalidating queries');
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });

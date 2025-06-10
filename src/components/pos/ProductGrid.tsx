@@ -61,6 +61,8 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
       const { data, error } = await query;
       if (error) throw error;
 
+      console.log('Products fetched from database:', data);
+
       return data.map(product => ({
         id: product.id,
         name: product.name,
@@ -138,53 +140,62 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
 
       <ScrollArea className="flex-1 px-2 sm:px-0">
         <div className="space-y-3 sm:space-y-4 pb-4">
-          {products.map((product) => (
-            <Card key={product.id} className="overflow-hidden">
-              <CardContent className="p-0">
-                <div className="flex flex-col sm:flex-row">
-                  {/* Content Section */}
-                  <div className="flex-1 p-3 sm:p-4">
-                    <h3 className="text-base sm:text-lg font-semibold mb-1">{product.name}</h3>
-                    {product.description && (
-                      <p className="text-gray-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">{product.description}</p>
-                    )}
+          {products.map((product) => {
+            console.log('Rendering product:', product.name, 'Variants:', product.variants, 'Options:', product.options);
+            
+            return (
+              <Card key={product.id} className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="flex flex-col sm:flex-row">
+                    {/* Content Section */}
+                    <div className="flex-1 p-3 sm:p-4">
+                      <h3 className="text-base sm:text-lg font-semibold mb-1">{product.name}</h3>
+                      {product.description && (
+                        <p className="text-gray-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">{product.description}</p>
+                      )}
 
-                    {product.variants?.length > 0 && product.options?.length > 0 ? (
-                      <ProductVariantSelector
-                        productId={product.id}
-                        categoryId={product.categoryId || ''}
-                        variants={product.variants}
-                        options={product.options}
-                        productName={product.name}
-                        onAddToCart={handleAddToCart}
-                        calculateItemPromotions={calculateItemPromotions}
-                      />
-                    ) : (
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-                        <span className="text-base sm:text-lg font-bold">
-                          ${(product.base_price || 0).toLocaleString()}
-                        </span>
-                        <button
-                          onClick={() => handleAddToCart(
-                            product.id,
-                            product.categoryId || '',
-                            '',
-                            `${product.id}-default`,
-                            product.name,
-                            'Estándar',
-                            product.base_price || 0
-                          )}
-                          className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-sm sm:text-base w-full sm:w-auto"
-                        >
-                          Agregar
-                        </button>
+                      {/* Show debug info */}
+                      <div className="text-xs text-gray-400 mb-2">
+                        Variantes: {product.variants?.length || 0} | Opciones: {product.options?.length || 0}
                       </div>
-                    )}
+
+                      {product.variants?.length > 0 && product.options?.length > 0 ? (
+                        <ProductVariantSelector
+                          productId={product.id}
+                          categoryId={product.categoryId || ''}
+                          variants={product.variants}
+                          options={product.options}
+                          productName={product.name}
+                          onAddToCart={handleAddToCart}
+                          calculateItemPromotions={calculateItemPromotions}
+                        />
+                      ) : (
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                          <span className="text-base sm:text-lg font-bold">
+                            ${(product.base_price || 0).toLocaleString()}
+                          </span>
+                          <button
+                            onClick={() => handleAddToCart(
+                              product.id,
+                              product.categoryId || '',
+                              '',
+                              `${product.id}-default`,
+                              product.name,
+                              'Estándar',
+                              product.base_price || 0
+                            )}
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-sm sm:text-base w-full sm:w-auto"
+                          >
+                            Agregar
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </ScrollArea>
     </div>
