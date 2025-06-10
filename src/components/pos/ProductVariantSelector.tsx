@@ -36,16 +36,6 @@ export const ProductVariantSelector = ({
           return v.optionValues[optionName] === selectedValue;
         });
       });
-      
-      if (variant) {
-        console.log('🎯 VARIANT MATCHED:', {
-          name: variant.name,
-          sku: variant.sku,
-          priceFromVariant: variant.price,
-          selectedOptions
-        });
-      }
-      
       setMatchedVariant(variant || null);
     } else {
       setMatchedVariant(null);
@@ -53,7 +43,6 @@ export const ProductVariantSelector = ({
   }, [selectedOptions, variants, options]);
 
   const handleOptionChange = (optionName: string, value: string) => {
-    console.log('🔧 OPTION CHANGED:', { optionName, value });
     setSelectedOptions(prev => ({
       ...prev,
       [optionName]: value
@@ -62,23 +51,8 @@ export const ProductVariantSelector = ({
 
   const handleAddToCart = () => {
     if (matchedVariant) {
-      console.log('🛒 VARIANT SELECTOR - Adding to cart:', { 
-        productId, 
-        categoryId, 
-        variant: matchedVariant,
-        priceBeingUsed: matchedVariant.price
-      });
-      
-      // Usar directamente el precio del variant seleccionado
-      onAddToCart(
-        productId, 
-        categoryId, 
-        matchedVariant.id, 
-        matchedVariant.sku, 
-        productName, 
-        matchedVariant.name, 
-        matchedVariant.price // Precio directo del variant
-      );
+      console.log('ProductVariantSelector - Adding to cart:', { productId, categoryId, variant: matchedVariant });
+      onAddToCart(productId, categoryId, matchedVariant.id, matchedVariant.sku, productName, matchedVariant.name, matchedVariant.price);
     }
   };
 
@@ -130,13 +104,6 @@ export const ProductVariantSelector = ({
       {/* Price and Add Button Section */}
       {allOptionsSelected && matchedVariant && (
         <div className="space-y-2 sm:space-y-3 pt-2 border-t">
-          <div className="bg-blue-50 p-2 rounded text-xs">
-            <strong>Debug Precio:</strong><br/>
-            SKU: {matchedVariant.sku}<br/>
-            Precio Base: ${matchedVariant.price.toLocaleString()}<br/>
-            Opciones: {JSON.stringify(selectedOptions)}
-          </div>
-          
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center space-x-2">
               {hasPromotion ? (
