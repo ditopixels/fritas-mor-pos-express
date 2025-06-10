@@ -1,3 +1,4 @@
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -14,6 +15,7 @@ export interface Product {
   category?: Category;
   variants?: ProductVariant[];
   options?: ProductOption[];
+  attachments?: ProductAttachment[];
 }
 
 export interface Category {
@@ -47,6 +49,37 @@ export interface ProductVariant {
   stock?: number;
 }
 
+export interface ProductAttachment {
+  id: string;
+  product_id?: string;
+  name: string;
+  values: string[];
+  is_required: boolean;
+  created_at?: string;
+}
+
+// Exportar tipo Promotion para evitar errores
+export interface Promotion {
+  id: string;
+  name: string;
+  description?: string;
+  type: 'percentage' | 'fixed';
+  applicability: 'all' | 'category' | 'product';
+  target_id?: string;
+  value: number;
+  conditions: {
+    daysOfWeek?: number[];
+    startDate?: Date;
+    endDate?: Date;
+    paymentMethods?: string[];
+    minimumPurchase?: number;
+    minimumQuantity?: number;
+  };
+  is_active: boolean;
+  created_at: string;
+  minimum_quantity?: number;
+}
+
 export const useProducts = () => {
   return useQuery({
     queryKey: ['products'],
@@ -57,7 +90,8 @@ export const useProducts = () => {
           *,
           category:categories(*),
           variants:product_variants(*),
-          options:product_options(*)
+          options:product_options(*),
+          attachments:product_attachments(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -69,6 +103,10 @@ export const useProducts = () => {
         options: product.options?.map(option => ({
           ...option,
           selection_type: option.selection_type || 'single'
+        })) || [],
+        attachments: product.attachments?.map(attachment => ({
+          ...attachment,
+          values: attachment.values || []
         })) || []
       })) as Product[];
     },
@@ -131,12 +169,15 @@ export const useUpdateProduct = () => {
         id, 
         updates,
         hasVariants: 'variants' in updates,
+        hasAttachments: 'attachments' in updates,
         variantsValue: updates.variants,
-        variantsCount: updates.variants?.length || 0
+        attachmentsValue: updates.attachments,
+        variantsCount: updates.variants?.length || 0,
+        attachmentsCount: updates.attachments?.length || 0
       });
 
-      // Separar opciones y variantes del resto
-      const { options, variants, ...productUpdates } = updates;
+      // Separar opciones, variantes y attachments del resto
+      const { options, variants, attachments, ...productUpdates } = updates;
       
       // Actualizar producto básico primero
       const { data, error } = await supabase
@@ -168,6 +209,28 @@ export const useUpdateProduct = () => {
             .insert(optionsToInsert);
 
           if (insertOptionsError) throw insertOptionsError;
+        }
+      }
+
+      // PROCESAR ATTACHMENTS
+      if (attachments !== undefined) {
+        console.log('🔧 PROCESANDO ATTACHMENTS:', attachments.length);
+        
+        await supabase.from('product_attachments').delete().eq('product_id', id);
+
+        if (attachments.length > 0) {
+          const attachmentsToInsert = attachments.map(attachment => ({
+            product_id: id,
+            name: attachment.name,
+            values: attachment.values,
+            is_required: attachment.is_required,
+          }));
+
+          const { error: insertAttachmentsError } = await supabase
+            .from('product_attachments')
+            .insert(attachmentsToInsert);
+
+          if (insertAttachmentsError) throw insertAttachmentsError;
         }
       }
 

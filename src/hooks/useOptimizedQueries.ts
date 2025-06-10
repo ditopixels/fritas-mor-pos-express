@@ -1,83 +1,80 @@
-
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
 
-// Hook optimizado para cargar múltiples recursos de una vez
-export const useOptimizedPOSData = () => {
-  const { user } = useAuth();
+export const useOptimizedCategories = () => {
+  return useQuery({
+    queryKey: ['optimized-categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
 
-  return useQueries({
-    queries: [
-      {
-        queryKey: ['categories'],
-        queryFn: async () => {
-          const { data, error } = await supabase
-            .from('categories')
-            .select('*')
-            .eq('is_active', true)
-            .order('display_order', { ascending: true });
-          if (error) throw error;
-          return data;
-        },
-        enabled: !!user, // Solo ejecutar si hay usuario autenticado
-        staleTime: 10 * 60 * 1000, // 10 minutos para categorías
-      },
-      {
-        queryKey: ['promotions'],
-        queryFn: async () => {
-          const { data, error } = await supabase
-            .from('promotions')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: false });
-          if (error) throw error;
-          return data;
-        },
-        enabled: !!user, // Solo ejecutar si hay usuario autenticado
-        staleTime: 15 * 60 * 1000, // 15 minutos para promociones
-      }
-    ],
-    combine: (results) => {
-      return {
-        data: {
-          categories: results[0].data || [],
-          promotions: results[1].data || [],
-        },
-        isLoading: results.some(result => result.isLoading),
-        isError: results.some(result => result.isError),
-        error: results.find(result => result.error)?.error,
-      };
+      if (error) throw error;
+      return data || [];
     },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   });
 };
 
-// Hook con cache local para productos por categoría
-export const useOptimizedProducts = (selectedCategory: string) => {
-  const { user } = useAuth();
-
+export const useOptimizedProducts = () => {
   return useQuery({
-    queryKey: ['products', selectedCategory],
+    queryKey: ['optimized-products'],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from('products')
         .select(`
           *,
           product_variants(*),
-          product_options(*)
+          product_options(*),
+          product_attachments(*)
         `)
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
-      if (selectedCategory) {
-        query = query.eq('category_id', selectedCategory);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return data || [];
     },
-    enabled: !!user && !!selectedCategory, // Solo fetch cuando hay usuario y categoría seleccionada
-    staleTime: 8 * 60 * 1000, // 8 minutos
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
+  });
+};
+
+export const useOptimizedPOSData = () => {
+  return useQuery({
+    queryKey: ['pos-data'],
+    queryFn: async () => {
+      // Fetch categories
+      const { data: categories, error: categoriesError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (categoriesError) throw categoriesError;
+
+      // Fetch products with all related data
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select(`
+          *,
+          product_variants(*),
+          product_options(*),
+          product_attachments(*)
+        `)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (productsError) throw productsError;
+
+      return {
+        categories: categories || [],
+        products: products || []
+      };
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   });
 };

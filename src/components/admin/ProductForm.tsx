@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductOptionsManager } from "./ProductOptionsManager";
 import { ProductVariantsManager } from "./ProductVariantsManager";
-import { Product, ProductOption, ProductVariant, useCategories, useCreateProduct, useUpdateProduct } from "@/hooks/useProducts";
+import { ProductAttachmentsManager } from "./ProductAttachmentsManager";
+import { Product, ProductOption, ProductVariant, ProductAttachment, useCategories, useCreateProduct, useUpdateProduct } from "@/hooks/useProducts";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProductFormProps {
@@ -33,14 +35,17 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
 
   const [currentOptions, setCurrentOptions] = useState<ProductOption[]>(product?.options || []);
   const [currentVariants, setCurrentVariants] = useState<ProductVariant[]>(product?.variants || []);
+  const [currentAttachments, setCurrentAttachments] = useState<ProductAttachment[]>(product?.attachments || []);
 
   useEffect(() => {
     if (product) {
       setCurrentOptions(product.options || []);
       setCurrentVariants(product.variants || []);
+      setCurrentAttachments(product.attachments || []);
     } else {
       setCurrentOptions([]);
       setCurrentVariants([]);
+      setCurrentAttachments([]);
     }
   }, [product?.id]);
 
@@ -52,7 +57,9 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         formData,
         options: currentOptions,
         variants: currentVariants,
+        attachments: currentAttachments,
         variantsCount: currentVariants.length,
+        attachmentsCount: currentAttachments.length,
         variantsDetailed: currentVariants.map(v => ({
           name: v.name,
           sku: v.sku,
@@ -61,18 +68,21 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         }))
       });
 
-      // Preparar datos con variantes explícitas
+      // Preparar datos con variantes y attachments explícitos
       const dataToSend = {
         ...formData,
         options: currentOptions,
-        variants: currentVariants
+        variants: currentVariants,
+        attachments: currentAttachments
       };
 
       console.log('🚀 ENVIANDO DATOS A useUpdateProduct:', {
         id: product?.id,
         updates: dataToSend,
         variantsInUpdate: dataToSend.variants,
-        variantsCount: dataToSend.variants.length
+        attachmentsInUpdate: dataToSend.attachments,
+        variantsCount: dataToSend.variants.length,
+        attachmentsCount: dataToSend.attachments.length
       });
       
       if (product) {
@@ -90,13 +100,14 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         // Crear nuevo producto
         const newProduct = await createProduct.mutateAsync(formData);
         
-        // Si hay opciones y variantes, actualizar
-        if (currentOptions.length > 0 || currentVariants.length > 0) {
+        // Si hay opciones, variantes o attachments, actualizar
+        if (currentOptions.length > 0 || currentVariants.length > 0 || currentAttachments.length > 0) {
           await updateProduct.mutateAsync({
             id: newProduct.id,
             updates: {
               options: currentOptions,
               variants: currentVariants,
+              attachments: currentAttachments,
             }
           });
         }
@@ -194,6 +205,11 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         onUpdateOptions={setCurrentOptions}
       />
 
+      <ProductAttachmentsManager
+        product={product || { ...formData, id: 'temp' } as Product}
+        onUpdateAttachments={setCurrentAttachments}
+      />
+
       <ProductVariantsManager
         product={product || { ...formData, id: 'temp' } as Product}
         options={currentOptions}
@@ -219,11 +235,16 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
 
       <div className="text-xs text-gray-500 mt-4 p-2 bg-gray-50 rounded">
         <strong>Debug ProductForm:</strong><br/>
-        Opciones: {currentOptions.length} | Variantes: {currentVariants.length}<br/>
+        Opciones: {currentOptions.length} | Variantes: {currentVariants.length} | Attachments: {currentAttachments.length}<br/>
         {currentVariants.length > 0 && (
           <>
             Variantes: {currentVariants.map(v => v.name).join(', ')}<br/>
             SKUs: {currentVariants.map(v => v.sku).join(', ')}
+          </>
+        )}
+        {currentAttachments.length > 0 && (
+          <>
+            <br/>Attachments: {currentAttachments.map(a => a.name).join(', ')}
           </>
         )}
       </div>
