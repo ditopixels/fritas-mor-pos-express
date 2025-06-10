@@ -105,7 +105,7 @@ export const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => 
   };
 
   return (
-    <Card>
+    <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
         <CardTitle>
           {product ? 'Editar Producto' : 'Crear Producto'}
@@ -114,12 +114,16 @@ export const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => 
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="basic">Información Básica</TabsTrigger>
-              <TabsTrigger value="additional">Opciones Adicionales</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="basic" className="text-sm font-medium">
+                Información Básica
+              </TabsTrigger>
+              <TabsTrigger value="additional" className="text-sm font-medium">
+                Opciones Adicionales
+              </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="basic" className="space-y-4">
+            <TabsContent value="basic" className="space-y-4 mt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nombre del Producto</Label>
@@ -201,8 +205,12 @@ export const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => 
               </div>
             </TabsContent>
 
-            <TabsContent value="additional" className="space-y-4">
-              <div className="min-h-[400px]">
+            <TabsContent value="additional" className="space-y-4 mt-6">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold mb-4">Opciones Adicionales del Producto</h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  Configura opciones adicionales como salsas, extras, etc. que no afectan el SKU del producto.
+                </p>
                 <ProductAdditionalOptionsManager
                   options={formData.additional_options}
                   onChange={handleAdditionalOptionsChange}
@@ -211,7 +219,7 @@ export const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => 
             </TabsContent>
           </Tabs>
 
-          <div className="flex justify-end space-x-2 pt-4 border-t">
+          <div className="flex justify-end space-x-2 pt-6 border-t">
             {onCancel && (
               <Button type="button" variant="outline" onClick={onCancel}>
                 Cancelar
