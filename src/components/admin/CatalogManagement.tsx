@@ -53,8 +53,7 @@ import {
   useUpdateCategoryOrder,
   useUpdateProductOrder,
 } from "@/hooks/useProducts";
-import { ProductOptionsManager } from "./ProductOptionsManager";
-import { ProductVariantsManager } from "./ProductVariantsManager";
+import { ProductForm } from "./ProductForm";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 interface Category {
@@ -102,18 +101,11 @@ const CatalogManagement = () => {
   const [selectedProduct, setSelectedProduct] = useState<ProductType | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
-  const [newProductName, setNewProductName] = useState("");
-  const [newProductDescription, setNewProductDescription] = useState("");
-  const [newProductCategoryId, setNewProductCategoryId] = useState("");
-  const [newProductBasePrice, setNewProductBasePrice] = useState<number | undefined>(undefined);
   const [isCategoryActive, setIsCategoryActive] = useState(true);
-  const [isProductActive, setIsProductActive] = useState(true);
-  const createProductMutation = useCreateProduct();
-  const updateProductMutation = useUpdateProduct();
-  const deleteProductMutation = useDeleteProduct();
   const createCategoryMutation = useCreateCategory();
   const updateCategoryMutation = useUpdateCategory();
   const deleteCategoryMutation = useDeleteCategory();
+  const deleteProductMutation = useDeleteProduct();
   const updateCategoryOrderMutation = useUpdateCategoryOrder();
   const updateProductOrderMutation = useUpdateProductOrder();
 
@@ -188,11 +180,6 @@ const CatalogManagement = () => {
 
   const handleOpenProductDialog = () => {
     setSelectedProduct(null);
-    setNewProductName("");
-    setNewProductDescription("");
-    setNewProductCategoryId(categoriesState[0]?.id || "");
-    setNewProductBasePrice(undefined);
-    setIsProductActive(true);
     setIsProductDialogOpen(true);
   };
 
@@ -206,11 +193,6 @@ const CatalogManagement = () => {
 
   const handleEditProduct = (product: ProductType) => {
     setSelectedProduct(product);
-    setNewProductName(product.name);
-    setNewProductDescription(product.description || "");
-    setNewProductCategoryId(product.category_id);
-    setNewProductBasePrice(product.base_price);
-    setIsProductActive(product.is_active);
     setIsProductDialogOpen(true);
   };
 
@@ -311,81 +293,20 @@ const CatalogManagement = () => {
     }
   };
 
-  const handleCreateProduct = async () => {
-    if (!newProductName.trim() || !newProductCategoryId) {
-      toast({
-        title: "Error",
-        description: "Nombre y categoría son requeridos.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      await createProductMutation.mutateAsync({
-        name: newProductName,
-        description: newProductDescription,
-        category_id: newProductCategoryId,
-        base_price: newProductBasePrice,
-        is_active: isProductActive,
-        display_order: productsState.length,
-      });
-
-      toast({
-        title: "Producto creado",
-        description: `El producto ${newProductName} ha sido creado.`,
-      });
-      setIsProductDialogOpen(false);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Error al crear el producto.",
-        variant: "destructive",
-      });
-    }
+  const handleProductSave = () => {
+    setIsProductDialogOpen(false);
+    setSelectedProduct(null);
   };
 
-  const handleUpdateProduct = async () => {
-    if (!newProductName.trim() || !newProductCategoryId) {
-      toast({
-        title: "Error",
-        description: "Nombre y categoría son requeridos.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!selectedProduct) return;
-
-    try {
-      await updateProductMutation.mutateAsync({
-        id: selectedProduct.id,
-        updates: {
-          name: newProductName,
-          description: newProductDescription,
-          category_id: newProductCategoryId,
-          base_price: newProductBasePrice,
-          is_active: isProductActive,
-          options: selectedProduct.options,
-        },
-      });
-
-      toast({
-        title: "Producto actualizado",
-        description: `El producto ${newProductName} ha sido actualizado.`,
-      });
-      setIsProductDialogOpen(false);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Error al actualizar el producto.",
-        variant: "destructive",
-      });
-    }
+  const handleProductCancel = () => {
+    setIsProductDialogOpen(false);
+    setSelectedProduct(null);
   };
 
   return (
     <div className="space-y-4 sm:space-y-6 p-2 sm:p-4">
+      
+      
       <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center">
         <h2 className="text-xl sm:text-2xl font-bold">Administración del Catálogo</h2>
         <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:space-x-2">
@@ -405,6 +326,8 @@ const CatalogManagement = () => {
           <TabsTrigger value="categories" className="text-sm">Categorías</TabsTrigger>
           <TabsTrigger value="products" className="text-sm">Productos</TabsTrigger>
         </TabsList>
+        
+        
         
         <TabsContent value="categories" className="space-y-4">
           <Card>
@@ -567,113 +490,19 @@ const CatalogManagement = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Product Form Dialog */}
+      {/* Product Form Dialog - Now using the ProductForm component */}
       <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[calc(100vh-4rem)] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedProduct ? "Editar Producto" : "Nuevo Producto"}
-            </DialogTitle>
-            <DialogDescription>
-              Administra la información del producto.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-            <div>
-              <Label htmlFor="product-name">Nombre</Label>
-              <Input
-                id="product-name"
-                value={newProductName}
-                onChange={(e) => setNewProductName(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="product-category">Categoría</Label>
-              <select
-                id="product-category"
-                className="w-full rounded-md border border-gray-200 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                value={newProductCategoryId}
-                onChange={(e) => setNewProductCategoryId(e.target.value)}
-              >
-                {categoriesState.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label htmlFor="product-base-price">Precio Base</Label>
-              <Input
-                id="product-base-price"
-                type="number"
-                value={newProductBasePrice === undefined ? '' : newProductBasePrice.toString()}
-                onChange={(e) => setNewProductBasePrice(Number(e.target.value))}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="product-status">Estado</Label>
-              <Switch
-                id="product-status"
-                checked={isProductActive}
-                onCheckedChange={setIsProductActive}
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="product-description">Descripción</Label>
-            <Textarea
-              id="product-description"
-              value={newProductDescription}
-              onChange={(e) => setNewProductDescription(e.target.value)}
-            />
-          </div>
-          
-          <Separator />
-          
-          {selectedProduct && (
-            <ProductOptionsManager 
-              product={selectedProduct}
-              onUpdateOptions={(options) => {
-                setSelectedProduct(prev => prev ? { ...prev, options } : null);
-              }}
-            />
-          )}
-
-          {selectedProduct && (
-            <ProductVariantsManager 
-              product={selectedProduct}
-              options={selectedProduct.options || []}
-              variants={selectedProduct.variants || []}
-              onUpdateVariants={(variants) => {
-                setSelectedProduct(prev => prev ? { ...prev, variants } : null);
-              }}
-            />
-          )}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setIsProductDialogOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={selectedProduct ? handleUpdateProduct : handleCreateProduct}
-            >
-              {selectedProduct ? "Actualizar Producto" : "Crear Producto"}
-            </Button>
-          </DialogFooter>
+        <DialogContent className="max-w-5xl max-h-[calc(100vh-2rem)] overflow-y-auto">
+          <ProductForm
+            product={selectedProduct || undefined}
+            onSave={handleProductSave}
+            onCancel={handleProductCancel}
+          />
         </DialogContent>
       </Dialog>
 
+      
+      
       {/* Category Form Dialog */}
       <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
         <DialogContent className="max-w-md">
