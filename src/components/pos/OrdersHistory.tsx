@@ -71,6 +71,15 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
     }
   };
 
+  const parseVariantOptions = (optionsJson: any) => {
+    if (!optionsJson) return {};
+    try {
+      return typeof optionsJson === 'string' ? JSON.parse(optionsJson) : optionsJson;
+    } catch {
+      return {};
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 p-2 sm:p-4">
       <Card>
@@ -137,7 +146,10 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                     <div className="space-y-2">
                       {order.order_items?.map((item) => {
                         const itemPromotions = parseAppliedPromotions(item.applied_promotions);
+                        const variantOptions = parseVariantOptions(item.variant_options);
                         const hasDiscount = item.original_price && item.original_price > item.price;
+                        
+                        console.log('🔍 Displaying item:', item.product_name, 'Variant options:', variantOptions);
                         
                         return (
                           <div key={item.id} className="border rounded p-2 space-y-1 text-sm">
@@ -165,6 +177,18 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
                                 )}
                               </div>
                             </div>
+                            
+                            {/* Mostrar opciones seleccionadas */}
+                            {Object.keys(variantOptions).length > 0 && (
+                              <div className="text-xs text-blue-600 bg-blue-50 p-1 rounded">
+                                <strong>Opciones seleccionadas:</strong>
+                                {Object.entries(variantOptions).map(([optionName, value]) => (
+                                  <div key={optionName} className="mt-1">
+                                    <strong>{optionName}:</strong> {Array.isArray(value) ? value.join(', ') : String(value)}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             
                             {itemPromotions.length > 0 && (
                               <div className="flex flex-wrap gap-1">

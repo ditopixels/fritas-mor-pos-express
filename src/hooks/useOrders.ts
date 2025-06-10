@@ -34,6 +34,7 @@ export interface SupabaseOrder {
     original_price?: number;
     quantity: number;
     applied_promotions?: any;
+    variant_options?: any;
   }[];
 }
 
@@ -73,6 +74,8 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
       }, 0);
       const total = subtotal - total_discount;
 
+      console.log('🛒 Creating order with items:', orderData.items);
+
       // Crear la orden con promociones aplicadas
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -94,19 +97,25 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
       if (orderError) throw orderError;
 
       // Crear los items de la orden con información completa de promociones y opciones seleccionadas
-      const orderItems = orderData.items.map(item => ({
-        order_id: order.id,
-        product_id: item.id,
-        variant_id: item.variantId && item.variantId !== item.id ? item.variantId : null,
-        product_name: item.productName,
-        variant_name: item.variantName,
-        sku: item.sku,
-        price: item.price,
-        original_price: item.originalPrice || item.price,
-        quantity: item.quantity,
-        applied_promotions: JSON.stringify(item.appliedPromotions || []),
-        variant_options: JSON.stringify(item.selectedOptions || {}),
-      }));
+      const orderItems = orderData.items.map(item => {
+        console.log('🔍 Processing item for order:', item.productName, 'Selected options:', item.selectedOptions);
+        
+        return {
+          order_id: order.id,
+          product_id: item.id,
+          variant_id: item.variantId && item.variantId !== item.id ? item.variantId : null,
+          product_name: item.productName,
+          variant_name: item.variantName,
+          sku: item.sku,
+          price: item.price,
+          original_price: item.originalPrice || item.price,
+          quantity: item.quantity,
+          applied_promotions: JSON.stringify(item.appliedPromotions || []),
+          variant_options: JSON.stringify(item.selectedOptions || {}),
+        };
+      });
+
+      console.log('💾 Saving order items with variant_options:', orderItems);
 
       const { data: createdItems, error: itemsError } = await supabase
         .from('order_items')
@@ -114,6 +123,8 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
         .select();
 
       if (itemsError) throw itemsError;
+
+      console.log('✅ Order items saved successfully:', createdItems);
 
       // Crear objeto completo de orden para retornar
       const completeOrder: SupabaseOrder = {
@@ -127,6 +138,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
           original_price: item.original_price,
           quantity: item.quantity,
           applied_promotions: item.applied_promotions,
+          variant_options: item.variant_options,
         }))
       };
 

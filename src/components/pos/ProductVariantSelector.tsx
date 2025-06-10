@@ -30,6 +30,7 @@ export const ProductVariantSelector = ({
   const [matchedVariant, setMatchedVariant] = useState<ProductVariant | null>(null);
 
   console.log('ProductVariantSelector - Options received:', options);
+  console.log('ProductVariantSelector - Selected options state:', selectedOptions);
 
   // Find matching variant based on selected options
   useEffect(() => {
@@ -58,6 +59,7 @@ export const ProductVariantSelector = ({
   }, [selectedOptions, variants, options]);
 
   const handleSingleOptionChange = (optionName: string, value: string) => {
+    console.log('Single option change:', optionName, value);
     setSelectedOptions(prev => ({
       ...prev,
       [optionName]: value
@@ -65,26 +67,35 @@ export const ProductVariantSelector = ({
   };
 
   const handleMultipleOptionChange = (optionName: string, value: string, checked: boolean) => {
+    console.log('Multiple option change:', optionName, value, checked);
     setSelectedOptions(prev => {
       const currentValues = Array.isArray(prev[optionName]) ? prev[optionName] as string[] : [];
       
+      let newValues: string[];
       if (checked) {
-        return {
-          ...prev,
-          [optionName]: [...currentValues, value]
-        };
+        newValues = [...currentValues, value];
       } else {
-        return {
-          ...prev,
-          [optionName]: currentValues.filter(v => v !== value)
-        };
+        newValues = currentValues.filter(v => v !== value);
       }
+      
+      console.log('Updated multiple values for', optionName, ':', newValues);
+      
+      return {
+        ...prev,
+        [optionName]: newValues
+      };
     });
   };
 
   const handleAddToCart = () => {
     if (matchedVariant) {
-      console.log('ProductVariantSelector - Adding to cart with selected options:', selectedOptions);
+      console.log('ProductVariantSelector - Adding to cart with complete selected options:', selectedOptions);
+      
+      // Asegurar que todas las selecciones múltiples estén incluidas
+      const completeSelectedOptions = { ...selectedOptions };
+      
+      console.log('Complete selected options being sent to cart:', completeSelectedOptions);
+      
       onAddToCart(
         productId, 
         categoryId, 
@@ -93,7 +104,7 @@ export const ProductVariantSelector = ({
         productName, 
         matchedVariant.name, 
         matchedVariant.price,
-        selectedOptions
+        completeSelectedOptions
       );
     }
   };
@@ -230,16 +241,21 @@ export const ProductVariantSelector = ({
             SKU: {matchedVariant.sku}
           </div>
 
-          {/* Mostrar selecciones múltiples */}
+          {/* Mostrar todas las selecciones realizadas */}
           {Object.entries(selectedOptions).some(([key, value]) => {
-            const option = options.find(opt => opt.name === key);
-            return option?.selection_type === 'multiple' && Array.isArray(value) && value.length > 0;
+            return (typeof value === 'string' && value.length > 0) || 
+                   (Array.isArray(value) && value.length > 0);
           }) && (
             <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-              <strong>Opciones adicionales:</strong>
+              <strong>Selecciones realizadas:</strong>
               {Object.entries(selectedOptions).map(([optionName, values]) => {
-                const option = options.find(opt => opt.name === optionName);
-                if (option?.selection_type === 'multiple' && Array.isArray(values) && values.length > 0) {
+                if (typeof values === 'string' && values.length > 0) {
+                  return (
+                    <div key={optionName} className="mt-1">
+                      {optionName}: {values}
+                    </div>
+                  );
+                } else if (Array.isArray(values) && values.length > 0) {
                   return (
                     <div key={optionName} className="mt-1">
                       {optionName}: {values.join(', ')}
