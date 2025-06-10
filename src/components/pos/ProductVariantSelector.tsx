@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ProductVariant, ProductOption } from "@/types";
+import { ProductVariant, ProductOption, ProductAttachment } from "@/types";
 import { Tag } from "lucide-react";
 
 interface ProductVariantSelectorProps {
@@ -12,8 +12,9 @@ interface ProductVariantSelectorProps {
   categoryId: string;
   variants: ProductVariant[];
   options: ProductOption[];
+  attachments: ProductAttachment[];
   productName: string;
-  onAddToCart: (productId: string, categoryId: string, variantId: string, sku: string, productName: string, variantName: string, price: number, selectedOptions?: Record<string, string | string[]>) => void;
+  onAddToCart: (productId: string, categoryId: string, variantId: string, sku: string, productName: string, variantName: string, price: number, selectedOptions?: Record<string, string>, selectedAttachments?: Record<string, string[]>) => void;
   calculateItemPromotions: (productId: string, categoryId: string, price: number) => any[];
 }
 
@@ -22,33 +23,25 @@ export const ProductVariantSelector = ({
   categoryId,
   variants, 
   options,
+  attachments,
   productName, 
   onAddToCart,
   calculateItemPromotions
 }: ProductVariantSelectorProps) => {
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string | string[]>>({});
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [selectedAttachments, setSelectedAttachments] = useState<Record<string, string[]>>({});
   const [matchedVariant, setMatchedVariant] = useState<ProductVariant | null>(null);
 
-  console.log('ProductVariantSelector - Options received:', options);
-  console.log('ProductVariantSelector - Selected options state:', selectedOptions);
+  console.log('ProductVariantSelector - Options:', options, 'Attachments:', attachments);
 
-  // Find matching variant based on selected options
+  // Find matching variant based on selected options (only single selection now)
   useEffect(() => {
-    // Para encontrar variantes, solo consideramos las opciones de selección simple
-    const singleSelectionOptions = Object.entries(selectedOptions).reduce((acc, [key, value]) => {
-      const option = options.find(opt => opt.name === key);
-      if (option?.selection_type === 'single' && typeof value === 'string') {
-        acc[key] = value;
-      }
-      return acc;
-    }, {} as Record<string, string>);
+    const requiredOptions = options.filter(opt => opt.isRequired);
+    const hasAllRequiredOptions = requiredOptions.every(opt => selectedOptions[opt.name]);
 
-    const requiredSingleOptions = options.filter(opt => opt.isRequired && opt.selection_type === 'single');
-    const hasAllRequiredSingleOptions = requiredSingleOptions.every(opt => singleSelectionOptions[opt.name]);
-
-    if (hasAllRequiredSingleOptions) {
+    if (hasAllRequiredOptions) {
       const variant = variants.find(v => {
-        return Object.entries(singleSelectionOptions).every(([optionName, selectedValue]) => {
+        return Object.entries(selectedOptions).every(([optionName, selectedValue]) => {
           return v.optionValues[optionName] === selectedValue;
         });
       });
@@ -58,18 +51,18 @@ export const ProductVariantSelector = ({
     }
   }, [selectedOptions, variants, options]);
 
-  const handleSingleOptionChange = (optionName: string, value: string) => {
-    console.log('Single option change:', optionName, value);
+  const handleOptionChange = (optionName: string, value: string) => {
+    console.log('Option change:', optionName, value);
     setSelectedOptions(prev => ({
       ...prev,
       [optionName]: value
     }));
   };
 
-  const handleMultipleOptionChange = (optionName: string, value: string, checked: boolean) => {
-    console.log('Multiple option change:', optionName, value, checked);
-    setSelectedOptions(prev => {
-      const currentValues = Array.isArray(prev[optionName]) ? prev[optionName] as string[] : [];
+  const handleAttachmentChange = (attachmentName: string, value: string, checked: boolean) => {
+    console.log('Attachment change:', attachmentName, value, checked);
+    setSelectedAttachments(prev => {
+      const currentValues = prev[attachmentName] || [];
       
       let newValues: string[];
       if (checked) {
@@ -78,23 +71,16 @@ export const ProductVariantSelector = ({
         newValues = currentValues.filter(v => v !== value);
       }
       
-      console.log('Updated multiple values for', optionName, ':', newValues);
-      
       return {
         ...prev,
-        [optionName]: newValues
+        [attachmentName]: newValues
       };
     });
   };
 
   const handleAddToCart = () => {
     if (matchedVariant) {
-      console.log('ProductVariantSelector - Adding to cart with complete selected options:', selectedOptions);
-      
-      // Asegurar que todas las selecciones múltiples estén incluidas
-      const completeSelectedOptions = { ...selectedOptions };
-      
-      console.log('Complete selected options being sent to cart:', completeSelectedOptions);
+      console.log('Adding to cart with options:', selectedOptions, 'attachments:', selectedAttachments);
       
       onAddToCart(
         productId, 
@@ -104,7 +90,8 @@ export const ProductVariantSelector = ({
         productName, 
         matchedVariant.name, 
         matchedVariant.price,
-        completeSelectedOptions
+        selectedOptions,
+        selectedAttachments
       );
     }
   };
@@ -117,88 +104,85 @@ export const ProductVariantSelector = ({
     ? matchedVariant.price - appliedPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
     : matchedVariant?.price || 0;
 
-  // Verificar si todas las opciones requeridas están seleccionadas
+  // Check if all required options and attachments are selected
   const allRequiredOptionsSelected = options.filter(opt => opt.isRequired).every(option => {
-    const selectedValue = selectedOptions[option.name];
-    if (option.selection_type === 'single') {
-      return typeof selectedValue === 'string' && selectedValue.length > 0;
-    } else {
-      return Array.isArray(selectedValue) && selectedValue.length > 0;
-    }
+    return selectedOptions[option.name] && selectedOptions[option.name].length > 0;
   });
+
+  const allRequiredAttachmentsSelected = attachments.filter(att => att.isRequired).every(attachment => {
+    return selectedAttachments[attachment.name] && selectedAttachments[attachment.name].length > 0;
+  });
+
+  const canAddToCart = allRequiredOptionsSelected && allRequiredAttachmentsSelected;
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      {/* Dynamic Option Selectors */}
+      {/* Options Selectors (Single selection only) */}
       {options.map((option) => (
         <div key={option.id} className="space-y-2">
           <label className="text-xs sm:text-sm font-medium text-gray-700 block">
             {option.name}
             {option.isRequired && <span className="text-red-500 ml-1">*</span>}
-            <span className="text-xs text-gray-500 ml-2">
-              ({option.selection_type === 'single' ? 'Selección única' : 'Selección múltiple'})
-            </span>
+            <span className="text-xs text-gray-500 ml-2">(Selección única)</span>
           </label>
 
-          {option.selection_type === 'single' ? (
-            <ToggleGroup
-              type="single"
-              value={typeof selectedOptions[option.name] === 'string' ? selectedOptions[option.name] as string : ""}
-              onValueChange={(value) => value && handleSingleOptionChange(option.name, value)}
-              className="flex flex-wrap gap-1 sm:gap-2 justify-start"
-            >
-              {option.values.map((optionValue, index) => (
-                <ToggleGroupItem
-                  key={index}
-                  value={typeof optionValue === 'string' ? optionValue : optionValue.value}
-                  className="border border-gray-300 hover:bg-gray-100 data-[state=on]:bg-yellow-500 data-[state=on]:text-white text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 h-auto min-h-[32px] sm:min-h-[40px]"
-                >
-                  <div className="flex flex-col items-center text-center">
-                    <span>{typeof optionValue === 'string' ? optionValue : optionValue.value}</span>
-                    {typeof optionValue === 'object' && optionValue.additionalPrice && (
-                      <span className="text-xs">
-                        (+${optionValue.additionalPrice.toLocaleString()})
-                      </span>
-                    )}
-                  </div>
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {option.values.map((optionValue, index) => {
-                const value = typeof optionValue === 'string' ? optionValue : optionValue.value;
-                const currentSelection = Array.isArray(selectedOptions[option.name]) ? selectedOptions[option.name] as string[] : [];
-                const isChecked = currentSelection.includes(value);
-                
-                return (
-                  <div key={index} className="flex items-center space-x-2 border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-50">
-                    <Checkbox
-                      id={`${option.name}-${index}`}
-                      checked={isChecked}
-                      onCheckedChange={(checked) => handleMultipleOptionChange(option.name, value, checked as boolean)}
-                    />
-                    <label 
-                      htmlFor={`${option.name}-${index}`} 
-                      className="text-xs sm:text-sm cursor-pointer flex flex-col"
-                    >
-                      <span>{value}</span>
-                      {typeof optionValue === 'object' && optionValue.additionalPrice && (
-                        <span className="text-xs text-gray-500">
-                          (+${optionValue.additionalPrice.toLocaleString()})
-                        </span>
-                      )}
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <ToggleGroup
+            type="single"
+            value={selectedOptions[option.name] || ""}
+            onValueChange={(value) => value && handleOptionChange(option.name, value)}
+            className="flex flex-wrap gap-1 sm:gap-2 justify-start"
+          >
+            {option.values.map((optionValue, index) => (
+              <ToggleGroupItem
+                key={index}
+                value={typeof optionValue === 'string' ? optionValue : optionValue.value}
+                className="border border-gray-300 hover:bg-gray-100 data-[state=on]:bg-yellow-500 data-[state=on]:text-white text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 h-auto min-h-[32px] sm:min-h-[40px]"
+              >
+                <div className="flex flex-col items-center text-center">
+                  <span>{typeof optionValue === 'string' ? optionValue : optionValue.value}</span>
+                </div>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+      ))}
+
+      {/* Attachments Selectors (Multiple selection) */}
+      {attachments.map((attachment) => (
+        <div key={attachment.id} className="space-y-2">
+          <label className="text-xs sm:text-sm font-medium text-gray-700 block">
+            {attachment.name}
+            {attachment.isRequired && <span className="text-red-500 ml-1">*</span>}
+            <span className="text-xs text-gray-500 ml-2">(Selección múltiple - Sin costo adicional)</span>
+          </label>
+
+          <div className="flex flex-wrap gap-2">
+            {attachment.values.map((value, index) => {
+              const currentSelection = selectedAttachments[attachment.name] || [];
+              const isChecked = currentSelection.includes(value);
+              
+              return (
+                <div key={index} className="flex items-center space-x-2 border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-50">
+                  <Checkbox
+                    id={`${attachment.name}-${index}`}
+                    checked={isChecked}
+                    onCheckedChange={(checked) => handleAttachmentChange(attachment.name, value, checked as boolean)}
+                  />
+                  <label 
+                    htmlFor={`${attachment.name}-${index}`} 
+                    className="text-xs sm:text-sm cursor-pointer"
+                  >
+                    {value}
+                  </label>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ))}
 
       {/* Price and Add Button Section */}
-      {allRequiredOptionsSelected && matchedVariant && (
+      {canAddToCart && matchedVariant && (
         <div className="space-y-2 sm:space-y-3 pt-2 border-t">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center space-x-2">
@@ -241,38 +225,31 @@ export const ProductVariantSelector = ({
             SKU: {matchedVariant.sku}
           </div>
 
-          {/* Mostrar todas las selecciones realizadas */}
-          {Object.entries(selectedOptions).some(([key, value]) => {
-            return (typeof value === 'string' && value.length > 0) || 
-                   (Array.isArray(value) && value.length > 0);
-          }) && (
+          {/* Show selected options and attachments */}
+          {(Object.keys(selectedOptions).length > 0 || Object.keys(selectedAttachments).length > 0) && (
             <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
               <strong>Selecciones realizadas:</strong>
-              {Object.entries(selectedOptions).map(([optionName, values]) => {
-                if (typeof values === 'string' && values.length > 0) {
-                  return (
-                    <div key={optionName} className="mt-1">
-                      {optionName}: {values}
-                    </div>
-                  );
-                } else if (Array.isArray(values) && values.length > 0) {
-                  return (
-                    <div key={optionName} className="mt-1">
-                      {optionName}: {values.join(', ')}
-                    </div>
-                  );
-                }
-                return null;
-              })}
+              {Object.entries(selectedOptions).map(([optionName, value]) => (
+                <div key={optionName} className="mt-1">
+                  {optionName}: {value}
+                </div>
+              ))}
+              {Object.entries(selectedAttachments).map(([attachmentName, values]) => 
+                values.length > 0 && (
+                  <div key={attachmentName} className="mt-1">
+                    {attachmentName}: {values.join(', ')}
+                  </div>
+                )
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* Instructions when options are not complete */}
-      {options.length > 0 && !allRequiredOptionsSelected && (
+      {/* Instructions when selections are not complete */}
+      {(options.length > 0 || attachments.length > 0) && !canAddToCart && (
         <div className="text-xs sm:text-sm text-gray-500 text-center py-2">
-          Selecciona todas las opciones requeridas para ver el precio y agregar al carrito
+          Selecciona todas las opciones y elementos requeridos para continuar
         </div>
       )}
     </div>

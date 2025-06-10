@@ -51,7 +51,8 @@ export interface CartItem {
   variantId?: string;
   categoryId?: string;
   appliedPromotions?: AppliedPromotion[];
-  selectedOptions?: Record<string, string | string[]>;
+  selectedOptions?: Record<string, string>;
+  selectedAttachments?: Record<string, string[]>;
 }
 
 export interface ProductOption {
@@ -59,7 +60,13 @@ export interface ProductOption {
   name: string;
   values: (string | { value: string; additionalPrice?: number })[];
   isRequired: boolean;
-  selection_type?: 'single' | 'multiple';
+}
+
+export interface ProductAttachment {
+  id: string;
+  name: string;
+  values: string[];
+  isRequired: boolean;
 }
 
 export interface User {
@@ -113,5 +120,6 @@ export interface Order {
     quantity: number;
     applied_promotions?: any;
     variant_options?: any;
+    variant_attachments?: any;
   }[];
 }

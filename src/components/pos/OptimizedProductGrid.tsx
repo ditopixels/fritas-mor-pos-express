@@ -17,14 +17,14 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const { calculateItemPromotions } = usePromotionCalculator();
 
-  // Cargar categorías
+  // Load categories
   const { data: posData, isLoading: posLoading } = useOptimizedPOSData();
   const categories = posData.categories || [];
 
-  // Cargar TODOS los productos una sola vez
+  // Load ALL products once
   const { data: allProducts = [], isLoading: productsLoading } = useAllProductsOnce();
   
-  // Filtrar productos localmente según la categoría seleccionada
+  // Filter products locally by selected category
   const filteredProducts = useFilteredProducts(selectedCategory, allProducts);
 
   const handleAddToCart = (
@@ -35,10 +35,11 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
     productName: string, 
     variantName: string, 
     price: number,
-    selectedOptions?: Record<string, string | string[]>
+    selectedOptions?: Record<string, string>,
+    selectedAttachments?: Record<string, string[]>
   ) => {
     console.log('OptimizedProductGrid - Adding to cart:', { 
-      productId, categoryId, variantId, sku, productName, variantName, price, selectedOptions 
+      productId, categoryId, variantId, sku, productName, variantName, price, selectedOptions, selectedAttachments 
     });
     
     const appliedPromotions = calculateItemPromotions(productId, categoryId, price);
@@ -53,6 +54,7 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
       categoryId,
       appliedPromotions,
       selectedOptions: selectedOptions || {},
+      selectedAttachments: selectedAttachments || {},
     };
 
     console.log('OptimizedProductGrid - Cart item created:', cartItem);
@@ -98,14 +100,13 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
             <Card key={product.id} className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="flex flex-col sm:flex-row">
-                  {/* Content Section */}
                   <div className="flex-1 p-3 sm:p-4">
                     <h3 className="text-base sm:text-lg font-semibold mb-1">{product.name}</h3>
                     {product.description && (
                       <p className="text-gray-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">{product.description}</p>
                     )}
 
-                    {product.product_variants?.length > 0 && product.product_options?.length > 0 ? (
+                    {product.product_variants?.length > 0 && (product.product_options?.length > 0 || product.product_attachments?.length > 0) ? (
                       <ProductVariantSelector
                         productId={product.id}
                         categoryId={product.category_id || ''}
@@ -119,13 +120,18 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
                           isActive: variant.is_active,
                           stock: variant.stock,
                         }))}
-                        options={product.product_options.map((option: any) => ({
+                        options={product.product_options?.map((option: any) => ({
                           id: option.id,
                           name: option.name,
                           values: option.values || [],
                           isRequired: option.is_required,
-                          selection_type: option.selection_type || 'single',
-                        }))}
+                        })) || []}
+                        attachments={product.product_attachments?.map((attachment: any) => ({
+                          id: attachment.id,
+                          name: attachment.name,
+                          values: attachment.values || [],
+                          isRequired: attachment.is_required,
+                        })) || []}
                         productName={product.name}
                         onAddToCart={handleAddToCart}
                         calculateItemPromotions={calculateItemPromotions}

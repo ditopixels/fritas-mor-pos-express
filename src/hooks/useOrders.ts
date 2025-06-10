@@ -11,7 +11,7 @@ export interface CreateOrderData {
   items: CartItem[];
 }
 
-// Definir el tipo que viene de Supabase
+// Define the type that comes from Supabase
 export interface SupabaseOrder {
   id: string;
   order_number: string;
@@ -35,6 +35,7 @@ export interface SupabaseOrder {
     quantity: number;
     applied_promotions?: any;
     variant_options?: any;
+    variant_attachments?: any;
   }[];
 }
 
@@ -76,7 +77,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
 
       console.log('🛒 Creating order with items:', orderData.items);
 
-      // Crear la orden con promociones aplicadas
+      // Create order with applied promotions
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -96,9 +97,9 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
 
       if (orderError) throw orderError;
 
-      // Crear los items de la orden con información completa de promociones y opciones seleccionadas
+      // Create order items with complete information of promotions, options and attachments
       const orderItems = orderData.items.map(item => {
-        console.log('🔍 Processing item for order:', item.productName, 'Selected options:', item.selectedOptions);
+        console.log('🔍 Processing item for order:', item.productName, 'Options:', item.selectedOptions, 'Attachments:', item.selectedAttachments);
         
         return {
           order_id: order.id,
@@ -112,10 +113,11 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
           quantity: item.quantity,
           applied_promotions: JSON.stringify(item.appliedPromotions || []),
           variant_options: JSON.stringify(item.selectedOptions || {}),
+          variant_attachments: JSON.stringify(item.selectedAttachments || {}),
         };
       });
 
-      console.log('💾 Saving order items with variant_options:', orderItems);
+      console.log('💾 Saving order items with options and attachments:', orderItems);
 
       const { data: createdItems, error: itemsError } = await supabase
         .from('order_items')
@@ -126,7 +128,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
 
       console.log('✅ Order items saved successfully:', createdItems);
 
-      // Crear objeto completo de orden para retornar
+      // Create complete order object to return
       const completeOrder: SupabaseOrder = {
         ...order,
         order_items: createdItems.map(item => ({
@@ -139,10 +141,11 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
           quantity: item.quantity,
           applied_promotions: item.applied_promotions,
           variant_options: item.variant_options,
+          variant_attachments: item.variant_attachments,
         }))
       };
 
-      // Llamar callback si existe (para agregar al estado local)
+      // Call callback if exists (to add to local state)
       if (onOrderCreated) {
         onOrderCreated(completeOrder);
       }
@@ -150,7 +153,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
       return completeOrder;
     },
     onSuccess: () => {
-      // Solo invalidar queries específicas si es necesario
+      // Only invalidate specific queries if necessary
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
   });
