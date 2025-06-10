@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -70,6 +71,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
         isActive: product.is_active,
         displayOrder: product.display_order,
         createdAt: new Date(product.created_at),
+        additional_options: product.additional_options || [],
         variants: product.product_variants?.map((variant: any) => ({
           id: variant.id,
           productId: variant.product_id,

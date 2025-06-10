@@ -37,13 +37,32 @@ export const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => 
 
   useEffect(() => {
     if (product) {
+      console.log('Product data:', product);
+      console.log('Additional options from product:', product.additional_options);
+      
+      let additionalOptions: AdditionalOption[] = [];
+      
+      // Parsear las opciones adicionales si existen
+      if (product.additional_options) {
+        try {
+          if (typeof product.additional_options === 'string') {
+            additionalOptions = JSON.parse(product.additional_options);
+          } else if (Array.isArray(product.additional_options)) {
+            additionalOptions = product.additional_options;
+          }
+        } catch (error) {
+          console.error('Error parsing additional_options:', error);
+          additionalOptions = [];
+        }
+      }
+      
       setFormData({
         name: product.name,
         description: product.description || '',
         category_id: product.category_id,
         image: product.image || '',
         base_price: product.base_price || 0,
-        additional_options: product.additional_options || [],
+        additional_options: additionalOptions,
         is_active: product.is_active,
         display_order: product.display_order,
       });
@@ -54,20 +73,19 @@ export const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => 
     e.preventDefault();
     
     try {
+      const submitData = {
+        ...formData,
+        additional_options: JSON.stringify(formData.additional_options),
+      };
+      
       if (product) {
         await updateProductMutation.mutateAsync({
           id: product.id,
-          updates: {
-            ...formData,
-            additional_options: JSON.stringify(formData.additional_options),
-          }
+          updates: submitData
         });
         toast.success('Producto actualizado correctamente');
       } else {
-        await createProductMutation.mutateAsync({
-          ...formData,
-          additional_options: JSON.stringify(formData.additional_options),
-        });
+        await createProductMutation.mutateAsync(submitData);
         toast.success('Producto creado correctamente');
       }
       
@@ -79,6 +97,7 @@ export const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => 
   };
 
   const handleAdditionalOptionsChange = (options: AdditionalOption[]) => {
+    console.log('Additional options changed:', options);
     setFormData(prev => ({
       ...prev,
       additional_options: options
