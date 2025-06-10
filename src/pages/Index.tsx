@@ -105,49 +105,55 @@ const Index = () => {
         onNavigate={profile.role === 'admin' ? handleNavigate : undefined}
       />
       
-      <div className="container mx-auto p-4">
+      <div className="container mx-auto p-2">
         {currentView === 'admin' && profile.role === 'admin' ? (
           <AdminDashboard orders={orders || []} />
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="pos" className="text-lg font-semibold">
-                Punto de Venta
-              </TabsTrigger>
-              <TabsTrigger value="orders" className="text-lg font-semibold">
-                Órdenes ({orders?.length || 0})
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="pos" className="space-y-0">
-              {/* Estado de la impresora */}
-              <div className="mb-4">
+          <div className="space-y-2">
+            {/* Componente compacto de estado de impresora y tabs */}
+            <div className="flex items-center justify-between gap-4 bg-white rounded-lg p-2 shadow-sm">
+              <div className="flex-shrink-0">
                 <PrinterStatus />
               </div>
               
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-250px)]">
-                <div className="lg:col-span-2">
-                  <OptimizedProductGrid onAddToCart={addToCart} />
-                </div>
-                
-                <div className="lg:col-span-1">
-                  <OrderSummary
-                    items={cartItems}
-                    total={calculateTotal()}
-                    onUpdateQuantity={updateQuantity}
-                    onRemoveItem={removeFromCart}
-                    onClearCart={clearCart}
-                    onProceedToPayment={handlePayment}
-                    onOrderCreated={addOrderToLocal}
-                  />
-                </div>
-              </div>
-            </TabsContent>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+                <TabsList className="grid w-full grid-cols-2 h-8">
+                  <TabsTrigger value="pos" className="text-sm font-medium">
+                    Punto de Venta
+                  </TabsTrigger>
+                  <TabsTrigger value="orders" className="text-sm font-medium">
+                    Órdenes ({orders?.length || 0})
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
             
-            <TabsContent value="orders" className="space-y-0">
-              <OrdersHistory orders={orders || []} />
-            </TabsContent>
-          </Tabs>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsContent value="pos" className="space-y-0 mt-0">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-180px)]">
+                  <div className="lg:col-span-2">
+                    <OptimizedProductGrid onAddToCart={addToCart} />
+                  </div>
+                  
+                  <div className="lg:col-span-1">
+                    <OrderSummary
+                      items={cartItems}
+                      total={calculateTotal()}
+                      onUpdateQuantity={updateQuantity}
+                      onRemoveItem={removeFromCart}
+                      onClearCart={clearCart}
+                      onProceedToPayment={handlePayment}
+                      onOrderCreated={addOrderToLocal}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="orders" className="space-y-0 mt-0">
+                <OrdersHistory orders={orders || []} />
+              </TabsContent>
+            </Tabs>
+          </div>
         )}
       </div>
     </div>

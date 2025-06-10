@@ -1,10 +1,11 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Zap } from "lucide-react";
 import { Product, ProductOption, ProductVariant } from "@/hooks/useProducts";
 
 interface ProductVariantsManagerProps {
@@ -27,6 +28,41 @@ export const ProductVariantsManager = ({
     option_values: {},
     is_active: true,
   });
+
+  const generateAllCombinations = () => {
+    if (options.length === 0) return;
+
+    // Generar todas las combinaciones posibles
+    const combinations: Array<Record<string, string>> = [{}];
+    
+    options.forEach(option => {
+      const newCombinations: Array<Record<string, string>> = [];
+      option.values.forEach(value => {
+        combinations.forEach(combo => {
+          newCombinations.push({ ...combo, [option.name]: value });
+        });
+      });
+      combinations.splice(0, combinations.length, ...newCombinations);
+    });
+
+    // Crear variantes para cada combinación
+    const newVariants: ProductVariant[] = combinations.map((combo, index) => {
+      const name = Object.values(combo).join(' - ');
+      const sku = `${product.name.substring(0, 3).toUpperCase()}-${Object.values(combo).join('-').replace(/\s+/g, '').toUpperCase()}-${Date.now()}-${index}`;
+      
+      return {
+        id: `temp-${Date.now()}-${index}`,
+        product_id: product.id,
+        name,
+        sku,
+        price: product.base_price || 0,
+        option_values: combo,
+        is_active: true,
+      };
+    });
+
+    onUpdateVariants([...variants, ...newVariants]);
+  };
 
   const addVariant = () => {
     if (!newVariant.name || !newVariant.sku || !newVariant.price) return;
@@ -68,7 +104,20 @@ export const ProductVariantsManager = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Variantes del Producto</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          Variantes del Producto
+          {options.length > 0 && (
+            <Button
+              onClick={generateAllCombinations}
+              variant="outline"
+              size="sm"
+              className="ml-2"
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Generar Todas las Combinaciones
+            </Button>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Lista de variantes existentes */}

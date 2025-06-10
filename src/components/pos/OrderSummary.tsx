@@ -108,7 +108,6 @@ export const OrderSummary = ({
       return;
     }
 
-    // Quitar validación obligatoria del cambio - solo validar que sea mayor o igual si se ingresa
     if (paymentMethod === "cash" && cashReceived && cashReceived < totalWithPromotions) {
       toast({
         title: "Error",
@@ -121,7 +120,6 @@ export const OrderSummary = ({
     try {
       console.log('=== PROCESANDO ORDEN ===');
       
-      // Procesar foto en segundo plano si existe
       let photoBase64 = undefined;
       if (photoEvidence) {
         const reader = new FileReader();
@@ -141,11 +139,6 @@ export const OrderSummary = ({
 
       console.log('Datos de la orden preparados:', orderData);
 
-      toast({
-        title: "¡Orden en proceso!",
-        description: `Orden para ${customerName} se está guardando...`,
-      });
-
       // Limpiar formulario inmediatamente
       setCustomerName("");
       setPaymentMethod("");
@@ -162,19 +155,16 @@ export const OrderSummary = ({
       // Guardar la orden creada para el preview
       setLastCreatedOrder(order);
       
-      // IMPRIMIR AUTOMÁTICAMENTE LA PRIMERA VEZ
+      // IMPRIMIR AUTOMÁTICAMENTE SIEMPRE
       console.log('🖨️ Imprimiendo automáticamente la orden creada...');
-      try {
-        await printInvoice(order, 'cliente');
-        console.log('✅ Impresión automática exitosa');
-      } catch (printError) {
-        console.error('❌ Error en impresión automática:', printError);
-        // No mostrar error aquí, la impresión manual estará disponible
-      }
+      await printInvoice(order, 'cliente');
+      console.log('✅ Impresión automática completada');
       
+      // Toast con posición a la izquierda
       toast({
         title: "¡Orden completada!",
-        description: `Orden #${order.order_number} para ${orderData.customer_name} guardada exitosamente`,
+        description: `Orden #${order.order_number} para ${orderData.customer_name} guardada e impresa`,
+        className: "fixed left-4 top-4 z-50",
       });
       
     } catch (error: any) {
@@ -183,6 +173,7 @@ export const OrderSummary = ({
         title: "Error",
         description: error.message || "Error al procesar la orden",
         variant: "destructive",
+        className: "fixed left-4 top-4 z-50",
       });
     }
   };

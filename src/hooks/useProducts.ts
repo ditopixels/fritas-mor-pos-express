@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -33,6 +32,7 @@ export interface ProductOption {
   name: string;
   values: string[];
   is_required: boolean;
+  selection_type: 'single' | 'multiple';
   created_at: string;
 }
 
@@ -261,6 +261,61 @@ export const useUpdateProductOrder = () => {
       if (errors.length > 0) {
         throw new Error('Error updating product order');
       }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+};
+
+export const useCreateProductOptions = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (options: { productId: string; options: Omit<ProductOption, 'id' | 'product_id' | 'created_at'>[] }) => {
+      const { data, error } = await supabase
+        .from('product_options')
+        .insert(
+          options.options.map(option => ({
+            product_id: options.productId,
+            name: option.name,
+            values: option.values,
+            is_required: option.is_required,
+            selection_type: option.selection_type,
+          }))
+        )
+        .select();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+};
+
+export const useCreateProductVariants = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (variants: { productId: string; variants: Omit<ProductVariant, 'id' | 'product_id'>[] }) => {
+      const { data, error } = await supabase
+        .from('product_variants')
+        .insert(
+          variants.variants.map(variant => ({
+            product_id: variants.productId,
+            name: variant.name,
+            sku: variant.sku,
+            price: variant.price,
+            option_values: variant.option_values,
+            is_active: variant.is_active,
+          }))
+        )
+        .select();
+
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
