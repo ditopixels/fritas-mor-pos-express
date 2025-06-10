@@ -1,11 +1,10 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Zap, Edit2, Save, X } from "lucide-react";
+import { Trash2, Plus } from "lucide-react";
 import { Product, ProductOption, ProductVariant } from "@/hooks/useProducts";
 
 interface ProductVariantsManagerProps {
@@ -21,9 +20,6 @@ export const ProductVariantsManager = ({
   variants, 
   onUpdateVariants 
 }: ProductVariantsManagerProps) => {
-  // Estado local para manejar variantes temporalmente
-  const [localVariants, setLocalVariants] = useState<ProductVariant[]>([]);
-
   const [newVariant, setNewVariant] = useState<Partial<ProductVariant>>({
     name: '',
     sku: '',
@@ -31,60 +27,6 @@ export const ProductVariantsManager = ({
     option_values: {},
     is_active: true,
   });
-
-  const [editingVariant, setEditingVariant] = useState<string | null>(null);
-  const [editedVariant, setEditedVariant] = useState<Partial<ProductVariant>>({});
-
-  // Sincronizar con props
-  useEffect(() => {
-    console.log('🔄 SYNC: Recibiendo variantes:', variants.length);
-    setLocalVariants([...variants]);
-  }, [variants]);
-
-  // Función para actualizar y notificar al padre
-  const updateAndNotify = (newVariants: ProductVariant[]) => {
-    console.log('📤 ENVIANDO AL PADRE:', newVariants.length, 'variantes');
-    setLocalVariants(newVariants);
-    onUpdateVariants(newVariants);
-  };
-
-  const generateAllCombinations = () => {
-    if (options.length === 0) return;
-
-    console.log('⚡ GENERANDO COMBINACIONES para', options.length, 'opciones');
-
-    // Generar todas las combinaciones
-    const combinations: Array<Record<string, string>> = [{}];
-    
-    options.forEach(option => {
-      const newCombinations: Array<Record<string, string>> = [];
-      option.values.forEach(value => {
-        combinations.forEach(combo => {
-          newCombinations.push({ ...combo, [option.name]: value });
-        });
-      });
-      combinations.splice(0, combinations.length, ...newCombinations);
-    });
-
-    // Crear variantes
-    const newVariants: ProductVariant[] = combinations.map((combo, index) => {
-      const name = Object.values(combo).join(' - ');
-      const sku = `${product.name.substring(0, 3).toUpperCase()}-${Object.values(combo).join('-').replace(/\s+/g, '').toUpperCase()}-${Date.now()}-${index}`;
-      
-      return {
-        id: `temp-${Date.now()}-${index}`,
-        product_id: product.id,
-        name,
-        sku,
-        price: product.base_price || 0,
-        option_values: combo,
-        is_active: true,
-      };
-    });
-
-    console.log('✨ GENERADAS', newVariants.length, 'variantes');
-    updateAndNotify(newVariants);
-  };
 
   const addVariant = () => {
     if (!newVariant.name || !newVariant.sku || !newVariant.price) return;
@@ -99,9 +41,7 @@ export const ProductVariantsManager = ({
       is_active: true,
     };
 
-    console.log('➕ AGREGANDO VARIANTE:', variant.name);
-    updateAndNotify([...localVariants, variant]);
-    
+    onUpdateVariants([...variants, variant]);
     setNewVariant({
       name: '',
       sku: '',
@@ -112,33 +52,7 @@ export const ProductVariantsManager = ({
   };
 
   const removeVariant = (variantId: string) => {
-    console.log('🗑️ ELIMINANDO VARIANTE:', variantId);
-    updateAndNotify(localVariants.filter(v => v.id !== variantId));
-  };
-
-  const startEditingVariant = (variant: ProductVariant) => {
-    setEditingVariant(variant.id);
-    setEditedVariant({ ...variant });
-  };
-
-  const saveEditedVariant = () => {
-    if (!editingVariant || !editedVariant.name || !editedVariant.sku || !editedVariant.price) return;
-
-    const updatedVariants = localVariants.map(v => 
-      v.id === editingVariant 
-        ? { ...v, ...editedVariant, price: Number(editedVariant.price) }
-        : v
-    );
-    
-    console.log('💾 GUARDANDO VARIANTE EDITADA');
-    updateAndNotify(updatedVariants);
-    setEditingVariant(null);
-    setEditedVariant({});
-  };
-
-  const cancelEditing = () => {
-    setEditingVariant(null);
-    setEditedVariant({});
+    onUpdateVariants(variants.filter(v => v.id !== variantId));
   };
 
   const updateVariantOptionValue = (optionName: string, value: string) => {
@@ -154,104 +68,36 @@ export const ProductVariantsManager = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          Variantes del Producto
-          {options.length > 0 && (
-            <Button
-              onClick={generateAllCombinations}
-              variant="outline"
-              size="sm"
-              className="ml-2"
-            >
-              <Zap className="h-4 w-4 mr-2" />
-              Generar Todas las Combinaciones
-            </Button>
-          )}
-        </CardTitle>
+        <CardTitle>Variantes del Producto</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Lista de variantes */}
+        {/* Lista de variantes existentes */}
         <div className="space-y-2">
-          {localVariants.map(variant => (
+          {variants.map(variant => (
             <div key={variant.id} className="flex items-center justify-between p-3 border rounded">
-              {editingVariant === variant.id ? (
-                <div className="flex-1 grid grid-cols-3 gap-2 mr-2">
-                  <Input
-                    placeholder="Nombre"
-                    value={editedVariant.name || ''}
-                    onChange={(e) => setEditedVariant(prev => ({ ...prev, name: e.target.value }))}
-                  />
-                  <Input
-                    placeholder="SKU"
-                    value={editedVariant.sku || ''}
-                    onChange={(e) => setEditedVariant(prev => ({ ...prev, sku: e.target.value }))}
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Precio"
-                    value={editedVariant.price || ''}
-                    onChange={(e) => setEditedVariant(prev => ({ ...prev, price: Number(e.target.value) }))}
-                  />
+              <div>
+                <div className="font-medium">{variant.name}</div>
+                <div className="text-sm text-gray-500">
+                  SKU: {variant.sku} • Precio: ${variant.price.toLocaleString()}
                 </div>
-              ) : (
-                <div>
-                  <div className="font-medium">{variant.name}</div>
-                  <div className="text-sm text-gray-500">
-                    SKU: {variant.sku} • Precio: ${variant.price.toLocaleString()}
+                {Object.keys(variant.option_values).length > 0 && (
+                  <div className="flex gap-1 mt-1">
+                    {Object.entries(variant.option_values).map(([key, value]) => (
+                      <Badge key={key} variant="outline" className="text-xs">
+                        {key}: {value}
+                      </Badge>
+                    ))}
                   </div>
-                  {Object.keys(variant.option_values).length > 0 && (
-                    <div className="flex gap-1 mt-1">
-                      {Object.entries(variant.option_values).map(([key, value]) => (
-                        <Badge key={key} variant="outline" className="text-xs">
-                          {key}: {value}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              <div className="flex gap-1">
-                {editingVariant === variant.id ? (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={saveEditedVariant}
-                      className="text-green-600 hover:text-green-700"
-                    >
-                      <Save className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={cancelEditing}
-                      className="text-gray-600 hover:text-gray-700"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => startEditingVariant(variant)}
-                      className="text-blue-600 hover:text-blue-700"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => removeVariant(variant.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </>
                 )}
               </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => removeVariant(variant.id)}
+                className="text-red-600 hover:text-red-700"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           ))}
         </div>
@@ -325,15 +171,6 @@ export const ProductVariantsManager = ({
             <Plus className="h-4 w-4 mr-2" />
             Agregar Variante
           </Button>
-        </div>
-
-        {/* Debug simplificado */}
-        <div className="text-xs text-gray-400 mt-4 p-2 bg-gray-50 rounded">
-          <strong>Debug VariantsManager:</strong><br/>
-          Local: {localVariants.length} | Props: {variants.length}<br/>
-          {localVariants.length > 0 && (
-            <>Nombres: {localVariants.map(v => v.name).join(', ')}</>
-          )}
         </div>
       </CardContent>
     </Card>

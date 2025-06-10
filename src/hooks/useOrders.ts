@@ -11,7 +11,7 @@ export interface CreateOrderData {
   items: CartItem[];
 }
 
-// Define the type that comes from Supabase
+// Definir el tipo que viene de Supabase
 export interface SupabaseOrder {
   id: string;
   order_number: string;
@@ -34,8 +34,6 @@ export interface SupabaseOrder {
     original_price?: number;
     quantity: number;
     applied_promotions?: any;
-    variant_options?: any;
-    variant_attachments?: any;
   }[];
 }
 
@@ -75,9 +73,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
       }, 0);
       const total = subtotal - total_discount;
 
-      console.log('🛒 Creating order with items:', orderData.items);
-
-      // Create order with applied promotions
+      // Crear la orden con promociones aplicadas
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -97,27 +93,20 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
 
       if (orderError) throw orderError;
 
-      // Create order items with complete information of promotions, options and attachments
-      const orderItems = orderData.items.map(item => {
-        console.log('🔍 Processing item for order:', item.productName, 'Options:', item.selectedOptions, 'Attachments:', item.selectedAttachments);
-        
-        return {
-          order_id: order.id,
-          product_id: item.id,
-          variant_id: item.variantId && item.variantId !== item.id ? item.variantId : null,
-          product_name: item.productName,
-          variant_name: item.variantName,
-          sku: item.sku,
-          price: item.price,
-          original_price: item.originalPrice || item.price,
-          quantity: item.quantity,
-          applied_promotions: JSON.stringify(item.appliedPromotions || []),
-          variant_options: JSON.stringify(item.selectedOptions || {}),
-          variant_attachments: JSON.stringify(item.selectedAttachments || {}),
-        };
-      });
-
-      console.log('💾 Saving order items with options and attachments:', orderItems);
+      // Crear los items de la orden con información completa de promociones
+      const orderItems = orderData.items.map(item => ({
+        order_id: order.id,
+        product_id: item.id,
+        variant_id: item.variantId && item.variantId !== item.id ? item.variantId : null,
+        product_name: item.productName,
+        variant_name: item.variantName,
+        sku: item.sku,
+        price: item.price,
+        original_price: item.originalPrice || item.price,
+        quantity: item.quantity,
+        applied_promotions: JSON.stringify(item.appliedPromotions || []),
+        variant_options: JSON.stringify({}), // Por ahora vacío, se llenará con las opciones seleccionadas
+      }));
 
       const { data: createdItems, error: itemsError } = await supabase
         .from('order_items')
@@ -126,9 +115,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
 
       if (itemsError) throw itemsError;
 
-      console.log('✅ Order items saved successfully:', createdItems);
-
-      // Create complete order object to return
+      // Crear objeto completo de orden para retornar
       const completeOrder: SupabaseOrder = {
         ...order,
         order_items: createdItems.map(item => ({
@@ -140,12 +127,10 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
           original_price: item.original_price,
           quantity: item.quantity,
           applied_promotions: item.applied_promotions,
-          variant_options: item.variant_options,
-          variant_attachments: item.variant_attachments,
         }))
       };
 
-      // Call callback if exists (to add to local state)
+      // Llamar callback si existe (para agregar al estado local)
       if (onOrderCreated) {
         onOrderCreated(completeOrder);
       }
@@ -153,7 +138,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
       return completeOrder;
     },
     onSuccess: () => {
-      // Only invalidate specific queries if necessary
+      // Solo invalidar queries específicas si es necesario
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
   });

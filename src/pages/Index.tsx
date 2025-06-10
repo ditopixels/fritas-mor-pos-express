@@ -1,197 +1,155 @@
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { OptimizedProductGrid } from "@/components/pos/OptimizedProductGrid";
 import { OrderSummary } from "@/components/pos/OrderSummary";
-import { PaymentModal } from "@/components/pos/PaymentModal";
-import { TransferImageModal } from "@/components/pos/TransferImageModal";
 import { OrdersHistory } from "@/components/pos/OrdersHistory";
-import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Header } from "@/components/pos/Header";
-import { LoginForm } from "@/components/pos/LoginForm";
-import { TransferViewModal } from "@/components/pos/TransferViewModal";
 import { PrinterStatus } from "@/components/pos/PrinterStatus";
-import { useAuth } from "@/hooks/useAuth";
+import { AuthPage } from "@/components/auth/AuthPage";
+import { AdminDashboard } from "@/components/admin/AdminDashboard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CartItem } from "@/types";
-import { useOptimizedPromotionCalculator } from "@/hooks/useOptimizedPromotions";
-import { useOrders } from "@/hooks/useOrders";
+import { useAuth } from "@/hooks/useAuth";
+import { useOptimizedOrders } from "@/hooks/useOptimizedOrders";
+import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
 const Index = () => {
-  const { user, logout } = useAuth();
-  const [currentView, setCurrentView] = useState<"pos" | "orders" | "admin">("pos");
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [customerName, setCustomerName] = useState("");
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showTransferImageModal, setShowTransferImageModal] = useState(false);
-  const [showTransferViewModal, setShowTransferViewModal] = useState(false);
-  const [selectedTransferImage, setSelectedTransferImage] = useState<string | null>(null);
-  
-  const { calculatePromotions } = useOptimizedPromotionCalculator();
-  const { data: orders = [], isLoading, error } = useOrders();
+  const { user, profile, loading, signOut } = useAuth();
+  const { data: orders, addOrderToLocal } = useOptimizedOrders(25);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [activeTab, setActiveTab] = useState("pos");
+  const [currentView, setCurrentView] = useState("pos");
+  const { calculatePromotions } = usePromotionCalculator();
 
-  console.log('🔍 Index - Orders data:', { 
-    ordersCount: orders.length, 
-    isLoading, 
-    error, 
-    firstOrder: orders[0],
-    user: user?.role 
-  });
-
-  useEffect(() => {
-    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    
-    if (cart.length > 0) {
-      const { updatedItems, appliedPromotions, totalDiscount } = calculatePromotions(cart, subtotal);
-      
-      const hasChanges = updatedItems.some((updatedItem, index) => {
-        const originalItem = cart[index];
-        return originalItem && (
-          updatedItem.price !== originalItem.price ||
-          JSON.stringify(updatedItem.appliedPromotions) !== JSON.stringify(originalItem.appliedPromotions)
-        );
-      });
-
-      if (hasChanges) {
-        setCart(updatedItems);
-      }
-    }
-  }, [cart.length, calculatePromotions]);
-
-  if (!user) {
-    return <LoginForm onLogin={() => {}} />;
-  }
-
-  const addToCart = (item: Omit<CartItem, "quantity">) => {
-    console.log('Index - Adding to cart:', item);
-    
-    const existingItemIndex = cart.findIndex(cartItem => 
-      cartItem.sku === item.sku && 
-      JSON.stringify(cartItem.selectedOptions) === JSON.stringify(item.selectedOptions) &&
-      JSON.stringify(cartItem.selectedAttachments) === JSON.stringify(item.selectedAttachments)
-    );
-
-    if (existingItemIndex > -1) {
-      const updatedCart = [...cart];
-      updatedCart[existingItemIndex].quantity += 1;
-      setCart(updatedCart);
-    } else {
-      setCart([...cart, { ...item, quantity: 1 }]);
+  const handleNavigate = (view: string) => {
+    setCurrentView(view);
+    if (view === 'pos') {
+      setActiveTab("pos");
     }
   };
 
-  const updateCartItem = (sku: string, updates: Partial<CartItem>) => {
-    setCart(cart.map(item => 
-      item.sku === sku ? { ...item, ...updates } : item
-    ));
+  const addToCart = (item: Omit<CartItem, "quantity">) => {
+    setCartItems(prevItems => {
+      const existingItem = prevItems.find(cartItem => cartItem.sku === item.sku);
+      
+      if (existingItem) {
+        return prevItems.map(cartItem =>
+          cartItem.sku === item.sku
+            ? { ...cartItem, quantity: cartItem.quantity + 1 }
+            : cartItem
+        );
+      } else {
+        return [...prevItems, { ...item, quantity: 1 }];
+      }
+    });
+  };
+
+  const updateQuantity = (sku: string, newQuantity: number) => {
+    if (newQuantity === 0) {
+      setCartItems(prevItems => prevItems.filter(item => item.sku !== sku));
+    } else {
+      setCartItems(prevItems =>
+        prevItems.map(item =>
+          item.sku === sku ? { ...item, quantity: newQuantity } : item
+        )
+      );
+    }
   };
 
   const removeFromCart = (sku: string) => {
-    setCart(cart.filter(item => item.sku !== sku));
+    setCartItems(prevItems => prevItems.filter(item => item.sku !== sku));
   };
 
   const clearCart = () => {
-    setCart([]);
-    setCustomerName("");
+    setCartItems([]);
   };
 
-  const handlePaymentSuccess = () => {
-    clearCart();
-    setShowPaymentModal(false);
-    setCurrentView("orders");
+  const calculateTotal = () => {
+    if (cartItems.length === 0) return 0;
+    
+    const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+    const promotionResult = calculatePromotions(cartItems, subtotal);
+    return promotionResult.newSubtotal;
   };
 
-  const handleTransferImageClick = (imageUrl: string) => {
-    setSelectedTransferImage(imageUrl);
-    setShowTransferViewModal(true);
+  const handlePayment = (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: File) => {
+    // Esta función ahora es manejada por el hook useCreateOrder en OrderSummary
+    // Pero la mantenemos para compatibilidad
+    console.log("Pago procesado:", { paymentMethod, customerName, cashReceived });
   };
 
-  const renderContent = () => {
-    switch (currentView) {
-      case "pos":
-        return (
-          <div className="flex flex-col lg:flex-row h-full gap-4 lg:gap-6">
-            <div className="flex-1 min-h-0">
-              <OptimizedProductGrid onAddToCart={addToCart} />
-            </div>
-            <div className="w-full lg:w-96 flex-shrink-0">
-              <OrderSummary
-                items={cart}
-                customerName={customerName}
-                onCustomerNameChange={setCustomerName}
-                onUpdateItem={updateCartItem}
-                onRemoveItem={removeFromCart}
-                onClearCart={clearCart}
-                onCheckout={() => setShowPaymentModal(true)}
-              />
-            </div>
-          </div>
-        );
-      
-      case "orders":
-        return <OrdersHistory orders={orders} onTransferImageClick={handleTransferImageClick} />;
-      
-      case "admin":
-        return user.role === "admin" ? (
-          <AdminDashboard orders={orders} />
-        ) : (
-          <div className="flex items-center justify-center h-64">
-            <p className="text-gray-500">No tienes permisos para acceder al panel de administración</p>
-          </div>
-        );
-      
-      default:
-        return null;
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-red-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+        <span className="ml-2">Cargando...</span>
+      </div>
+    );
+  }
+
+  if (!user || !profile) {
+    return <AuthPage />;
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-red-50">
       <Header 
         user={{
-          id: user.id,
-          username: user.username || user.email || '',
-          role: user.role,
-          name: user.name || user.username || user.email || ''
-        }} 
-        currentView={currentView} 
-        onViewChange={setCurrentView} 
-        onLogout={logout} 
+          id: profile.id,
+          username: profile.username,
+          role: profile.role,
+          name: profile.name,
+        }}
+        currentView={currentView}
+        onLogout={signOut} 
+        onNavigate={profile.role === 'admin' ? handleNavigate : undefined}
       />
       
-      <PrinterStatus />
-      
-      <main className="flex-1 p-2 sm:p-4 lg:p-6 overflow-hidden">
-        {renderContent()}
-      </main>
-
-      {showPaymentModal && (
-        <PaymentModal
-          items={cart}
-          customerName={customerName}
-          onSuccess={handlePaymentSuccess}
-          onCancel={() => setShowPaymentModal(false)}
-          onShowTransferImage={() => setShowTransferImageModal(true)}
-        />
-      )}
-
-      {showTransferImageModal && (
-        <TransferImageModal
-          isOpen={showTransferImageModal}
-          onClose={() => setShowTransferImageModal(false)}
-        />
-      )}
-
-      {showTransferViewModal && selectedTransferImage && (
-        <TransferViewModal
-          isOpen={showTransferViewModal}
-          imageUrl={selectedTransferImage}
-          customerName={customerName}
-          onClose={() => {
-            setShowTransferViewModal(false);
-            setSelectedTransferImage(null);
-          }}
-        />
-      )}
+      <div className="container mx-auto p-4">
+        {currentView === 'admin' && profile.role === 'admin' ? (
+          <AdminDashboard orders={orders || []} />
+        ) : (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="pos" className="text-lg font-semibold">
+                Punto de Venta
+              </TabsTrigger>
+              <TabsTrigger value="orders" className="text-lg font-semibold">
+                Órdenes ({orders?.length || 0})
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="pos" className="space-y-0">
+              {/* Estado de la impresora */}
+              <div className="mb-4">
+                <PrinterStatus />
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-250px)]">
+                <div className="lg:col-span-2">
+                  <OptimizedProductGrid onAddToCart={addToCart} />
+                </div>
+                
+                <div className="lg:col-span-1">
+                  <OrderSummary
+                    items={cartItems}
+                    total={calculateTotal()}
+                    onUpdateQuantity={updateQuantity}
+                    onRemoveItem={removeFromCart}
+                    onClearCart={clearCart}
+                    onProceedToPayment={handlePayment}
+                    onOrderCreated={addOrderToLocal}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="orders" className="space-y-0">
+              <OrdersHistory orders={orders || []} />
+            </TabsContent>
+          </Tabs>
+        )}
+      </div>
     </div>
   );
 };

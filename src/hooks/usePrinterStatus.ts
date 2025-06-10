@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface PrinterStatus {
@@ -17,6 +16,10 @@ export const usePrinterStatus = () => {
   });
 
   const PRINTER_API_URL = 'http://localhost:8000';
+  const PREFERRED_PRINTER = 'lasfritas';
+  const CHECK_INTERVAL = 30000; // 30 segundos
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isCheckingRef = useRef(false);
   const mountedRef = useRef(true);
   const hasInitialCheckRef = useRef(false);
   
@@ -34,12 +37,33 @@ export const usePrinterStatus = () => {
     });
   }, [status]);
 
+  const clearCheckInterval = useCallback(() => {
+    if (intervalRef.current) {
+      console.log('🔄 Deteniendo verificaciones periódicas de impresora');
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  const startCheckInterval = useCallback(() => {
+    clearCheckInterval();
+    
+    console.log('🔄 Iniciando verificaciones periódicas de impresora (cada 30s)');
+    intervalRef.current = setInterval(() => {
+      if (!isCheckingRef.current && mountedRef.current) {
+        checkPrinterStatus();
+      }
+    }, CHECK_INTERVAL);
+  }, []);
+
   const checkPrinterStatus = useCallback(async () => {
-    if (!mountedRef.current) {
-      console.log('⏸️ Verificación saltada - componente desmontado');
+    if (isCheckingRef.current || !mountedRef.current) {
+      console.log('⏸️ Verificación saltada - ya en curso o componente desmontado');
       return;
     }
 
+    isCheckingRef.current = true;
+    
     if (mountedRef.current) {
       setStatus(prev => ({ ...prev, isChecking: true }));
     }
@@ -62,17 +86,27 @@ export const usePrinterStatus = () => {
       
       if (response.ok && mountedRef.current) {
         const printers = await response.json();
-        console.log('📄 Respuesta de impresoras:', printers);
+        console.log('📄 Impresoras disponibles:', printers);
         
-        // Simplificado: solo verificar si hay impresoras disponibles
-        const isConnected = Array.isArray(printers) && printers.length > 0;
-        const printerName = isConnected ? (typeof printers[0] === 'string' ? printers[0] : printers[0]?.nombre || printers[0]) : null;
+        let selectedPrinter = null;
         
-        console.log('✅ Estado calculado:', {
-          isConnected,
-          printerName,
-          printers
-        });
+        if (Array.isArray(printers) && printers.length > 0) {
+          // Buscar impresora preferida
+          selectedPrinter = printers.find((p: any) => 
+            p.nombre?.toLowerCase().includes(PREFERRED_PRINTER.toLowerCase())
+          );
+          
+          // Si no encuentra la preferida, usar la primera disponible
+          if (!selectedPrinter) {
+            selectedPrinter = printers[0];
+          }
+          
+          console.log('🎯 Impresora seleccionada:', selectedPrinter);
+        }
+        
+        // CORREGIR: Asegurar que tanto isConnected como printerName se establezcan correctamente
+        const isConnected = !!(selectedPrinter && selectedPrinter.nombre);
+        const printerName = selectedPrinter?.nombre || null;
         
         const newStatus = {
           isConnected,
@@ -81,7 +115,24 @@ export const usePrinterStatus = () => {
           lastCheck: new Date(),
         };
         
+        console.log('✅ Nuevo estado calculado:', {
+          isConnected,
+          printerName,
+          selectedPrinter: selectedPrinter
+        });
+        
         setStatus(newStatus);
+        
+        // Solo detener verificaciones si realmente está conectada CON nombre
+        if (isConnected && printerName) {
+          console.log('🎯 Impresora conectada correctamente - deteniendo verificaciones periódicas');
+          clearCheckInterval();
+        }
+        // Si no está conectada correctamente, continuar verificando
+        else if (!intervalRef.current) {
+          console.log('❌ Impresora no conectada correctamente - iniciando verificaciones periódicas');
+          startCheckInterval();
+        }
         
       } else if (mountedRef.current) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -97,59 +148,88 @@ export const usePrinterStatus = () => {
         };
         
         setStatus(disconnectedStatus);
+        
+        if (!intervalRef.current) {
+          console.log('❌ Error de conexión - iniciando verificaciones periódicas para reintentar');
+          startCheckInterval();
+        }
       }
+    } finally {
+      isCheckingRef.current = false;
     }
-  }, []);
+  }, [clearCheckInterval, startCheckInterval]);
 
   const printInvoice = useCallback(async (orderData: any, type: 'cliente' | 'tienda') => {
     console.log('🖨️ === INICIANDO PROCESO DE IMPRESIÓN ===');
     console.log('📊 Estado actual del statusRef:', statusRef.current);
+    console.log('📊 Estado del hook:', status);
     
+    // Usar el estado del ref que siempre está actualizado
+    const currentStatus = statusRef.current;
+    
+    // VALIDACIÓN MEJORADA: Verificar tanto conexión como nombre de impresora
+    if (!currentStatus.isConnected) {
+      console.error('❌ Impresora no conectada - isConnected:', currentStatus.isConnected);
+      throw new Error('Impresora no conectada');
+    }
+    
+    if (!currentStatus.printerName) {
+      console.error('❌ Nombre de impresora no disponible - printerName:', currentStatus.printerName);
+      throw new Error('Nombre de impresora no disponible');
+    }
+
     try {
       console.log(`📝 Imprimiendo factura ${type} para orden:`, orderData.order_number);
-      console.log('🖨️ Usando impresora:', statusRef.current.printerName || 'Primera disponible');
+      console.log('🖨️ Usando impresora:', currentStatus.printerName);
       
-      // Crear el texto completo de la factura con saltos de línea
-      const facturaTexto = [
-        '================================',
-        'LAS FRITAS MOR',
-        '================================',
-        `FACTURA - ${type.toUpperCase()}`,
-        '--------------------------------',
-        `Orden: ${orderData.order_number}`,
-        `Cliente: ${orderData.customer_name}`,
-        `Fecha: ${new Date(orderData.created_at).toLocaleString('es-ES')}`,
-        `Pago: ${orderData.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}`,
-        '--------------------------------',
-        'PRODUCTOS:',
-        ...orderData.order_items.map((item: any) => [
-          `${item.product_name}`,
-          `  ${item.variant_name}`,
-          `  ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}`
-        ]).flat(),
-        '--------------------------------',
-        `Subtotal: $${orderData.subtotal.toLocaleString()}`,
-        ...(orderData.total_discount > 0 ? [
-          `Descuentos: -$${orderData.total_discount.toLocaleString()}`
-        ] : []),
-        `TOTAL: $${orderData.total.toLocaleString()}`,
-        ...(orderData.payment_method === 'cash' && orderData.cash_received ? [
-          `Recibido: $${orderData.cash_received.toLocaleString()}`,
-          `Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}`
-        ] : []),
-        '================================',
-        type === 'cliente' ? '¡Gracias por su compra!' : 'COPIA TIENDA',
-        '================================',
-        '',
-        ''
-      ].join('\n');
-
       const invoiceData = {
-        nombreImpresora: statusRef.current.printerName || 'lasfritas',
-        serial: "",
+        impresora: currentStatus.printerName,
         operaciones: [
-          { nombre: "EscribirTexto", argumentos: [facturaTexto] },
-          { nombre: "Cortar", argumentos: ['3'] }
+          // Header
+          { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
+          { tipo: 'texto', texto: 'LAS FRITAS MOR', alineacion: 'centro', negrita: true },
+          { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
+          { tipo: 'texto', texto: `FACTURA - ${type.toUpperCase()}`, alineacion: 'centro' },
+          { tipo: 'texto', texto: '-'.repeat(32) },
+          
+          // Información de la orden
+          { tipo: 'texto', texto: `Orden: ${orderData.order_number}` },
+          { tipo: 'texto', texto: `Cliente: ${orderData.customer_name}` },
+          { tipo: 'texto', texto: `Fecha: ${new Date(orderData.created_at).toLocaleString('es-ES')}` },
+          { tipo: 'texto', texto: `Pago: ${orderData.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}` },
+          { tipo: 'texto', texto: '-'.repeat(32) },
+          
+          // Items
+          { tipo: 'texto', texto: 'PRODUCTOS:', negrita: true },
+          ...orderData.order_items.map((item: any) => [
+            { tipo: 'texto', texto: `${item.product_name}` },
+            { tipo: 'texto', texto: `  ${item.variant_name}` },
+            { tipo: 'texto', texto: `  ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}`, alineacion: 'derecha' },
+          ]).flat(),
+          
+          { tipo: 'texto', texto: '-'.repeat(32) },
+          
+          // Totales
+          { tipo: 'texto', texto: `Subtotal: $${orderData.subtotal.toLocaleString()}`, alineacion: 'derecha' },
+          ...(orderData.total_discount > 0 ? [
+            { tipo: 'texto', texto: `Descuentos: -$${orderData.total_discount.toLocaleString()}`, alineacion: 'derecha' }
+          ] : []),
+          { tipo: 'texto', texto: `TOTAL: $${orderData.total.toLocaleString()}`, alineacion: 'derecha', negrita: true },
+          
+          // Información de pago
+          ...(orderData.payment_method === 'cash' && orderData.cash_received ? [
+            { tipo: 'texto', texto: `Recibido: $${orderData.cash_received.toLocaleString()}`, alineacion: 'derecha' },
+            { tipo: 'texto', texto: `Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}`, alineacion: 'derecha' },
+          ] : []),
+          
+          { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
+          { tipo: 'texto', texto: type === 'cliente' ? '¡Gracias por su compra!' : 'COPIA TIENDA', alineacion: 'centro' },
+          { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
+          
+          // Espacios en blanco y corte
+          { tipo: 'texto', texto: '' },
+          { tipo: 'texto', texto: '' },
+          { tipo: 'corte', lineas: 3 },
         ]
       };
 
@@ -186,7 +266,7 @@ export const usePrinterStatus = () => {
     }
   }, []);
 
-  // Efecto para la verificación inicial ÚNICAMENTE
+  // Efecto para la verificación inicial
   useEffect(() => {
     console.log('🔄 Inicializando usePrinterStatus...');
     mountedRef.current = true;
@@ -200,6 +280,8 @@ export const usePrinterStatus = () => {
     return () => {
       console.log('🧹 Limpiando usePrinterStatus...');
       mountedRef.current = false;
+      clearCheckInterval();
+      isCheckingRef.current = false;
     };
   }, []);
 

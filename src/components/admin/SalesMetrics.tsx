@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,7 +27,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     if (!dateRange.from || !dateRange.to) return orders;
     
     return orders.filter(order => 
-      isWithinInterval(new Date(order.created_at), {
+      isWithinInterval(order.createdAt, {
         start: startOfDay(dateRange.from!),
         end: endOfDay(dateRange.to!)
       })
@@ -40,13 +39,13 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const totalOrders = filteredOrders.length;
     const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
     const totalProducts = filteredOrders.reduce((sum, order) => 
-      sum + (order.order_items?.reduce((itemSum, item) => itemSum + item.quantity, 0) || 0), 0
+      sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0
     );
 
     // Productos más vendidos
     const productSales = filteredOrders.reduce((acc, order) => {
-      (order.order_items || []).forEach(item => {
-        const key = `${item.product_name} - ${item.variant_name}`;
+      order.items.forEach(item => {
+        const key = `${item.productName} - ${item.variantName}`;
         if (!acc[key]) {
           acc[key] = { name: key, quantity: 0, revenue: 0 };
         }
@@ -62,9 +61,9 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
 
     // Ingresos por día
     const dailyRevenue = filteredOrders.reduce((acc, order) => {
-      const date = format(new Date(order.created_at), 'yyyy-MM-dd');
+      const date = format(order.createdAt, 'yyyy-MM-dd');
       if (!acc[date]) {
-        acc[date] = { date: format(new Date(order.created_at), 'dd/MM', { locale: es }), revenue: 0, orders: 0 };
+        acc[date] = { date: format(order.createdAt, 'dd/MM', { locale: es }), revenue: 0, orders: 0 };
       }
       acc[date].revenue += order.total;
       acc[date].orders += 1;
@@ -73,7 +72,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
 
     // Ingresos por método de pago
     const paymentMethods = filteredOrders.reduce((acc, order) => {
-      const method = order.payment_method === 'cash' ? 'Efectivo' : 'Transferencia';
+      const method = order.paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia';
       if (!acc[method]) {
         acc[method] = { name: method, value: 0, count: 0 };
       }
@@ -114,11 +113,11 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     ];
     filteredOrders.forEach(order => {
       ordersData.push([
-        format(new Date(order.created_at), 'dd/MM/yyyy HH:mm'),
-        order.order_number,
-        order.customer_name,
-        order.payment_method === 'cash' ? 'Efectivo' : 'Transferencia',
-        (order.order_items?.length || 0).toString(),
+        format(order.createdAt, 'dd/MM/yyyy HH:mm'),
+        `ORD-${order.id.slice(-8)}`,
+        order.customerName,
+        order.paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia',
+        order.items.length.toString(),
         order.total.toString()
       ]);
     });
@@ -333,13 +332,13 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
               filteredOrders.slice(0, 10).map((order) => (
                 <div key={order.id} className="flex items-center justify-between p-3 sm:p-4 border rounded">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm sm:text-base">{order.order_number}</p>
-                    <p className="text-xs sm:text-sm text-gray-500 truncate">{order.customer_name}</p>
-                    <p className="text-xs text-gray-400">{format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}</p>
+                    <p className="font-medium text-sm sm:text-base">ORD-{order.id.slice(-8)}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 truncate">{order.customerName}</p>
+                    <p className="text-xs text-gray-400">{format(order.createdAt, 'dd/MM/yyyy HH:mm')}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-bold text-sm sm:text-base">${order.total.toLocaleString()}</p>
-                    <p className="text-xs sm:text-sm text-gray-500">{order.order_items?.length || 0} productos</p>
+                    <p className="text-xs sm:text-sm text-gray-500">{order.items.length} productos</p>
                   </div>
                 </div>
               ))
@@ -350,4 +349,3 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     </div>
   );
 };
-

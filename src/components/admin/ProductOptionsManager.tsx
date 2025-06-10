@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Product, ProductOption } from "@/hooks/useProducts";
 import { X, Plus, Trash2 } from "lucide-react";
 
@@ -19,7 +18,6 @@ export const ProductOptionsManager = ({ product, onUpdateOptions }: ProductOptio
   const [currentValue, setCurrentValue] = useState("");
   const [newOptionValues, setNewOptionValues] = useState<string[]>([]);
   const [isRequired, setIsRequired] = useState(false);
-  const [selectionType, setSelectionType] = useState<'single' | 'multiple'>('single');
 
   useEffect(() => {
     onUpdateOptions(options);
@@ -38,6 +36,7 @@ export const ProductOptionsManager = ({ product, onUpdateOptions }: ProductOptio
 
   const handleAddOption = () => {
     if (newOptionName.trim() && newOptionValues.length > 0) {
+      // Generar un UUID válido para la nueva opción
       const tempId = crypto.randomUUID();
       
       const newOption = {
@@ -46,7 +45,6 @@ export const ProductOptionsManager = ({ product, onUpdateOptions }: ProductOptio
         name: newOptionName.trim(),
         values: newOptionValues,
         is_required: isRequired,
-        selection_type: selectionType,
         created_at: new Date().toISOString(),
       };
 
@@ -55,7 +53,6 @@ export const ProductOptionsManager = ({ product, onUpdateOptions }: ProductOptio
       setNewOptionValues([]);
       setCurrentValue('');
       setIsRequired(false);
-      setSelectionType('single');
     }
   };
 
@@ -78,9 +75,6 @@ export const ProductOptionsManager = ({ product, onUpdateOptions }: ProductOptio
                     {option.is_required && (
                       <Badge variant="outline" className="text-xs">Requerido</Badge>
                     )}
-                    <Badge variant={option.selection_type === 'single' ? 'default' : 'secondary'} className="text-xs">
-                      {option.selection_type === 'single' ? 'Única' : 'Múltiple'}
-                    </Badge>
                   </div>
                   <Button 
                     variant="ghost" 
@@ -115,9 +109,6 @@ export const ProductOptionsManager = ({ product, onUpdateOptions }: ProductOptio
               onChange={e => setNewOptionName(e.target.value)}
               className="flex-1"
             />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-2">
             <div className="flex items-center gap-2">
               <Checkbox 
                 id="required" 
@@ -125,19 +116,6 @@ export const ProductOptionsManager = ({ product, onUpdateOptions }: ProductOptio
                 onCheckedChange={(checked) => setIsRequired(checked === true)}
               />
               <label htmlFor="required" className="text-sm">Requerido</label>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <label className="text-sm">Tipo:</label>
-              <Select value={selectionType} onValueChange={(value: 'single' | 'multiple') => setSelectionType(value)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="single">Única</SelectItem>
-                  <SelectItem value="multiple">Múltiple</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
           

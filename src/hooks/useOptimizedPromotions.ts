@@ -6,7 +6,7 @@ import { CartItem, Promotion, AppliedPromotion } from '@/types';
 
 export const useOptimizedPromotionCalculator = () => {
   const { data: posData } = useOptimizedPOSData();
-  const promotions = posData?.promotions || [];
+  const promotions = posData.promotions || [];
 
   // Cache local para promociones activas
   const { data: activePromotions } = useLocalCache(
@@ -40,7 +40,7 @@ export const useOptimizedPromotionCalculator = () => {
           type: promotion.type as 'percentage' | 'fixed',
           value: promotion.value,
           applicability: promotion.applicability as 'all' | 'category' | 'product',
-          target_id: promotion.target_id,
+          targetIds: promotion.target_id ? [promotion.target_id] : undefined,
           conditions: {
             daysOfWeek: conditions.daysOfWeek || undefined,
             startDate: conditions.startDate ? new Date(conditions.startDate) : undefined,
@@ -49,9 +49,8 @@ export const useOptimizedPromotionCalculator = () => {
             minimumPurchase: conditions.minimumPurchase || undefined,
             minimumQuantity: promotion.minimum_quantity || undefined,
           },
-          is_active: promotion.is_active,
-          created_at: promotion.created_at,
-          minimum_quantity: promotion.minimum_quantity,
+          isActive: promotion.is_active,
+          createdAt: new Date(promotion.created_at),
         } as Promotion;
       });
     },
@@ -65,11 +64,11 @@ export const useOptimizedPromotionCalculator = () => {
       }
 
       if (promotion.applicability === 'category') {
-        return promotion.target_id === item.categoryId;
+        return promotion.targetIds?.includes(item.categoryId || '') || false;
       }
 
       if (promotion.applicability === 'product') {
-        return promotion.target_id === item.id;
+        return promotion.targetIds?.includes(item.id) || false;
       }
 
       return false;
@@ -219,9 +218,9 @@ export const useOptimizedPromotionCalculator = () => {
         if (promotion.applicability === 'all') {
           isApplicable = true;
         } else if (promotion.applicability === 'category') {
-          isApplicable = promotion.target_id === categoryId;
+          isApplicable = promotion.targetIds?.includes(categoryId) || false;
         } else if (promotion.applicability === 'product') {
-          isApplicable = promotion.target_id === productId;
+          isApplicable = promotion.targetIds?.includes(productId) || false;
         }
 
         if (isApplicable) {

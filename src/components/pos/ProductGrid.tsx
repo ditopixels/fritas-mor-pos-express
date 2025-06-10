@@ -1,45 +1,98 @@
+
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProductVariantSelector } from "./ProductVariantSelector";
 import { CartItem } from "@/types";
-import { useOptimizedPOSData } from "@/hooks/useOptimizedQueries";
-import { useAllProductsOnce, useFilteredProducts } from "@/hooks/useAllProductsOnce";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Tag } from "lucide-react";
 import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
-interface OptimizedProductGridProps {
+interface ProductGridProps {
   onAddToCart: (item: Omit<CartItem, "quantity">) => void;
 }
 
-export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps) => {
+export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const { calculateItemPromotions } = usePromotionCalculator();
 
-  // Load categories
-  const { data: posData, isLoading: posLoading } = useOptimizedPOSData();
-  const categories = posData.categories || [];
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
 
-  // Load ALL products once
-  const { data: allProducts = [], isLoading: productsLoading } = useAllProductsOnce();
-  
-  // Filter products locally by selected category
-  const filteredProducts = useFilteredProducts(selectedCategory, allProducts);
+      if (error) throw error;
+      return data.map(category => ({
+        id: category.id,
+        name: category.name,
+        description: category.description,
+        image: category.image,
+        isActive: category.is_active,
+        displayOrder: category.display_order,
+        createdAt: new Date(category.created_at),
+      }));
+    },
+  });
 
-  const handleAddToCart = (
-    productId: string, 
-    categoryId: string, 
-    variantId: string, 
-    sku: string, 
-    productName: string, 
-    variantName: string, 
-    price: number,
-    selectedOptions?: Record<string, string>,
-    selectedAttachments?: Record<string, string[]>
-  ) => {
-    console.log('OptimizedProductGrid - Adding to cart:', { 
-      productId, categoryId, variantId, sku, productName, variantName, price, selectedOptions, selectedAttachments 
-    });
+  const { data: products = [] } = useQuery({
+    queryKey: ['products', selectedCategory],
+    queryFn: async () => {
+      let query = supabase
+        .from('products')
+        .select(`
+          *,
+          product_variants(*),
+          product_options(*)
+        `)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (selectedCategory) {
+        query = query.eq('category_id', selectedCategory);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return data.map(product => ({
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        categoryId: product.category_id,
+        image: product.image,
+        base_price: product.base_price,
+        isActive: product.is_active,
+        displayOrder: product.display_order,
+        createdAt: new Date(product.created_at),
+        variants: product.product_variants?.map((variant: any) => ({
+          id: variant.id,
+          productId: variant.product_id,
+          sku: variant.sku,
+          name: variant.name,
+          price: variant.price,
+          optionValues: variant.option_values || {},
+          isActive: variant.is_active,
+          stock: variant.stock,
+        })) || [],
+        options: product.product_options?.map((option: any) => ({
+          id: option.id,
+          name: option.name,
+          values: option.values || [],
+          isRequired: option.is_required,
+        })) || []
+      }));
+    },
+  });
+
+  const handleAddToCart = (productId: string, categoryId: string, variantId: string, sku: string, productName: string, variantName: string, price: number) => {
+    console.log('ProductGrid - Adding to cart:', { productId, categoryId, variantId, sku, productName, variantName, price });
     
     const appliedPromotions = calculateItemPromotions(productId, categoryId, price);
     
@@ -52,25 +105,15 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
       variantId,
       categoryId,
       appliedPromotions,
-      selectedOptions: selectedOptions || {},
-      selectedAttachments: selectedAttachments || {},
     };
 
-    console.log('OptimizedProductGrid - Cart item created:', cartItem);
+    console.log('ProductGrid - Cart item created:', cartItem);
     onAddToCart(cartItem);
   };
 
   // Set first category as default if none selected
   if (categories.length > 0 && !selectedCategory) {
     setSelectedCategory(categories[0].id);
-  }
-
-  if (posLoading || productsLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
-      </div>
-    );
   }
 
   return (
@@ -95,42 +138,23 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
 
       <ScrollArea className="flex-1 px-2 sm:px-0">
         <div className="space-y-3 sm:space-y-4 pb-4">
-          {filteredProducts.map((product) => (
+          {products.map((product) => (
             <Card key={product.id} className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="flex flex-col sm:flex-row">
+                  {/* Content Section */}
                   <div className="flex-1 p-3 sm:p-4">
                     <h3 className="text-base sm:text-lg font-semibold mb-1">{product.name}</h3>
                     {product.description && (
                       <p className="text-gray-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">{product.description}</p>
                     )}
 
-                    {product.product_variants?.length > 0 && (product.product_options?.length > 0 || product.product_attachments?.length > 0) ? (
+                    {product.variants?.length > 0 && product.options?.length > 0 ? (
                       <ProductVariantSelector
                         productId={product.id}
-                        categoryId={product.category_id || ''}
-                        variants={product.product_variants.map((variant: any) => ({
-                          id: variant.id,
-                          productId: variant.product_id,
-                          sku: variant.sku,
-                          name: variant.name,
-                          price: variant.price,
-                          optionValues: variant.option_values || {},
-                          isActive: variant.is_active,
-                          stock: variant.stock,
-                        }))}
-                        options={product.product_options?.map((option: any) => ({
-                          id: option.id,
-                          name: option.name,
-                          values: option.values || [],
-                          isRequired: option.is_required,
-                        })) || []}
-                        attachments={product.product_attachments?.map((attachment: any) => ({
-                          id: attachment.id,
-                          name: attachment.name,
-                          values: attachment.values || [],
-                          isRequired: attachment.is_required,
-                        })) || []}
+                        categoryId={product.categoryId || ''}
+                        variants={product.variants}
+                        options={product.options}
                         productName={product.name}
                         onAddToCart={handleAddToCart}
                         calculateItemPromotions={calculateItemPromotions}
@@ -143,7 +167,7 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
                         <button
                           onClick={() => handleAddToCart(
                             product.id,
-                            product.category_id || '',
+                            product.categoryId || '',
                             '',
                             `${product.id}-default`,
                             product.name,

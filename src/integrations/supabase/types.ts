@@ -51,7 +51,6 @@ export type Database = {
           product_name: string
           quantity: number
           sku: string
-          variant_attachments: Json | null
           variant_id: string | null
           variant_name: string
           variant_options: Json | null
@@ -67,7 +66,6 @@ export type Database = {
           product_name: string
           quantity: number
           sku: string
-          variant_attachments?: Json | null
           variant_id?: string | null
           variant_name: string
           variant_options?: Json | null
@@ -83,7 +81,6 @@ export type Database = {
           product_name?: string
           quantity?: number
           sku?: string
-          variant_attachments?: Json | null
           variant_id?: string | null
           variant_name?: string
           variant_options?: Json | null
@@ -160,41 +157,6 @@ export type Database = {
         }
         Relationships: []
       }
-      product_attachments: {
-        Row: {
-          created_at: string
-          id: string
-          is_required: boolean
-          name: string
-          product_id: string
-          values: string[]
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_required?: boolean
-          name: string
-          product_id: string
-          values?: string[]
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_required?: boolean
-          name?: string
-          product_id?: string
-          values?: string[]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_attachments_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       product_options: {
         Row: {
           created_at: string
@@ -202,7 +164,6 @@ export type Database = {
           is_required: boolean
           name: string
           product_id: string
-          selection_type: string
           values: string[]
         }
         Insert: {
@@ -211,7 +172,6 @@ export type Database = {
           is_required?: boolean
           name: string
           product_id: string
-          selection_type?: string
           values: string[]
         }
         Update: {
@@ -220,7 +180,6 @@ export type Database = {
           is_required?: boolean
           name?: string
           product_id?: string
-          selection_type?: string
           values?: string[]
         }
         Relationships: [

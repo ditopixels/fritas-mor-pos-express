@@ -1,22 +1,64 @@
+export interface CartItem {
+  id: string;
+  productName: string;
+  variantName: string;
+  sku: string;
+  price: number;
+  originalPrice?: number;
+  quantity: number;
+  image?: string;
+  variantId?: string;
+  categoryId?: string;
+  appliedPromotions?: AppliedPromotion[];
+}
 
+export interface Order {
+  id: string;
+  items: CartItem[];
+  total: number;
+  subtotal: number;
+  totalDiscount: number;
+  paymentMethod: string;
+  customerName: string;
+  cashReceived?: number;
+  photoEvidence?: string;
+  createdAt: Date;
+  status: string;
+  appliedPromotions?: AppliedPromotion[];
+}
+
+export interface User {
+  id: string;
+  username: string;
+  role: 'cashier' | 'admin';
+  name: string;
+}
 
 export interface Category {
   id: string;
   name: string;
-  description: string;
-  image: string;
+  description?: string;
+  image?: string;
   isActive: boolean;
   displayOrder: number;
   createdAt: Date;
 }
 
+export interface ProductOption {
+  id: string;
+  name: string;
+  values: { value: string; additionalPrice?: number }[];
+  isRequired: boolean;
+}
+
 export interface Product {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   categoryId: string;
-  image: string;
-  base_price: number;
+  image?: string;
+  base_price?: number;
+  options: ProductOption[];
   isActive: boolean;
   displayOrder: number;
   createdAt: Date;
@@ -30,51 +72,7 @@ export interface ProductVariant {
   price: number;
   optionValues: Record<string, string>;
   isActive: boolean;
-  stock: number;
-}
-
-export interface AppliedPromotion {
-  promotionId: string;
-  promotionName: string;
-  discountAmount: number;
-  type?: string;
-  value?: number;
-}
-
-export interface CartItem {
-  id: string;
-  productName: string;
-  variantName: string;
-  sku: string;
-  price: number;
-  originalPrice?: number;
-  quantity: number;
-  variantId?: string;
-  categoryId?: string;
-  appliedPromotions?: AppliedPromotion[];
-  selectedOptions?: Record<string, string>;
-  selectedAttachments?: Record<string, string[]>;
-}
-
-export interface ProductOption {
-  id: string;
-  name: string;
-  values: (string | { value: string; additionalPrice?: number })[];
-  isRequired: boolean;
-}
-
-export interface ProductAttachment {
-  id: string;
-  name: string;
-  values: string[];
-  isRequired: boolean;
-}
-
-export interface User {
-  id: string;
-  username: string;
-  role: string;
-  name: string;
+  stock?: number;
 }
 
 export interface Promotion {
@@ -82,9 +80,9 @@ export interface Promotion {
   name: string;
   description?: string;
   type: 'percentage' | 'fixed';
-  applicability: 'all' | 'category' | 'product';
-  target_id?: string;
   value: number;
+  applicability: 'all' | 'category' | 'product';
+  targetIds?: string[];
   conditions: {
     daysOfWeek?: number[];
     startDate?: Date;
@@ -93,35 +91,40 @@ export interface Promotion {
     minimumPurchase?: number;
     minimumQuantity?: number;
   };
-  is_active: boolean;
-  created_at: string;
-  minimum_quantity?: number;
+  isActive: boolean;
+  createdAt: Date;
 }
 
-export interface Order {
-  id: string;
-  order_number: string;
-  customer_name: string;
-  total: number;
-  payment_method: string;
-  created_at: string;
-  status: string;
-  subtotal: number;
-  total_discount: number;
-  cash_received?: number;
-  photo_evidence?: string;
-  applied_promotions?: any;
-  order_items?: {
-    id: string;
-    product_name: string;
-    variant_name: string;
-    sku: string;
-    price: number;
-    original_price?: number;
+export interface AppliedPromotion {
+  promotionId: string;
+  promotionName: string;
+  type: 'percentage' | 'fixed';
+  value: number;
+  discountAmount: number;
+}
+
+export interface SalesMetrics {
+  totalRevenue: number;
+  totalOrders: number;
+  averageTicket: number;
+  topProducts: Array<{
+    name: string;
     quantity: number;
-    applied_promotions?: any;
-    variant_options?: any;
-    variant_attachments?: any;
-  }[];
+    revenue: number;
+  }>;
+  revenueByCategory: Array<{
+    categoryName: string;
+    revenue: number;
+    percentage: number;
+  }>;
+  dailyRevenue: Array<{
+    date: string;
+    revenue: number;
+    orders: number;
+  }>;
+  hourlyRevenue?: Array<{
+    hour: number;
+    revenue: number;
+    orders: number;
+  }>;
 }
-

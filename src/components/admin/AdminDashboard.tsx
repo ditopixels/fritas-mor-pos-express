@@ -37,29 +37,26 @@ const safeJsonParse = (jsonString: any): any[] => {
 const transformSupabaseOrderToOrder = (supabaseOrder: SupabaseOrder): Order => {
   return {
     id: supabaseOrder.id,
-    order_number: supabaseOrder.order_number,
-    customer_name: supabaseOrder.customer_name,
-    total: supabaseOrder.total,
-    payment_method: supabaseOrder.payment_method,
-    created_at: supabaseOrder.created_at,
-    status: supabaseOrder.status,
-    subtotal: supabaseOrder.subtotal,
-    total_discount: supabaseOrder.total_discount,
-    cash_received: supabaseOrder.cash_received,
-    photo_evidence: supabaseOrder.photo_evidence,
-    applied_promotions: safeJsonParse(supabaseOrder.applied_promotions),
-    order_items: supabaseOrder.order_items?.map(item => ({
+    items: supabaseOrder.order_items?.map(item => ({
       id: item.id,
-      product_name: item.product_name,
-      variant_name: item.variant_name,
+      productName: item.product_name,
+      variantName: item.variant_name,
       sku: item.sku,
       price: item.price,
-      original_price: item.original_price || item.price,
+      originalPrice: item.original_price || item.price,
       quantity: item.quantity,
-      applied_promotions: safeJsonParse(item.applied_promotions),
-      variant_options: item.variant_options,
-      variant_attachments: item.variant_attachments,
-    })) || []
+      appliedPromotions: safeJsonParse(item.applied_promotions)
+    })) || [],
+    total: supabaseOrder.total,
+    subtotal: supabaseOrder.subtotal,
+    totalDiscount: supabaseOrder.total_discount,
+    paymentMethod: supabaseOrder.payment_method,
+    customerName: supabaseOrder.customer_name,
+    cashReceived: supabaseOrder.cash_received,
+    photoEvidence: supabaseOrder.photo_evidence,
+    createdAt: new Date(supabaseOrder.created_at),
+    status: supabaseOrder.status,
+    appliedPromotions: safeJsonParse(supabaseOrder.applied_promotions)
   };
 };
 
@@ -69,21 +66,11 @@ export const AdminDashboard = ({ orders }: AdminDashboardProps) => {
   // Transformar las órdenes de Supabase al formato esperado
   const transformedOrders: Order[] = orders.map(transformSupabaseOrderToOrder);
 
-  console.log('🏛️ AdminDashboard - Datos recibidos:', {
-    originalOrders: orders.length,
-    transformedOrders: transformedOrders.length,
-    firstOriginal: orders[0],
-    firstTransformed: transformedOrders[0]
-  });
-
   return (
     <div className="container mx-auto p-2 sm:p-4 lg:p-6">
       <div className="mb-4 sm:mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Panel de Administración</h1>
         <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Gestiona tu negocio de manera integral</p>
-        <div className="text-xs text-gray-500 mt-2">
-          Órdenes cargadas: {transformedOrders.length}
-        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

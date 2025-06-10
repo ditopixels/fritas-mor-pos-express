@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ export const AdvancedPromotionForm = ({ promotion, onSave, onCancel }: AdvancedP
     type: "percentage",
     value: 0,
     applicability: "all",
-    target_id: undefined,
+    targetIds: [],
     conditions: {
       daysOfWeek: [],
       startDate: undefined,
@@ -39,7 +40,7 @@ export const AdvancedPromotionForm = ({ promotion, onSave, onCancel }: AdvancedP
       minimumPurchase: 0,
       minimumQuantity: 1,
     },
-    is_active: true,
+    isActive: true,
   });
 
   useEffect(() => {
@@ -102,9 +103,14 @@ export const AdvancedPromotionForm = ({ promotion, onSave, onCancel }: AdvancedP
   };
 
   const handleTargetIdToggle = (id: string) => {
+    const currentIds = formData.targetIds || [];
+    const newIds = currentIds.includes(id)
+      ? currentIds.filter(i => i !== id)
+      : [...currentIds, id];
+    
     setFormData({
       ...formData,
-      target_id: formData.target_id === id ? undefined : id,
+      targetIds: newIds,
     });
   };
 
@@ -209,7 +215,7 @@ export const AdvancedPromotionForm = ({ promotion, onSave, onCancel }: AdvancedP
                 <Select
                   value={formData.applicability}
                   onValueChange={(value: "all" | "category" | "product") => {
-                    setFormData({ ...formData, applicability: value, target_id: undefined });
+                    setFormData({ ...formData, applicability: value, targetIds: [] });
                   }}
                 >
                   <SelectTrigger>
@@ -226,33 +232,33 @@ export const AdvancedPromotionForm = ({ promotion, onSave, onCancel }: AdvancedP
               {formData.applicability !== "all" && (
                 <div>
                   <Label>
-                    Seleccionar {formData.applicability === "category" ? "Categoría" : "Producto"}
+                    Seleccionar {formData.applicability === "category" ? "Categorías" : "Productos"}
                   </Label>
                   <div className="grid grid-cols-2 gap-2 mt-2 max-h-32 overflow-y-auto">
                     {getTargetOptions().map((option) => (
                       <div key={option.id} className="flex items-center space-x-2">
                         <Checkbox
-                          checked={formData.target_id === option.id}
+                          checked={formData.targetIds?.includes(option.id) || false}
                           onCheckedChange={() => handleTargetIdToggle(option.id)}
                         />
                         <Label className="text-sm">{option.name}</Label>
                       </div>
                     ))}
                   </div>
-                  {formData.target_id && (
+                  {formData.targetIds && formData.targetIds.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {(() => {
-                        const item = getTargetOptions().find(o => o.id === formData.target_id);
+                      {formData.targetIds.map((id) => {
+                        const item = getTargetOptions().find(o => o.id === id);
                         return item ? (
-                          <Badge key={item.id} variant="secondary">
+                          <Badge key={id} variant="secondary">
                             {item.name}
                             <X 
                               className="h-3 w-3 ml-1 cursor-pointer" 
-                              onClick={() => setFormData({ ...formData, target_id: undefined })}
+                              onClick={() => handleTargetIdToggle(id)}
                             />
                           </Badge>
                         ) : null;
-                      })()}
+                      })}
                     </div>
                   )}
                 </div>
@@ -382,8 +388,8 @@ export const AdvancedPromotionForm = ({ promotion, onSave, onCancel }: AdvancedP
             {/* Estado */}
             <div className="flex items-center space-x-2">
               <Switch
-                checked={formData.is_active || false}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                checked={formData.isActive || false}
+                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
               />
               <Label>Promoción Activa</Label>
             </div>
