@@ -39,10 +39,11 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
     e.preventDefault();
     
     try {
-      console.log('ProductForm - Submitting product with data:', { 
+      console.log('ProductForm - SUBMIT INICIADO:', { 
         formData, 
         optionsCount: options.length, 
         variantsCount: variants.length,
+        options: options,
         variants: variants.map(v => ({ 
           id: v.id, 
           name: v.name, 
@@ -53,18 +54,18 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
       });
       
       if (product) {
-        // Update existing product - ENVIAR VARIANTES EXPLÍCITAMENTE
-        const updateData = {
+        // Update existing product - INCLUIR VARIANTES EXPLÍCITAMENTE
+        const updatePayload = {
           ...formData,
-          options,
-          variants, // ASEGURAR QUE LAS VARIANTES SE INCLUYAN
+          options: options,
+          variants: variants, // FORZAR INCLUSIÓN DE VARIANTES
         };
         
-        console.log('ProductForm - Sending update with variants:', updateData);
+        console.log('ProductForm - ENVIANDO UPDATE CON PAYLOAD COMPLETO:', updatePayload);
         
         await updateProduct.mutateAsync({
           id: product.id,
-          updates: updateData
+          updates: updatePayload
         });
         
         toast({
@@ -94,7 +95,7 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
       
       onSuccess?.();
     } catch (error) {
-      console.error('ProductForm - Error saving product:', error);
+      console.error('ProductForm - ERROR AL GUARDAR:', error);
       toast({
         title: "Error",
         description: "No se pudo guardar el producto. Inténtalo de nuevo.",
@@ -104,12 +105,12 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
   };
 
   const handleUpdateOptions = (newOptions: ProductOption[]) => {
-    console.log('ProductForm - Updating options:', newOptions);
+    console.log('ProductForm - ACTUALIZANDO OPTIONS:', newOptions);
     setOptions(newOptions);
   };
 
   const handleUpdateVariants = (newVariants: ProductVariant[]) => {
-    console.log('ProductForm - Updating variants:', newVariants);
+    console.log('ProductForm - ACTUALIZANDO VARIANTS:', newVariants);
     setVariants(newVariants);
   };
 
