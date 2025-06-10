@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +34,16 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
   const [options, setOptions] = useState<ProductOption[]>(product?.options || []);
   const [variants, setVariants] = useState<ProductVariant[]>(product?.variants || []);
 
+  // Log inicial para debug
+  useEffect(() => {
+    console.log('ProductForm - ESTADO INICIAL:', {
+      product: product?.id,
+      optionsLength: options.length,
+      variantsLength: variants.length,
+      variants: variants
+    });
+  }, [product, options, variants]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -43,7 +52,6 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         formData, 
         optionsCount: options.length, 
         variantsCount: variants.length,
-        options: options,
         variants: variants.map(v => ({ 
           id: v.id, 
           name: v.name, 
@@ -54,14 +62,20 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
       });
       
       if (product) {
-        // Update existing product - INCLUIR VARIANTES EXPLÍCITAMENTE
+        // CRÍTICO: Construir el payload completo con variantes
         const updatePayload = {
           ...formData,
           options: options,
-          variants: variants, // FORZAR INCLUSIÓN DE VARIANTES
+          variants: variants // ASEGURAR QUE SIEMPRE SE INCLUYAN LAS VARIANTES
         };
         
-        console.log('ProductForm - ENVIANDO UPDATE CON PAYLOAD COMPLETO:', updatePayload);
+        console.log('ProductForm - PAYLOAD COMPLETO PARA UPDATE:', {
+          id: product.id,
+          updatePayload,
+          variantsIncluded: 'variants' in updatePayload,
+          variantsCount: updatePayload.variants?.length || 0,
+          actualVariants: updatePayload.variants
+        });
         
         await updateProduct.mutateAsync({
           id: product.id,
@@ -110,7 +124,16 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
   };
 
   const handleUpdateVariants = (newVariants: ProductVariant[]) => {
-    console.log('ProductForm - ACTUALIZANDO VARIANTS:', newVariants);
+    console.log('ProductForm - ACTUALIZANDO VARIANTS DESDE MANAGER:', {
+      previousCount: variants.length,
+      newCount: newVariants.length,
+      newVariants: newVariants.map(v => ({ 
+        id: v.id, 
+        name: v.name, 
+        sku: v.sku, 
+        price: v.price 
+      }))
+    });
     setVariants(newVariants);
   };
 
