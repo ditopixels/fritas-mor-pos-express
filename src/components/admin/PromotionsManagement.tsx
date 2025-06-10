@@ -22,20 +22,20 @@ export const PromotionsManagement = () => {
   const deletePromotion = useDeletePromotion();
   const { toast } = useToast();
 
-  const activePromotions = promotions.filter(p => p.isActive);
-  const inactivePromotions = promotions.filter(p => !p.isActive);
+  const activePromotions = promotions.filter(p => p.is_active);
+  const inactivePromotions = promotions.filter(p => !p.is_active);
 
   const handleCreatePromotion = async (promotionData: Partial<Promotion>) => {
     try {
       await createPromotion.mutateAsync({
         name: promotionData.name!,
         description: promotionData.description,
-        type: promotionData.type!,
+        type: promotionData.type as 'percentage' | 'fixed',
         value: promotionData.value!,
-        applicability: promotionData.applicability!,
-        targetIds: promotionData.targetIds,
+        applicability: promotionData.applicability as 'all' | 'category' | 'product',
+        target_id: promotionData.target_id,
         conditions: promotionData.conditions || {},
-        isActive: promotionData.isActive ?? true,
+        is_active: promotionData.is_active ?? true,
       });
 
       toast({
@@ -213,7 +213,7 @@ export const PromotionsManagement = () => {
                           </div>
                           
                           <div className="text-xs text-gray-400">
-                            Creada: {format(promotion.createdAt, "dd/MM/yyyy", { locale: es })}
+                            Creada: {format(new Date(promotion.created_at), "dd/MM/yyyy", { locale: es })}
                           </div>
                         </div>
                         <div className="flex space-x-2 sm:ml-4 justify-end">
@@ -276,7 +276,7 @@ export const PromotionsManagement = () => {
                           )}
                           <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
                             <span>Aplicabilidad: {promotion.applicability === "all" ? "Todos" : promotion.applicability}</span>
-                            <span>Creada: {new Date(promotion.createdAt).toLocaleDateString()}</span>
+                            <span>Creada: {new Date(promotion.created_at).toLocaleDateString()}</span>
                           </div>
                         </div>
                         <div className="flex space-x-2 sm:ml-4 justify-end">

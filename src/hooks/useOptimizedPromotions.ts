@@ -40,7 +40,7 @@ export const useOptimizedPromotionCalculator = () => {
           type: promotion.type as 'percentage' | 'fixed',
           value: promotion.value,
           applicability: promotion.applicability as 'all' | 'category' | 'product',
-          targetIds: promotion.target_id ? [promotion.target_id] : undefined,
+          target_id: promotion.target_id,
           conditions: {
             daysOfWeek: conditions.daysOfWeek || undefined,
             startDate: conditions.startDate ? new Date(conditions.startDate) : undefined,
@@ -49,8 +49,9 @@ export const useOptimizedPromotionCalculator = () => {
             minimumPurchase: conditions.minimumPurchase || undefined,
             minimumQuantity: promotion.minimum_quantity || undefined,
           },
-          isActive: promotion.is_active,
-          createdAt: new Date(promotion.created_at),
+          is_active: promotion.is_active,
+          created_at: promotion.created_at,
+          minimum_quantity: promotion.minimum_quantity,
         } as Promotion;
       });
     },
@@ -64,11 +65,11 @@ export const useOptimizedPromotionCalculator = () => {
       }
 
       if (promotion.applicability === 'category') {
-        return promotion.targetIds?.includes(item.categoryId || '') || false;
+        return promotion.target_id === item.categoryId;
       }
 
       if (promotion.applicability === 'product') {
-        return promotion.targetIds?.includes(item.id) || false;
+        return promotion.target_id === item.id;
       }
 
       return false;
@@ -218,9 +219,9 @@ export const useOptimizedPromotionCalculator = () => {
         if (promotion.applicability === 'all') {
           isApplicable = true;
         } else if (promotion.applicability === 'category') {
-          isApplicable = promotion.targetIds?.includes(categoryId) || false;
+          isApplicable = promotion.target_id === categoryId;
         } else if (promotion.applicability === 'product') {
-          isApplicable = promotion.targetIds?.includes(productId) || false;
+          isApplicable = promotion.target_id === productId;
         }
 
         if (isApplicable) {

@@ -1,3 +1,4 @@
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -17,7 +18,6 @@ export const usePromotions = () => {
       if (error) throw error;
       
       return data.map(promotion => {
-        // Safely parse the conditions JSON
         const conditions = promotion.conditions as any || {};
         
         return {
@@ -27,7 +27,7 @@ export const usePromotions = () => {
           type: promotion.type as 'percentage' | 'fixed',
           value: promotion.value,
           applicability: promotion.applicability as 'all' | 'category' | 'product',
-          targetIds: promotion.target_id ? [promotion.target_id] : undefined,
+          target_id: promotion.target_id,
           conditions: {
             daysOfWeek: conditions.daysOfWeek || undefined,
             startDate: conditions.startDate ? new Date(conditions.startDate) : undefined,
@@ -36,12 +36,13 @@ export const usePromotions = () => {
             minimumPurchase: conditions.minimumPurchase || undefined,
             minimumQuantity: promotion.minimum_quantity || undefined,
           },
-          isActive: promotion.is_active,
-          createdAt: new Date(promotion.created_at),
+          is_active: promotion.is_active,
+          created_at: promotion.created_at,
+          minimum_quantity: promotion.minimum_quantity,
         };
       }) as Promotion[];
     },
-    enabled: !!user, // Solo ejecutar si hay usuario autenticado
+    enabled: !!user,
   });
 };
 
@@ -55,7 +56,7 @@ export const useCreatePromotion = () => {
       type: 'percentage' | 'fixed';
       value: number;
       applicability: 'all' | 'category' | 'product';
-      targetIds?: string[];
+      target_id?: string;
       conditions: {
         daysOfWeek?: number[];
         startDate?: Date;
@@ -64,7 +65,7 @@ export const useCreatePromotion = () => {
         minimumPurchase?: number;
         minimumQuantity?: number;
       };
-      isActive: boolean;
+      is_active: boolean;
     }) => {
       const conditionsJson = {
         daysOfWeek: promotionData.conditions.daysOfWeek,
@@ -82,10 +83,10 @@ export const useCreatePromotion = () => {
           type: promotionData.type,
           value: promotionData.value,
           applicability: promotionData.applicability,
-          target_id: promotionData.targetIds?.[0] || null,
+          target_id: promotionData.target_id || null,
           conditions: conditionsJson,
           minimum_quantity: promotionData.conditions.minimumQuantity || 1,
-          is_active: promotionData.isActive,
+          is_active: promotionData.is_active,
         })
         .select()
         .single();
@@ -120,10 +121,10 @@ export const useUpdatePromotion = () => {
           type: updates.type,
           value: updates.value,
           applicability: updates.applicability,
-          target_id: updates.targetIds?.[0] || null,
+          target_id: updates.target_id || null,
           conditions: conditionsJson,
           minimum_quantity: updates.conditions?.minimumQuantity || 1,
-          is_active: updates.isActive,
+          is_active: updates.is_active,
         })
         .eq('id', id)
         .select()

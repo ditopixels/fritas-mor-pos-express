@@ -62,7 +62,6 @@ export interface ProductOption {
   selection_type?: 'single' | 'multiple';
 }
 
-// Interfaces adicionales que faltan
 export interface User {
   id: string;
   username: string;
@@ -74,11 +73,18 @@ export interface Promotion {
   id: string;
   name: string;
   description?: string;
-  type: string;
-  applicability: string;
+  type: 'percentage' | 'fixed';
+  applicability: 'all' | 'category' | 'product';
   target_id?: string;
   value: number;
-  conditions: any;
+  conditions: {
+    daysOfWeek?: number[];
+    startDate?: Date;
+    endDate?: Date;
+    paymentMethods?: string[];
+    minimumPurchase?: number;
+    minimumQuantity?: number;
+  };
   is_active: boolean;
   created_at: string;
   minimum_quantity?: number;

@@ -11,7 +11,7 @@ export const usePromotionCalculator = () => {
     const currentDay = now.getDay();
     
     return promotions.filter(promotion => {
-      if (!promotion.isActive) return false;
+      if (!promotion.is_active) return false;
       
       if (promotion.conditions.startDate && now < promotion.conditions.startDate) return false;
       if (promotion.conditions.endDate && now > promotion.conditions.endDate) return false;
@@ -30,7 +30,7 @@ export const usePromotionCalculator = () => {
     console.log(`\n--- Verificando elegibilidad para ${item.productName} ---`);
     console.log('Promoción:', promotion.name);
     console.log('Aplicabilidad:', promotion.applicability);
-    console.log('Target IDs:', promotion.targetIds);
+    console.log('Target ID:', promotion.target_id);
     console.log('Item categoryId:', item.categoryId);
     console.log('Item id:', item.id);
 
@@ -40,14 +40,14 @@ export const usePromotionCalculator = () => {
     }
 
     if (promotion.applicability === 'category') {
-      const isEligible = promotion.targetIds?.includes(item.categoryId || '') || false;
-      console.log(`Categoría del item: ${item.categoryId}, Target IDs: ${promotion.targetIds}, Coincide: ${isEligible}`);
+      const isEligible = promotion.target_id === item.categoryId;
+      console.log(`Categoría del item: ${item.categoryId}, Target ID: ${promotion.target_id}, Coincide: ${isEligible}`);
       return isEligible;
     }
 
     if (promotion.applicability === 'product') {
-      const isEligible = promotion.targetIds?.includes(item.id) || false;
-      console.log(`ID del producto: ${item.id}, Target IDs: ${promotion.targetIds}, Coincide: ${isEligible}`);
+      const isEligible = promotion.target_id === item.id;
+      console.log(`ID del producto: ${item.id}, Target ID: ${promotion.target_id}, Coincide: ${isEligible}`);
       return isEligible;
     }
 
@@ -217,9 +217,9 @@ export const usePromotionCalculator = () => {
       if (promotion.applicability === 'all') {
         isApplicable = true;
       } else if (promotion.applicability === 'category') {
-        isApplicable = promotion.targetIds?.includes(categoryId) || false;
+        isApplicable = promotion.target_id === categoryId;
       } else if (promotion.applicability === 'product') {
-        isApplicable = promotion.targetIds?.includes(productId) || false;
+        isApplicable = promotion.target_id === productId;
       }
 
       if (isApplicable) {
