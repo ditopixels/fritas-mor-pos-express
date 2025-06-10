@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,24 +63,30 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
       });
       
       if (product) {
-        // CRÍTICO: Construir el payload completo con variantes
+        // 🔥 CRÍTICO: SIEMPRE INCLUIR VARIANTES EN EL PAYLOAD
         const updatePayload = {
           ...formData,
           options: options,
-          variants: variants // ASEGURAR QUE SIEMPRE SE INCLUYAN LAS VARIANTES
+          variants: variants // ✅ ASEGURAR QUE SIEMPRE SE INCLUYAN
         };
         
-        console.log('ProductForm - PAYLOAD COMPLETO PARA UPDATE:', {
+        console.log('ProductForm - PAYLOAD FINAL PARA UPDATE:', {
           id: product.id,
-          updatePayload,
-          variantsIncluded: 'variants' in updatePayload,
+          updatePayload: updatePayload,
+          variantsIncluded: updatePayload.variants ? 'SÍ' : 'NO',
           variantsCount: updatePayload.variants?.length || 0,
-          actualVariants: updatePayload.variants
+          variantsData: updatePayload.variants?.map(v => ({
+            id: v.id,
+            name: v.name,
+            sku: v.sku,
+            price: v.price,
+            option_values: v.option_values
+          }))
         });
         
         await updateProduct.mutateAsync({
           id: product.id,
-          updates: updatePayload
+          updates: updatePayload // ✅ ENVIANDO VARIANTES EXPLÍCITAMENTE
         });
         
         toast({
@@ -131,7 +138,8 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         id: v.id, 
         name: v.name, 
         sku: v.sku, 
-        price: v.price 
+        price: v.price,
+        option_values: v.option_values
       }))
     });
     setVariants(newVariants);

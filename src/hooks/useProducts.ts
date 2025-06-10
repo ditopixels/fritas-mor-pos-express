@@ -1,3 +1,4 @@
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -134,7 +135,12 @@ export const useUpdateProduct = () => {
         hasVariants: 'variants' in updates,
         optionsCount: updates.options?.length || 0,
         variantsCount: updates.variants?.length || 0,
-        variantsData: updates.variants
+        variantsData: updates.variants?.map(v => ({
+          name: v.name,
+          sku: v.sku,
+          price: v.price,
+          option_values: v.option_values
+        }))
       });
 
       // Separar las opciones y variantes del resto de updates
@@ -204,9 +210,9 @@ export const useUpdateProduct = () => {
         }
       }
 
-      // 🔥 MANEJAR VARIANTES - CORREGIDO
+      // 🔥 MANEJAR VARIANTES - VERIFICACIÓN EXPLÍCITA
       if (variants !== undefined) {
-        console.log('🔥 PROCESANDO VARIANTES - INICIANDO:', {
+        console.log('🔥 ¡VARIANTES INCLUIDAS! PROCESANDO:', {
           productId: id,
           variantsLength: variants.length,
           variants: variants.map(v => ({
