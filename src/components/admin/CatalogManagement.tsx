@@ -356,7 +356,7 @@ const CatalogManagement = () => {
     }
 
     if (!selectedProduct) return;
-
+    console.log("PRODUCT", selectedProduct)
     try {
       await updateProductMutation.mutateAsync({
         id: selectedProduct.id,
@@ -367,6 +367,7 @@ const CatalogManagement = () => {
           base_price: newProductBasePrice,
           is_active: isProductActive,
           options: selectedProduct.options,
+          variants: selectedProduct.variants
         },
       });
 
