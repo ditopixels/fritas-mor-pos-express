@@ -1,4 +1,6 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
+import qz from 'qz-tray';
 
 interface PrinterStatus {
   isConnected: boolean;
@@ -15,7 +17,6 @@ export const usePrinterStatus = () => {
     lastCheck: null,
   });
 
-  const PRINTER_API_URL = 'http://localhost:8000';
   const PREFERRED_PRINTER = 'lasfritas';
   const CHECK_INTERVAL = 30000; // 30 segundos
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -56,6 +57,24 @@ export const usePrinterStatus = () => {
     }, CHECK_INTERVAL);
   }, []);
 
+  const initializeQZ = useCallback(async () => {
+    try {
+      console.log('🔧 Inicializando QZ Tray...');
+      
+      // Verificar si QZ Tray está disponible
+      if (!qz.websocket.isActive()) {
+        console.log('🔌 Conectando a QZ Tray...');
+        await qz.websocket.connect();
+        console.log('✅ Conectado a QZ Tray exitosamente');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Error al conectar con QZ Tray:', error);
+      return false;
+    }
+  }, []);
+
   const checkPrinterStatus = useCallback(async () => {
     if (isCheckingRef.current || !mountedRef.current) {
       console.log('⏸️ Verificación saltada - ya en curso o componente desmontado');
@@ -69,74 +88,66 @@ export const usePrinterStatus = () => {
     }
     
     try {
-      console.log('🔍 Verificando estado de impresora...');
+      console.log('🔍 Verificando estado de impresora con QZ Tray...');
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      // Inicializar QZ Tray
+      const qzInitialized = await initializeQZ();
+      if (!qzInitialized) {
+        throw new Error('No se pudo conectar con QZ Tray');
+      }
       
-      const response = await fetch(`${PRINTER_API_URL}/impresoras`, {
-        method: 'GET',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
+      // Obtener lista de impresoras
+      const printers = await qz.printers.find();
+      console.log('📄 Impresoras disponibles:', printers);
+      
+      let selectedPrinter = null;
+      
+      if (Array.isArray(printers) && printers.length > 0) {
+        // Buscar impresora preferida
+        selectedPrinter = printers.find((printerName: string) => 
+          printerName.toLowerCase().includes(PREFERRED_PRINTER.toLowerCase())
+        );
+        
+        // Si no encuentra la preferida, usar la primera disponible
+        if (!selectedPrinter) {
+          selectedPrinter = printers[0];
         }
+        
+        console.log('🎯 Impresora seleccionada:', selectedPrinter);
+      }
+      
+      // CORREGIR: Asegurar que tanto isConnected como printerName se establezcan correctamente
+      const isConnected = !!(selectedPrinter);
+      const printerName = selectedPrinter || null;
+      
+      const newStatus = {
+        isConnected,
+        printerName,
+        isChecking: false,
+        lastCheck: new Date(),
+      };
+      
+      console.log('✅ Nuevo estado calculado:', {
+        isConnected,
+        printerName,
+        selectedPrinter: selectedPrinter
       });
       
-      clearTimeout(timeoutId);
-      
-      if (response.ok && mountedRef.current) {
-        const printers = await response.json();
-        console.log('📄 Impresoras disponibles:', printers);
-        
-        let selectedPrinter = null;
-        
-        if (Array.isArray(printers) && printers.length > 0) {
-          // Buscar impresora preferida
-          selectedPrinter = printers.find((p: any) => 
-            p.nombre?.toLowerCase().includes(PREFERRED_PRINTER.toLowerCase())
-          );
-          
-          // Si no encuentra la preferida, usar la primera disponible
-          if (!selectedPrinter) {
-            selectedPrinter = printers[0];
-          }
-          
-          console.log('🎯 Impresora seleccionada:', selectedPrinter);
-        }
-        
-        // CORREGIR: Asegurar que tanto isConnected como printerName se establezcan correctamente
-        const isConnected = !!(selectedPrinter && selectedPrinter.nombre);
-        const printerName = selectedPrinter?.nombre || null;
-        
-        const newStatus = {
-          isConnected,
-          printerName,
-          isChecking: false,
-          lastCheck: new Date(),
-        };
-        
-        console.log('✅ Nuevo estado calculado:', {
-          isConnected,
-          printerName,
-          selectedPrinter: selectedPrinter
-        });
-        
+      if (mountedRef.current) {
         setStatus(newStatus);
-        
-        // Solo detener verificaciones si realmente está conectada CON nombre
-        if (isConnected && printerName) {
-          console.log('🎯 Impresora conectada correctamente - deteniendo verificaciones periódicas');
-          clearCheckInterval();
-        }
-        // Si no está conectada correctamente, continuar verificando
-        else if (!intervalRef.current) {
-          console.log('❌ Impresora no conectada correctamente - iniciando verificaciones periódicas');
-          startCheckInterval();
-        }
-        
-      } else if (mountedRef.current) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+      
+      // Solo detener verificaciones si realmente está conectada CON nombre
+      if (isConnected && printerName) {
+        console.log('🎯 Impresora conectada correctamente - deteniendo verificaciones periódicas');
+        clearCheckInterval();
+      }
+      // Si no está conectada correctamente, continuar verificando
+      else if (!intervalRef.current) {
+        console.log('❌ Impresora no conectada correctamente - iniciando verificaciones periódicas');
+        startCheckInterval();
+      }
+        
     } catch (error) {
       console.log('❌ Error al verificar impresora:', error);
       if (mountedRef.current) {
@@ -157,10 +168,10 @@ export const usePrinterStatus = () => {
     } finally {
       isCheckingRef.current = false;
     }
-  }, [clearCheckInterval, startCheckInterval]);
+  }, [clearCheckInterval, startCheckInterval, initializeQZ]);
 
   const printInvoice = useCallback(async (orderData: any, type: 'cliente' | 'tienda') => {
-    console.log('🖨️ === INICIANDO PROCESO DE IMPRESIÓN ===');
+    console.log('🖨️ === INICIANDO PROCESO DE IMPRESIÓN CON QZ TRAY ===');
     console.log('📊 Estado actual del statusRef:', statusRef.current);
     console.log('📊 Estado del hook:', status);
     
@@ -182,98 +193,98 @@ export const usePrinterStatus = () => {
       console.log(`📝 Imprimiendo factura ${type} para orden:`, orderData.order_number);
       console.log('🖨️ Usando impresora:', currentStatus.printerName);
       
-      const invoiceData = {
-        impresora: currentStatus.printerName,
-        operaciones: [
-          // Header
-          { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
-          { tipo: 'texto', texto: 'LAS FRITAS MOR', alineacion: 'centro', negrita: true },
-          { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
-          { tipo: 'texto', texto: `FACTURA - ${type.toUpperCase()}`, alineacion: 'centro' },
-          { tipo: 'texto', texto: '-'.repeat(32) },
-          
-          // Información de la orden
-          { tipo: 'texto', texto: `Orden: ${orderData.order_number}` },
-          { tipo: 'texto', texto: `Cliente: ${orderData.customer_name}` },
-          { tipo: 'texto', texto: `Fecha: ${new Date(orderData.created_at).toLocaleString('es-ES')}` },
-          { tipo: 'texto', texto: `Pago: ${orderData.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}` },
-          { tipo: 'texto', texto: '-'.repeat(32) },
-          
-          // Items
-          { tipo: 'texto', texto: 'PRODUCTOS:', negrita: true },
-          ...orderData.order_items.map((item: any) => [
-            { tipo: 'texto', texto: `${item.product_name}` },
-            { tipo: 'texto', texto: `  ${item.variant_name}` },
-            { tipo: 'texto', texto: `  ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}`, alineacion: 'derecha' },
-          ]).flat(),
-          
-          { tipo: 'texto', texto: '-'.repeat(32) },
-          
-          // Totales
-          { tipo: 'texto', texto: `Subtotal: $${orderData.subtotal.toLocaleString()}`, alineacion: 'derecha' },
-          ...(orderData.total_discount > 0 ? [
-            { tipo: 'texto', texto: `Descuentos: -$${orderData.total_discount.toLocaleString()}`, alineacion: 'derecha' }
-          ] : []),
-          { tipo: 'texto', texto: `TOTAL: $${orderData.total.toLocaleString()}`, alineacion: 'derecha', negrita: true },
-          
-          // Información de pago
-          ...(orderData.payment_method === 'cash' && orderData.cash_received ? [
-            { tipo: 'texto', texto: `Recibido: $${orderData.cash_received.toLocaleString()}`, alineacion: 'derecha' },
-            { tipo: 'texto', texto: `Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}`, alineacion: 'derecha' },
-          ] : []),
-          
-          { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
-          { tipo: 'texto', texto: type === 'cliente' ? '¡Gracias por su compra!' : 'COPIA TIENDA', alineacion: 'centro' },
-          { tipo: 'texto', texto: '='.repeat(32), alineacion: 'centro' },
-          
-          // Espacios en blanco y corte
-          { tipo: 'texto', texto: '' },
-          { tipo: 'texto', texto: '' },
-          { tipo: 'corte', lineas: 3 },
-        ]
-      };
-
-      console.log('📤 Enviando datos de impresión a:', `${PRINTER_API_URL}/imprimir`);
-      console.log('📤 Datos de impresión:', JSON.stringify(invoiceData, null, 2));
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-      const response = await fetch(`${PRINTER_API_URL}/imprimir`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(invoiceData),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Error en respuesta del servidor:', errorText);
-        throw new Error(`Error HTTP ${response.status}: ${errorText}`);
+      // Inicializar QZ Tray
+      const qzInitialized = await initializeQZ();
+      if (!qzInitialized) {
+        throw new Error('No se pudo conectar con QZ Tray');
       }
 
-      const responseData = await response.text();
-      console.log(`✅ Factura ${type} impresa exitosamente. Respuesta:`, responseData);
+      // Crear configuración de impresión
+      const config = qz.configs.create(currentStatus.printerName);
+      
+      // Preparar datos de impresión en formato ESC/POS
+      const printData = [
+        // Header
+        '\x1B\x40', // Inicializar impresora
+        '\x1B\x61\x01', // Centrar texto
+        '================================\n',
+        '\x1B\x45\x01', // Negrita ON
+        'LAS FRITAS MOR\n',
+        '\x1B\x45\x00', // Negrita OFF
+        '================================\n',
+        `FACTURA - ${type.toUpperCase()}\n`,
+        '\x1B\x61\x00', // Alinear izquierda
+        '--------------------------------\n',
+        
+        // Información de la orden
+        `Orden: ${orderData.order_number}\n`,
+        `Cliente: ${orderData.customer_name}\n`,
+        `Fecha: ${new Date(orderData.created_at).toLocaleString('es-ES')}\n`,
+        `Pago: ${orderData.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}\n`,
+        '--------------------------------\n',
+        
+        // Items
+        '\x1B\x45\x01', // Negrita ON
+        'PRODUCTOS:\n',
+        '\x1B\x45\x00', // Negrita OFF
+      ];
+
+      // Agregar items
+      orderData.order_items.forEach((item: any) => {
+        printData.push(`${item.product_name}\n`);
+        printData.push(`  ${item.variant_name}\n`);
+        printData.push(`  ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}\n`);
+      });
+
+      // Totales
+      printData.push('--------------------------------\n');
+      printData.push(`\x1B\x61\x02Subtotal: $${orderData.subtotal.toLocaleString()}\n`); // Alinear derecha
+      
+      if (orderData.total_discount > 0) {
+        printData.push(`Descuentos: -$${orderData.total_discount.toLocaleString()}\n`);
+      }
+      
+      printData.push('\x1B\x45\x01'); // Negrita ON
+      printData.push(`TOTAL: $${orderData.total.toLocaleString()}\n`);
+      printData.push('\x1B\x45\x00'); // Negrita OFF
+
+      // Información de pago
+      if (orderData.payment_method === 'cash' && orderData.cash_received) {
+        printData.push(`Recibido: $${orderData.cash_received.toLocaleString()}\n`);
+        printData.push(`Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}\n`);
+      }
+
+      // Footer
+      printData.push('\x1B\x61\x01'); // Centrar
+      printData.push('================================\n');
+      printData.push(type === 'cliente' ? '¡Gracias por su compra!\n' : 'COPIA TIENDA\n');
+      printData.push('================================\n');
+      printData.push('\x1B\x61\x00'); // Alinear izquierda
+      printData.push('\n\n\n'); // Espacios en blanco
+      printData.push('\x1D\x56\x42\x03'); // Cortar papel
+
+      console.log('📤 Enviando datos de impresión a QZ Tray...');
+
+      // Imprimir usando QZ Tray
+      await qz.print(config, printData);
+
+      console.log(`✅ Factura ${type} impresa exitosamente con QZ Tray`);
       return true;
       
     } catch (error) {
-      console.error(`❌ Error al imprimir factura ${type}:`, error);
+      console.error(`❌ Error al imprimir factura ${type} con QZ Tray:`, error);
       throw error;
     }
-  }, []);
+  }, [initializeQZ]);
 
   // Efecto para la verificación inicial
   useEffect(() => {
-    console.log('🔄 Inicializando usePrinterStatus...');
+    console.log('🔄 Inicializando usePrinterStatus con QZ Tray...');
     mountedRef.current = true;
     
     if (!hasInitialCheckRef.current) {
       hasInitialCheckRef.current = true;
-      console.log('🎯 Realizando verificación inicial de impresora...');
+      console.log('🎯 Realizando verificación inicial de impresora con QZ Tray...');
       checkPrinterStatus();
     }
 
@@ -282,6 +293,11 @@ export const usePrinterStatus = () => {
       mountedRef.current = false;
       clearCheckInterval();
       isCheckingRef.current = false;
+      
+      // Desconectar QZ Tray si está conectado
+      if (qz.websocket.isActive()) {
+        qz.websocket.disconnect().catch(console.error);
+      }
     };
   }, []);
 
