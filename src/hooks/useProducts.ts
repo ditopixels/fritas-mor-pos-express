@@ -127,26 +127,17 @@ export const useUpdateProduct = () => {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Product> }) => {
-      console.log('🚀 useUpdateProduct - RECIBIENDO ACTUALIZACIÓN:', { 
+      console.log('🚀 useUpdateProduct - DATOS RECIBIDOS:', { 
         id, 
         updates,
-        hasOptions: 'options' in updates,
-        hasVariants: 'variants' in updates,
-        variantsValue: updates.variants,
-        variantsCount: updates.variants?.length || 0
+        variantsCount: updates.variants?.length || 0,
+        variants: updates.variants
       });
 
-      // Separar las opciones y variantes del resto de updates
+      // Separar opciones y variantes del resto
       const { options, variants, ...productUpdates } = updates;
       
-      console.log('📋 DATOS SEPARADOS:', { 
-        productUpdates, 
-        optionsCount: options?.length || 0, 
-        variantsCount: variants?.length || 0,
-        variantsData: variants
-      });
-      
-      // Actualizar el producto básico
+      // Actualizar producto básico
       const { data, error } = await supabase
         .from('products')
         .update(productUpdates)
@@ -154,29 +145,14 @@ export const useUpdateProduct = () => {
         .select()
         .single();
 
-      if (error) {
-        console.error('❌ ERROR ACTUALIZANDO PRODUCTO:', error);
-        throw error;
-      }
-
-      console.log('✅ PRODUCTO ACTUALIZADO EXITOSAMENTE');
+      if (error) throw error;
 
       // MANEJAR OPCIONES
       if (options !== undefined) {
-        console.log('🔧 PROCESANDO OPCIONES:', options);
+        console.log('🔧 PROCESANDO OPCIONES:', options.length);
         
-        // Eliminar opciones existentes
-        const { error: deleteOptionsError } = await supabase
-          .from('product_options')
-          .delete()
-          .eq('product_id', id);
+        await supabase.from('product_options').delete().eq('product_id', id);
 
-        if (deleteOptionsError) {
-          console.error('❌ ERROR ELIMINANDO OPCIONES:', deleteOptionsError);
-          throw deleteOptionsError;
-        }
-
-        // Insertar nuevas opciones
         if (options.length > 0) {
           const optionsToInsert = options.map(option => ({
             product_id: id,
@@ -186,53 +162,25 @@ export const useUpdateProduct = () => {
             selection_type: option.selection_type || 'single',
           }));
 
-          console.log('📝 INSERTANDO OPCIONES:', optionsToInsert);
-
           const { error: insertOptionsError } = await supabase
             .from('product_options')
             .insert(optionsToInsert);
 
-          if (insertOptionsError) {
-            console.error('❌ ERROR INSERTANDO OPCIONES:', insertOptionsError);
-            throw insertOptionsError;
-          }
-
-          console.log('✅ OPCIONES INSERTADAS EXITOSAMENTE');
+          if (insertOptionsError) throw insertOptionsError;
         }
       }
 
-      // MANEJAR VARIANTES
+      // MANEJAR VARIANTES - SIMPLIFICADO
       if (variants !== undefined) {
-        console.log('🔥 PROCESANDO VARIANTES:', {
-          productId: id,
-          variantsLength: variants.length,
-          variants: variants
-        });
+        console.log('🔥 PROCESANDO VARIANTES:', variants.length);
         
         // Eliminar variantes existentes
-        console.log('🗑️ ELIMINANDO VARIANTES EXISTENTES...');
-        const { error: deleteVariantsError } = await supabase
-          .from('product_variants')
-          .delete()
-          .eq('product_id', id);
+        await supabase.from('product_variants').delete().eq('product_id', id);
 
-        if (deleteVariantsError) {
-          console.error('❌ ERROR ELIMINANDO VARIANTES:', deleteVariantsError);
-          throw deleteVariantsError;
-        }
-
-        console.log('✅ VARIANTES EXISTENTES ELIMINADAS');
-
-        // Insertar nuevas variantes
+        // Insertar nuevas variantes si las hay
         if (variants.length > 0) {
           const variantsToInsert = variants
-            .filter(variant => {
-              const isValid = variant.name && variant.sku && variant.price !== undefined && variant.price !== null;
-              if (!isValid) {
-                console.warn('⚠️ VARIANTE INVÁLIDA FILTRADA:', variant);
-              }
-              return isValid;
-            })
+            .filter(variant => variant.name && variant.sku && variant.price !== undefined)
             .map(variant => ({
               product_id: id,
               name: variant.name,
@@ -243,37 +191,24 @@ export const useUpdateProduct = () => {
               stock: variant.stock || null,
             }));
 
-          console.log('🚀 INSERTANDO VARIANTES:', {
-            count: variantsToInsert.length,
-            variants: variantsToInsert
-          });
-
           if (variantsToInsert.length > 0) {
-            const { data: insertedVariants, error: insertVariantsError } = await supabase
+            const { error: insertVariantsError } = await supabase
               .from('product_variants')
-              .insert(variantsToInsert)
-              .select();
+              .insert(variantsToInsert);
 
             if (insertVariantsError) {
               console.error('❌ ERROR INSERTANDO VARIANTES:', insertVariantsError);
               throw insertVariantsError;
             }
             
-            console.log('✅ VARIANTES INSERTADAS EXITOSAMENTE:', insertedVariants);
-          } else {
-            console.log('⚠️ NO HAY VARIANTES VÁLIDAS PARA INSERTAR');
+            console.log('✅ VARIANTES GUARDADAS:', variantsToInsert.length);
           }
-        } else {
-          console.log('ℹ️ NO SE PROPORCIONARON VARIANTES PARA INSERTAR (length = 0)');
         }
-      } else {
-        console.log('❌ VARIANTES NO INCLUIDAS EN LA ACTUALIZACIÓN (undefined)');
       }
 
       return data;
     },
     onSuccess: () => {
-      console.log('🎉 ACTUALIZACIÓN COMPLETA - INVALIDANDO QUERIES');
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });

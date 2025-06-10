@@ -32,58 +32,41 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
     is_active: product?.is_active ?? true,
   });
 
-  // Estados para opciones y variantes
-  const [options, setOptions] = useState<ProductOption[]>([]);
-  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  // Estados simplificados para opciones y variantes
+  const [currentOptions, setCurrentOptions] = useState<ProductOption[]>(product?.options || []);
+  const [currentVariants, setCurrentVariants] = useState<ProductVariant[]>(product?.variants || []);
 
-  // Inicializar estados cuando cambie el producto
+  // Reinicializar cuando cambie el producto
   useEffect(() => {
     if (product) {
-      console.log('🔄 ProductForm - INICIALIZANDO CON PRODUCTO:', {
-        productId: product.id,
-        productName: product.name,
-        optionsFromProduct: product.options?.length || 0,
-        variantsFromProduct: product.variants?.length || 0
-      });
-      
-      setOptions(product.options || []);
-      setVariants(product.variants || []);
+      setCurrentOptions(product.options || []);
+      setCurrentVariants(product.variants || []);
     } else {
-      console.log('🆕 ProductForm - NUEVO PRODUCTO, LIMPIANDO ESTADOS');
-      setOptions([]);
-      setVariants([]);
+      setCurrentOptions([]);
+      setCurrentVariants([]);
     }
-  }, [product]);
+  }, [product?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-      console.log('🚀 ProductForm - SUBMIT INICIADO:', { 
-        formData, 
-        optionsCount: options.length,
-        variantsCount: variants.length,
-        variantsData: variants
+      console.log('🚀 SUBMIT - ENVIANDO DATOS:', {
+        formData,
+        optionsCount: currentOptions.length,
+        variantsCount: currentVariants.length,
+        variants: currentVariants
       });
       
       if (product) {
-        // PAYLOAD COMPLETO PARA ACTUALIZACIÓN
-        const updatePayload = {
-          ...formData,
-          options: options,
-          variants: variants
-        };
-        
-        console.log('🎯 ProductForm - PAYLOAD FINAL PARA ACTUALIZACIÓN:', {
-          id: product.id,
-          payload: updatePayload,
-          variantsIncluded: !!updatePayload.variants,
-          variantsCount: updatePayload.variants.length
-        });
-        
+        // Actualizar producto existente
         await updateProduct.mutateAsync({
           id: product.id,
-          updates: updatePayload
+          updates: {
+            ...formData,
+            options: currentOptions,
+            variants: currentVariants
+          }
         });
         
         toast({
@@ -91,16 +74,16 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
           description: "El producto se ha actualizado correctamente.",
         });
       } else {
-        // Create new product
+        // Crear nuevo producto
         const newProduct = await createProduct.mutateAsync(formData);
         
-        // If there are options and variants, update the product with them
-        if (options.length > 0 || variants.length > 0) {
+        // Si hay opciones y variantes, actualizar
+        if (currentOptions.length > 0 || currentVariants.length > 0) {
           await updateProduct.mutateAsync({
             id: newProduct.id,
             updates: {
-              options,
-              variants,
+              options: currentOptions,
+              variants: currentVariants,
             }
           });
         }
@@ -113,39 +96,13 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
       
       onSuccess?.();
     } catch (error) {
-      console.error('❌ ProductForm - ERROR AL GUARDAR:', error);
+      console.error('❌ ERROR AL GUARDAR:', error);
       toast({
         title: "Error",
         description: "No se pudo guardar el producto. Inténtalo de nuevo.",
         variant: "destructive",
       });
     }
-  };
-
-  const handleUpdateOptions = (newOptions: ProductOption[]) => {
-    console.log('📋 ProductForm - ACTUALIZANDO OPCIONES:', {
-      previousCount: options.length,
-      newCount: newOptions.length
-    });
-    setOptions(newOptions);
-  };
-
-  const handleUpdateVariants = (newVariants: ProductVariant[]) => {
-    console.log('🔧 ProductForm - ACTUALIZANDO VARIANTES:', {
-      previousCount: variants.length,
-      newCount: newVariants.length,
-      newVariants: newVariants
-    });
-    
-    setVariants(newVariants);
-    
-    // Verificar inmediatamente después del setState
-    setTimeout(() => {
-      console.log('🔧 ProductForm - VARIANTES DESPUÉS DE setState:', {
-        variantsLength: variants.length,
-        variantsState: variants
-      });
-    }, 10);
   };
 
   return (
@@ -222,15 +179,15 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
       {/* Options Manager */}
       <ProductOptionsManager
         product={product || { ...formData, id: 'temp' } as Product}
-        onUpdateOptions={handleUpdateOptions}
+        onUpdateOptions={setCurrentOptions}
       />
 
       {/* Variants Manager */}
       <ProductVariantsManager
         product={product || { ...formData, id: 'temp' } as Product}
-        options={options}
-        variants={variants}
-        onUpdateVariants={handleUpdateVariants}
+        options={currentOptions}
+        variants={currentVariants}
+        onUpdateVariants={setCurrentVariants}
       />
 
       <div className="flex gap-4">
@@ -249,14 +206,14 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         )}
       </div>
 
-      {/* Debug Info */}
+      {/* Debug simplificado */}
       <div className="text-xs text-gray-500 mt-4 p-2 bg-gray-50 rounded">
-        <strong>Debug Info ProductForm:</strong><br/>
-        Opciones: {options.length} | Variantes: {variants.length}<br/>
-        {variants.length > 0 && (
+        <strong>Debug ProductForm:</strong><br/>
+        Opciones: {currentOptions.length} | Variantes: {currentVariants.length}<br/>
+        {currentVariants.length > 0 && (
           <>
-            Variantes: {variants.map(v => v.name).join(', ')}<br/>
-            SKUs: {variants.map(v => v.sku).join(', ')}
+            Variantes: {currentVariants.map(v => v.name).join(', ')}<br/>
+            SKUs: {currentVariants.map(v => v.sku).join(', ')}
           </>
         )}
       </div>
