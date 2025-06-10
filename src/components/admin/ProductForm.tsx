@@ -32,68 +32,84 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
     is_active: product?.is_active ?? true,
   });
 
-  // 🔥 FORZAR ARRAYS VACÍOS EN LUGAR DE UNDEFINED
-  const [options, setOptions] = useState<ProductOption[]>(product?.options || []);
-  const [variants, setVariants] = useState<ProductVariant[]>(product?.variants || []);
+  // 🔥 INICIALIZAR SIEMPRE CON ARRAYS VACÍOS
+  const [options, setOptions] = useState<ProductOption[]>([]);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
 
-  // Log inicial para debug
+  // 🔥 EFECTO PARA INICIALIZAR ESTADOS CUANDO CAMBIE EL PRODUCTO
   useEffect(() => {
-    console.log('🔍 ProductForm - ESTADO INICIAL COMPLETO:', {
-      productId: product?.id,
-      productName: product?.name,
-      optionsFromProduct: product?.options?.length || 0,
-      variantsFromProduct: product?.variants?.length || 0,
-      optionsState: options.length,
-      variantsState: variants.length,
+    if (product) {
+      console.log('🔄 ProductForm - INICIALIZANDO CON PRODUCTO:', {
+        productId: product.id,
+        productName: product.name,
+        optionsFromProduct: product.options?.length || 0,
+        variantsFromProduct: product.variants?.length || 0,
+        productOptions: product.options,
+        productVariants: product.variants
+      });
+      
+      setOptions(product.options || []);
+      setVariants(product.variants || []);
+    } else {
+      console.log('🆕 ProductForm - NUEVO PRODUCTO, LIMPIANDO ESTADOS');
+      setOptions([]);
+      setVariants([]);
+    }
+  }, [product]);
+
+  // Log para debug de estados actuales
+  useEffect(() => {
+    console.log('🔍 ProductForm - ESTADOS ACTUALES:', {
+      optionsCount: options.length,
+      variantsCount: variants.length,
       optionsData: options,
-      variantsData: variants
+      variantsData: variants.map(v => ({
+        id: v.id,
+        name: v.name,
+        sku: v.sku,
+        price: v.price
+      }))
     });
-  }, [product, options, variants]);
+  }, [options, variants]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-      console.log('🚀 ProductForm - SUBMIT INICIADO CON ESTADOS:', { 
+      console.log('🚀 ProductForm - SUBMIT CON DATOS FINALES:', { 
         formData, 
-        optionsState: options,
-        variantsState: variants,
-        optionsCount: options?.length || 0, 
-        variantsCount: variants?.length || 0,
-        variantsDetails: variants?.map(v => ({ 
-          id: v.id, 
-          name: v.name, 
-          sku: v.sku, 
+        optionsCount: options.length,
+        variantsCount: variants.length,
+        options: options,
+        variants: variants.map(v => ({
+          id: v.id,
+          name: v.name,
+          sku: v.sku,
           price: v.price,
-          option_values: v.option_values 
-        })) || []
+          option_values: v.option_values
+        }))
       });
       
       if (product) {
-        // 🔥 GARANTIZAR QUE VARIANTS NUNCA SEA UNDEFINED
-        const safeVariants = variants || [];
-        const safeOptions = options || [];
-        
+        // 🔥 PAYLOAD GARANTIZADO PARA ACTUALIZACIÓN
         const updatePayload = {
           ...formData,
-          options: safeOptions,
-          variants: safeVariants
+          options: options,
+          variants: variants
         };
         
-        console.log('🎯 ProductForm - PAYLOAD FINAL GARANTIZADO:', {
+        console.log('🎯 ProductForm - ENVIANDO PAYLOAD FINAL:', {
           id: product.id,
-          updatePayload: updatePayload,
-          variantsIncluded: updatePayload.variants !== undefined ? 'SÍ' : 'NO',
-          variantsIsArray: Array.isArray(updatePayload.variants) ? 'SÍ' : 'NO',
-          variantsCount: updatePayload.variants?.length || 0,
-          variantsData: updatePayload.variants?.map(v => ({
+          payload: updatePayload,
+          variantsIncluded: updatePayload.variants !== undefined,
+          variantsCount: updatePayload.variants.length,
+          variantsDetails: updatePayload.variants.map(v => ({
             id: v.id,
             name: v.name,
             sku: v.sku,
             price: v.price,
             option_values: v.option_values
-          })) || [],
-          fullPayload: JSON.stringify(updatePayload, null, 2)
+          }))
         });
         
         await updateProduct.mutateAsync({
@@ -138,27 +154,27 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
   };
 
   const handleUpdateOptions = (newOptions: ProductOption[]) => {
-    console.log('📋 ProductForm - ACTUALIZANDO OPTIONS:', {
+    console.log('📋 ProductForm - RECIBIENDO OPCIONES ACTUALIZADAS:', {
       previousCount: options.length,
       newCount: newOptions.length,
       newOptions: newOptions
     });
-    setOptions(newOptions || []); // 🔥 GARANTIZAR ARRAY
+    setOptions(newOptions);
   };
 
   const handleUpdateVariants = (newVariants: ProductVariant[]) => {
-    console.log('🔧 ProductForm - ACTUALIZANDO VARIANTS DESDE MANAGER:', {
+    console.log('🔧 ProductForm - RECIBIENDO VARIANTES ACTUALIZADAS:', {
       previousCount: variants.length,
-      newCount: newVariants?.length || 0,
-      newVariants: newVariants?.map(v => ({ 
-        id: v.id, 
-        name: v.name, 
-        sku: v.sku, 
+      newCount: newVariants.length,
+      newVariants: newVariants.map(v => ({
+        id: v.id,
+        name: v.name,
+        sku: v.sku,
         price: v.price,
         option_values: v.option_values
-      })) || []
+      }))
     });
-    setVariants(newVariants || []); // 🔥 GARANTIZAR ARRAY
+    setVariants(newVariants);
   };
 
   return (
@@ -241,8 +257,8 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
       {/* Variants Manager */}
       <ProductVariantsManager
         product={product || { ...formData, id: 'temp' } as Product}
-        options={options || []}
-        variants={variants || []}
+        options={options}
+        variants={variants}
         onUpdateVariants={handleUpdateVariants}
       />
 
@@ -259,6 +275,15 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
+        )}
+      </div>
+
+      {/* 🔍 DEBUG INFO */}
+      <div className="text-xs text-gray-500 mt-4 p-2 bg-gray-50 rounded">
+        <strong>Debug Info:</strong><br/>
+        Opciones: {options.length} | Variantes: {variants.length}<br/>
+        {variants.length > 0 && (
+          <>Variantes: {variants.map(v => v.name).join(', ')}</>
         )}
       </div>
     </form>

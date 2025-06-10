@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,9 @@ export const ProductVariantsManager = ({
   variants, 
   onUpdateVariants 
 }: ProductVariantsManagerProps) => {
+  // 🔥 ESTADO LOCAL PARA MANEJAR VARIANTES
+  const [localVariants, setLocalVariants] = useState<ProductVariant[]>(variants);
+
   const [newVariant, setNewVariant] = useState<Partial<ProductVariant>>({
     name: '',
     sku: '',
@@ -32,8 +35,40 @@ export const ProductVariantsManager = ({
   const [editingVariant, setEditingVariant] = useState<string | null>(null);
   const [editedVariant, setEditedVariant] = useState<Partial<ProductVariant>>({});
 
+  // 🔥 SINCRONIZAR ESTADO LOCAL CON PROPS
+  useEffect(() => {
+    console.log('🔄 ProductVariantsManager - SINCRONIZANDO CON PROPS:', {
+      propVariantsCount: variants.length,
+      localVariantsCount: localVariants.length,
+      propVariants: variants.map(v => ({ id: v.id, name: v.name, sku: v.sku })),
+      localVariants: localVariants.map(v => ({ id: v.id, name: v.name, sku: v.sku }))
+    });
+    setLocalVariants(variants);
+  }, [variants]);
+
+  // 🔥 NOTIFICAR CAMBIOS AL PADRE
+  const updateVariants = (newVariants: ProductVariant[]) => {
+    console.log('📤 ProductVariantsManager - ENVIANDO VARIANTES AL PADRE:', {
+      count: newVariants.length,
+      variants: newVariants.map(v => ({
+        id: v.id,
+        name: v.name,
+        sku: v.sku,
+        price: v.price,
+        option_values: v.option_values
+      }))
+    });
+    setLocalVariants(newVariants);
+    onUpdateVariants(newVariants);
+  };
+
   const generateAllCombinations = () => {
     if (options.length === 0) return;
+
+    console.log('⚡ ProductVariantsManager - GENERANDO COMBINACIONES:', {
+      optionsCount: options.length,
+      options: options.map(o => ({ name: o.name, values: o.values }))
+    });
 
     // Generar todas las combinaciones posibles
     const combinations: Array<Record<string, string>> = [{}];
@@ -64,7 +99,13 @@ export const ProductVariantsManager = ({
       };
     });
 
-    onUpdateVariants([...variants, ...newVariants]);
+    console.log('✨ ProductVariantsManager - COMBINACIONES GENERADAS:', {
+      combinationsCount: combinations.length,
+      newVariantsCount: newVariants.length,
+      newVariants: newVariants.map(v => ({ name: v.name, sku: v.sku, price: v.price }))
+    });
+
+    updateVariants([...localVariants, ...newVariants]);
   };
 
   const addVariant = () => {
@@ -80,7 +121,9 @@ export const ProductVariantsManager = ({
       is_active: true,
     };
 
-    onUpdateVariants([...variants, variant]);
+    console.log('➕ ProductVariantsManager - AGREGANDO VARIANTE:', variant);
+
+    updateVariants([...localVariants, variant]);
     setNewVariant({
       name: '',
       sku: '',
@@ -91,7 +134,8 @@ export const ProductVariantsManager = ({
   };
 
   const removeVariant = (variantId: string) => {
-    onUpdateVariants(variants.filter(v => v.id !== variantId));
+    console.log('🗑️ ProductVariantsManager - ELIMINANDO VARIANTE:', variantId);
+    updateVariants(localVariants.filter(v => v.id !== variantId));
   };
 
   const startEditingVariant = (variant: ProductVariant) => {
@@ -102,13 +146,14 @@ export const ProductVariantsManager = ({
   const saveEditedVariant = () => {
     if (!editingVariant || !editedVariant.name || !editedVariant.sku || !editedVariant.price) return;
 
-    const updatedVariants = variants.map(v => 
+    const updatedVariants = localVariants.map(v => 
       v.id === editingVariant 
         ? { ...v, ...editedVariant, price: Number(editedVariant.price) }
         : v
     );
     
-    onUpdateVariants(updatedVariants);
+    console.log('💾 ProductVariantsManager - GUARDANDO VARIANTE EDITADA:', editedVariant);
+    updateVariants(updatedVariants);
     setEditingVariant(null);
     setEditedVariant({});
   };
@@ -149,7 +194,7 @@ export const ProductVariantsManager = ({
       <CardContent className="space-y-4">
         {/* Lista de variantes existentes */}
         <div className="space-y-2">
-          {variants.map(variant => (
+          {localVariants.map(variant => (
             <div key={variant.id} className="flex items-center justify-between p-3 border rounded">
               {editingVariant === variant.id ? (
                 <div className="flex-1 grid grid-cols-3 gap-2 mr-2">
@@ -302,6 +347,16 @@ export const ProductVariantsManager = ({
             <Plus className="h-4 w-4 mr-2" />
             Agregar Variante
           </Button>
+        </div>
+
+        {/* 🔍 DEBUG INFO */}
+        <div className="text-xs text-gray-400 mt-4 p-2 bg-gray-50 rounded">
+          <strong>Debug Variants Manager:</strong><br/>
+          Variantes locales: {localVariants.length}<br/>
+          Variantes props: {variants.length}<br/>
+          {localVariants.length > 0 && (
+            <>Variantes: {localVariants.map(v => v.name).join(', ')}</>
+          )}
         </div>
       </CardContent>
     </Card>
