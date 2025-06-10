@@ -61,6 +61,17 @@ export const usePrinterStatus = () => {
     try {
       console.log('🔧 Inicializando QZ Tray...');
       
+      // Configurar QZ Tray para que confíe automáticamente (sin popups de seguridad)
+      qz.security.setCertificatePromise(function(resolve: any) {
+        // Resolver automáticamente sin certificado para evitar popups
+        resolve();
+      });
+
+      qz.security.setSignaturePromise(function(resolve: any) {
+        // Resolver automáticamente sin firma para evitar popups
+        resolve();
+      });
+      
       // Verificar si QZ Tray está disponible
       if (!qz.websocket.isActive()) {
         console.log('🔌 Conectando a QZ Tray...');
@@ -212,11 +223,10 @@ export const usePrinterStatus = () => {
         'LAS FRITAS MOR\n',
         '\x1B\x45\x00', // Negrita OFF
         '================================\n',
-        `FACTURA - ${type.toUpperCase()}\n`,
         '\x1B\x61\x00', // Alinear izquierda
         '--------------------------------\n',
         
-        // Información de la orden
+        // Información de la orden (sin "FACTURA - CLIENTE")
         `Orden: ${orderData.order_number}\n`,
         `Cliente: ${orderData.customer_name}\n`,
         `Fecha: ${new Date(orderData.created_at).toLocaleString('es-ES')}\n`,
@@ -229,10 +239,19 @@ export const usePrinterStatus = () => {
         '\x1B\x45\x00', // Negrita OFF
       ];
 
-      // Agregar items
+      // Agregar items con fuente más grande para nombres de productos y opciones
       orderData.order_items.forEach((item: any) => {
+        // Producto con fuente doble de ancho y alto
+        printData.push('\x1D\x21\x11'); // Doble ancho y alto
         printData.push(`${item.product_name}\n`);
+        printData.push('\x1D\x21\x00'); // Restaurar tamaño normal
+        
+        // Variante/opciones con fuente doble de ancho y alto
+        printData.push('\x1D\x21\x11'); // Doble ancho y alto
         printData.push(`  ${item.variant_name}\n`);
+        printData.push('\x1D\x21\x00'); // Restaurar tamaño normal
+        
+        // Precio y cantidad en tamaño normal
         printData.push(`  ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}\n`);
       });
 
@@ -254,14 +273,15 @@ export const usePrinterStatus = () => {
         printData.push(`Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}\n`);
       }
 
-      // Footer
+      // Footer (sin "Gracias por su compra" y menos espacios)
       printData.push('\x1B\x61\x01'); // Centrar
       printData.push('================================\n');
-      printData.push(type === 'cliente' ? '¡Gracias por su compra!\n' : 'COPIA TIENDA\n');
+      if (type === 'tienda') {
+        printData.push('COPIA TIENDA\n');
+      }
       printData.push('================================\n');
       printData.push('\x1B\x61\x00'); // Alinear izquierda
-      printData.push('\n'); // Espacios en blanco
-      printData.push('\x1D\x56\x42\x03'); // Cortar papel
+      printData.push('\x1D\x56\x42\x03'); // Cortar papel (sin espacios adicionales)
 
       console.log('📤 Enviando datos de impresión a QZ Tray...');
 
