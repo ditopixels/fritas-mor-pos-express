@@ -294,11 +294,7 @@ export const PrinterProvider = ({ children }: { children: React.ReactNode }) => 
     printInvoice,
   };
 
-  return (
-    <PrinterContext.Provider value={contextValue}>
-      {children}
-    </PrinterContext.Provider>
-  );
+  return React.createElement(PrinterContext.Provider, { value: contextValue }, children);
 };
 
 export const usePrinterStatus = () => {
