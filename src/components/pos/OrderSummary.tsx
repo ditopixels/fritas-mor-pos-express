@@ -108,8 +108,8 @@ export const OrderSummary = ({
       return;
     }
 
-    // Quitar validación obligatoria del cambio - solo validar que sea mayor o igual si se ingresa
-    if (paymentMethod === "cash" && cashReceived && cashReceived < totalWithPromotions) {
+    // Validación opcional del efectivo - solo si se ingresa un valor
+    if (paymentMethod === "cash" && cashReceived !== undefined && cashReceived < totalWithPromotions) {
       toast({
         title: "Error",
         description: "El monto en efectivo debe ser mayor o igual al total",
@@ -187,7 +187,7 @@ export const OrderSummary = ({
     }
   };
 
-  const change = paymentMethod === "cash" && cashReceived ? cashReceived - totalWithPromotions : 0;
+  const change = paymentMethod === "cash" && cashReceived && cashReceived >= totalWithPromotions ? cashReceived - totalWithPromotions : 0;
 
   return (
     <div className="h-full flex flex-col">

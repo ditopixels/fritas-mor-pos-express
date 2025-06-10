@@ -66,12 +66,12 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
         <h2 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-4">Productos</h2>
         
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-          <TabsList className="grid w-full grid-cols-3 h-auto">
+          <TabsList className="grid w-full grid-cols-4 h-auto">
             {categories.map((category) => (
               <TabsTrigger 
                 key={category.id} 
                 value={category.id}
-                className="text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3"
+                className="text-xs sm:text-sm px-1 sm:px-2 py-2 sm:py-3 whitespace-nowrap overflow-hidden text-ellipsis"
               >
                 {category.name}
               </TabsTrigger>

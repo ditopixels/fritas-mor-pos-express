@@ -1,11 +1,18 @@
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
+import React from 'react';
 
 interface PrinterStatus {
   isConnected: boolean;
   printerName: string | null;
   isChecking: boolean;
   lastCheck: Date | null;
+}
+
+interface PrinterContextType {
+  status: PrinterStatus;
+  checkPrinterStatus: () => Promise<void>;
+  printInvoice: (orderData: any, type: 'cliente' | 'tienda') => Promise<boolean>;
 }
 
 // Declaraciones globales para QZ Tray
@@ -15,7 +22,9 @@ declare global {
   }
 }
 
-export const usePrinterStatus = () => {
+const PrinterContext = createContext<PrinterContextType | undefined>(undefined);
+
+export const PrinterProvider = ({ children }: { children: React.ReactNode }) => {
   const [status, setStatus] = useState<PrinterStatus>({
     isConnected: false,
     printerName: null,
@@ -279,14 +288,23 @@ export const usePrinterStatus = () => {
     };
   }, []);
 
-  const manualCheckPrinterStatus = useCallback(async () => {
-    console.log('🔄 Verificación manual solicitada');
-    await checkPrinterStatus();
-  }, [checkPrinterStatus]);
-
-  return {
+  const contextValue: PrinterContextType = {
     status,
-    checkPrinterStatus: manualCheckPrinterStatus,
+    checkPrinterStatus,
     printInvoice,
   };
+
+  return (
+    <PrinterContext.Provider value={contextValue}>
+      {children}
+    </PrinterContext.Provider>
+  );
+};
+
+export const usePrinterStatus = () => {
+  const context = useContext(PrinterContext);
+  if (context === undefined) {
+    throw new Error('usePrinterStatus debe usarse dentro de PrinterProvider');
+  }
+  return context;
 };
