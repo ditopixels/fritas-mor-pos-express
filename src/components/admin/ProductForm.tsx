@@ -202,10 +202,12 @@ export const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => 
             </TabsContent>
 
             <TabsContent value="additional" className="space-y-4">
-              <ProductAdditionalOptionsManager
-                options={formData.additional_options}
-                onChange={handleAdditionalOptionsChange}
-              />
+              <div className="min-h-[400px]">
+                <ProductAdditionalOptionsManager
+                  options={formData.additional_options}
+                  onChange={handleAdditionalOptionsChange}
+                />
+              </div>
             </TabsContent>
           </Tabs>
 
