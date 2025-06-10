@@ -61,35 +61,49 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
       const { data, error } = await query;
       if (error) throw error;
 
-      console.log('Products fetched from database:', data);
+      console.log('ProductGrid - Raw data from database:', data);
 
-      return data.map(product => ({
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        categoryId: product.category_id,
-        image: product.image,
-        base_price: product.base_price,
-        isActive: product.is_active,
-        displayOrder: product.display_order,
-        createdAt: new Date(product.created_at),
-        variants: product.product_variants?.map((variant: any) => ({
-          id: variant.id,
-          productId: variant.product_id,
-          sku: variant.sku,
-          name: variant.name,
-          price: variant.price,
-          optionValues: variant.option_values || {},
-          isActive: variant.is_active,
-          stock: variant.stock,
-        })) || [],
-        options: product.product_options?.map((option: any) => ({
-          id: option.id,
-          name: option.name,
-          values: option.values || [],
-          isRequired: option.is_required,
-        })) || []
-      }));
+      return data.map(product => {
+        const transformedProduct = {
+          id: product.id,
+          name: product.name,
+          description: product.description,
+          categoryId: product.category_id,
+          image: product.image,
+          base_price: product.base_price,
+          isActive: product.is_active,
+          displayOrder: product.display_order,
+          createdAt: new Date(product.created_at),
+          variants: product.product_variants?.map((variant: any) => ({
+            id: variant.id,
+            productId: variant.product_id,
+            sku: variant.sku,
+            name: variant.name,
+            price: variant.price,
+            optionValues: variant.option_values || {},
+            isActive: variant.is_active,
+            stock: variant.stock,
+          })) || [],
+          options: product.product_options?.map((option: any) => ({
+            id: option.id,
+            name: option.name,
+            values: option.values || [],
+            isRequired: option.is_required,
+          })) || []
+        };
+        
+        console.log(`ProductGrid - Producto ${product.name}:`, {
+          id: product.id,
+          variantsFromDB: product.product_variants?.length || 0,
+          optionsFromDB: product.product_options?.length || 0,
+          variantsTransformed: transformedProduct.variants.length,
+          optionsTransformed: transformedProduct.options.length,
+          variants: transformedProduct.variants,
+          options: transformedProduct.options
+        });
+        
+        return transformedProduct;
+      });
     },
   });
 
@@ -141,8 +155,6 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
       <ScrollArea className="flex-1 px-2 sm:px-0">
         <div className="space-y-3 sm:space-y-4 pb-4">
           {products.map((product) => {
-            console.log('Rendering product:', product.name, 'Variants:', product.variants, 'Options:', product.options);
-            
             return (
               <Card key={product.id} className="overflow-hidden">
                 <CardContent className="p-0">
@@ -154,9 +166,14 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                         <p className="text-gray-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">{product.description}</p>
                       )}
 
-                      {/* Show debug info */}
-                      <div className="text-xs text-gray-400 mb-2">
-                        Variantes: {product.variants?.length || 0} | Opciones: {product.options?.length || 0}
+                      {/* Debug info más visible */}
+                      <div className="text-xs bg-gray-100 p-2 rounded mb-2">
+                        <strong>DEBUG:</strong> Variantes: {product.variants?.length || 0} | Opciones: {product.options?.length || 0}
+                        {product.variants?.length > 0 && (
+                          <div className="mt-1">
+                            Variantes encontradas: {product.variants.map(v => v.name).join(', ')}
+                          </div>
+                        )}
                       </div>
 
                       {product.variants?.length > 0 && product.options?.length > 0 ? (

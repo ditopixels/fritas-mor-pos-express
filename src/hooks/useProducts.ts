@@ -1,3 +1,4 @@
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -130,12 +131,19 @@ export const useUpdateProduct = () => {
       // Separar las opciones y variantes del resto de updates
       const { options, variants, ...productUpdates } = updates;
       
-      console.log('useUpdateProduct - Updating product with:', { 
+      console.log('useUpdateProduct - INICIO - Recibiendo datos:', { 
         id, 
         productUpdates, 
-        optionsCount: options?.length, 
-        variantsCount: variants?.length,
-        variants 
+        optionsCount: options?.length || 0, 
+        variantsCount: variants?.length || 0,
+        hasVariants: !!variants,
+        variants: variants?.map(v => ({
+          id: v.id,
+          name: v.name,
+          sku: v.sku,
+          price: v.price,
+          option_values: v.option_values
+        }))
       });
       
       // Actualizar el producto
@@ -146,10 +154,17 @@ export const useUpdateProduct = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating product:', error);
+        throw error;
+      }
+
+      console.log('Product updated successfully:', data);
 
       // Manejar opciones
       if (options !== undefined) {
+        console.log('Processing options...');
+        
         // Eliminar opciones existentes
         const { error: deleteOptionsError } = await supabase
           .from('product_options')
@@ -184,11 +199,22 @@ export const useUpdateProduct = () => {
         }
       }
 
-      // Manejar variantes
+      // Manejar variantes - PUNTO CRÍTICO
       if (variants !== undefined) {
-        console.log('Processing variants:', variants);
+        console.log('useUpdateProduct - PROCESANDO VARIANTES:', {
+          variantsLength: variants.length,
+          variants: variants.map(v => ({
+            id: v.id,
+            name: v.name,
+            sku: v.sku,
+            price: v.price,
+            option_values: v.option_values,
+            is_active: v.is_active
+          }))
+        });
         
         // Eliminar variantes existentes
+        console.log('Deleting existing variants for product:', id);
         const { error: deleteVariantsError } = await supabase
           .from('product_variants')
           .delete()
@@ -199,10 +225,18 @@ export const useUpdateProduct = () => {
           throw deleteVariantsError;
         }
 
+        console.log('Existing variants deleted successfully');
+
         // Insertar nuevas variantes solo si hay variantes válidas
         if (variants.length > 0) {
           const variantsToInsert = variants
-            .filter(variant => variant.name && variant.sku && variant.price !== undefined && variant.price !== null) // Filtrar variantes válidas
+            .filter(variant => {
+              const isValid = variant.name && variant.sku && variant.price !== undefined && variant.price !== null;
+              if (!isValid) {
+                console.warn('Filtered out invalid variant:', variant);
+              }
+              return isValid;
+            })
             .map(variant => {
               const variantToInsert = {
                 product_id: id,
@@ -217,7 +251,10 @@ export const useUpdateProduct = () => {
               return variantToInsert;
             });
 
-          console.log('Inserting variants:', variantsToInsert);
+          console.log('useUpdateProduct - INSERTANDO VARIANTES:', {
+            count: variantsToInsert.length,
+            variants: variantsToInsert
+          });
 
           if (variantsToInsert.length > 0) {
             const { data: insertedVariants, error: insertVariantsError } = await supabase
@@ -226,13 +263,19 @@ export const useUpdateProduct = () => {
               .select();
 
             if (insertVariantsError) {
-              console.error('Error inserting variants:', insertVariantsError);
+              console.error('useUpdateProduct - ERROR INSERTANDO VARIANTES:', insertVariantsError);
               throw insertVariantsError;
             }
             
-            console.log('Successfully inserted variants:', insertedVariants);
+            console.log('useUpdateProduct - VARIANTES INSERTADAS EXITOSAMENTE:', insertedVariants);
+          } else {
+            console.log('No valid variants to insert');
           }
+        } else {
+          console.log('No variants provided for insertion');
         }
+      } else {
+        console.log('Variants not provided in update (undefined)');
       }
 
       return data;
