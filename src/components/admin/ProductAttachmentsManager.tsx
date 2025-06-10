@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,9 +22,15 @@ export const ProductAttachmentsManager = ({ product, onUpdateAttachments }: Prod
   const [newAttachmentValue, setNewAttachmentValue] = useState("");
 
   useEffect(() => {
-    // Inicializar con attachments existentes del producto
+    // Convertir attachments de la base de datos al formato de la interfaz
     if (product?.attachments) {
-      setAttachments(product.attachments);
+      const convertedAttachments = product.attachments.map(attachment => ({
+        id: attachment.id,
+        name: attachment.name,
+        values: attachment.values || [],
+        isRequired: attachment.is_required || false,
+      }));
+      setAttachments(convertedAttachments);
     }
   }, [product?.id]);
 
@@ -186,3 +193,4 @@ export const ProductAttachmentsManager = ({ product, onUpdateAttachments }: Prod
     </Card>
   );
 };
+

@@ -1,4 +1,5 @@
 
+
 export interface Category {
   id: string;
   name: string;
@@ -123,3 +124,4 @@ export interface Order {
     variant_attachments?: any;
   }[];
 }
+

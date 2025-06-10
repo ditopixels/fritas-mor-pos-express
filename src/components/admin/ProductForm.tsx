@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { ProductOptionsManager } from "./ProductOptionsManager";
 import { ProductVariantsManager } from "./ProductVariantsManager";
 import { ProductAttachmentsManager } from "./ProductAttachmentsManager";
 import { Product, ProductOption, ProductVariant, ProductAttachment, useCategories, useCreateProduct, useUpdateProduct } from "@/hooks/useProducts";
+import { ProductAttachment as TypesProductAttachment } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProductFormProps {
@@ -35,19 +37,30 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
 
   const [currentOptions, setCurrentOptions] = useState<ProductOption[]>(product?.options || []);
   const [currentVariants, setCurrentVariants] = useState<ProductVariant[]>(product?.variants || []);
-  const [currentAttachments, setCurrentAttachments] = useState<ProductAttachment[]>(product?.attachments || []);
+  const [currentAttachments, setCurrentAttachments] = useState<TypesProductAttachment[]>([]);
 
   useEffect(() => {
     if (product) {
       setCurrentOptions(product.options || []);
       setCurrentVariants(product.variants || []);
-      setCurrentAttachments(product.attachments || []);
+      // Convertir attachments de la base de datos al formato de types
+      const convertedAttachments = (product.attachments || []).map(attachment => ({
+        id: attachment.id,
+        name: attachment.name,
+        values: attachment.values || [],
+        isRequired: attachment.is_required || false,
+      }));
+      setCurrentAttachments(convertedAttachments);
     } else {
       setCurrentOptions([]);
       setCurrentVariants([]);
       setCurrentAttachments([]);
     }
   }, [product?.id]);
+
+  const handleAttachmentsUpdate = (attachments: TypesProductAttachment[]) => {
+    setCurrentAttachments(attachments);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,12 +81,20 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
         }))
       });
 
+      // Convertir attachments de types al formato de la base de datos
+      const dbAttachments = currentAttachments.map(attachment => ({
+        id: attachment.id,
+        name: attachment.name,
+        values: attachment.values,
+        is_required: attachment.isRequired,
+      }));
+
       // Preparar datos con variantes y attachments explícitos
       const dataToSend = {
         ...formData,
         options: currentOptions,
         variants: currentVariants,
-        attachments: currentAttachments
+        attachments: dbAttachments
       };
 
       console.log('🚀 ENVIANDO DATOS A useUpdateProduct:', {
@@ -107,7 +128,7 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
             updates: {
               options: currentOptions,
               variants: currentVariants,
-              attachments: currentAttachments,
+              attachments: dbAttachments,
             }
           });
         }
@@ -207,7 +228,7 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
 
       <ProductAttachmentsManager
         product={product || { ...formData, id: 'temp' } as Product}
-        onUpdateAttachments={setCurrentAttachments}
+        onUpdateAttachments={handleAttachmentsUpdate}
       />
 
       <ProductVariantsManager
@@ -251,3 +272,4 @@ export const ProductForm = ({ product, onSuccess, onCancel }: ProductFormProps) 
     </form>
   );
 };
+
