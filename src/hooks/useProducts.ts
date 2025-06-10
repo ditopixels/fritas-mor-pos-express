@@ -9,6 +9,7 @@ export interface Product {
   category_id: string;
   image?: string;
   base_price?: number;
+  additional_options?: any;
   is_active: boolean;
   display_order: number;
   created_at: string;
@@ -96,6 +97,7 @@ export const useCreateProduct = () => {
       category_id: string;
       image?: string;
       base_price?: number;
+      additional_options?: any;
       is_active: boolean;
       display_order?: number;
     }) => {

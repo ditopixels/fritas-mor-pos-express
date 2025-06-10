@@ -3,16 +3,18 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
-import { ProductVariant, ProductOption } from "@/types";
+import { ProductVariant, ProductOption, AdditionalOption } from "@/types";
 import { Tag } from "lucide-react";
+import { AdditionalOptionsSelector } from "./AdditionalOptionsSelector";
 
 interface ProductVariantSelectorProps {
   productId: string;
   categoryId: string;
   variants: ProductVariant[];
   options: ProductOption[];
+  additionalOptions?: AdditionalOption[];
   productName: string;
-  onAddToCart: (productId: string, categoryId: string, variantId: string, sku: string, productName: string, variantName: string, price: number) => void;
+  onAddToCart: (productId: string, categoryId: string, variantId: string, sku: string, productName: string, variantName: string, price: number, additionalSelections?: string) => void;
   calculateItemPromotions: (productId: string, categoryId: string, price: number) => any[];
 }
 
@@ -21,12 +23,14 @@ export const ProductVariantSelector = ({
   categoryId,
   variants, 
   options,
+  additionalOptions,
   productName, 
   onAddToCart,
   calculateItemPromotions
 }: ProductVariantSelectorProps) => {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [matchedVariant, setMatchedVariant] = useState<ProductVariant | null>(null);
+  const [additionalSelections, setAdditionalSelections] = useState<string>('');
 
   // Find matching variant based on selected options
   useEffect(() => {
@@ -51,8 +55,8 @@ export const ProductVariantSelector = ({
 
   const handleAddToCart = () => {
     if (matchedVariant) {
-      console.log('ProductVariantSelector - Adding to cart:', { productId, categoryId, variant: matchedVariant });
-      onAddToCart(productId, categoryId, matchedVariant.id, matchedVariant.sku, productName, matchedVariant.name, matchedVariant.price);
+      console.log('ProductVariantSelector - Adding to cart:', { productId, categoryId, variant: matchedVariant, additionalSelections });
+      onAddToCart(productId, categoryId, matchedVariant.id, matchedVariant.sku, productName, matchedVariant.name, matchedVariant.price, additionalSelections);
     }
   };
 
@@ -101,6 +105,14 @@ export const ProductVariantSelector = ({
         </div>
       ))}
 
+      {/* Additional Options Selector */}
+      {additionalOptions && additionalOptions.length > 0 && (
+        <AdditionalOptionsSelector
+          additionalOptions={additionalOptions}
+          onSelectionsChange={setAdditionalSelections}
+        />
+      )}
+
       {/* Price and Add Button Section */}
       {allOptionsSelected && matchedVariant && (
         <div className="space-y-2 sm:space-y-3 pt-2 border-t">
@@ -138,6 +150,12 @@ export const ProductVariantSelector = ({
                   {promo.promotionName}
                 </Badge>
               ))}
+            </div>
+          )}
+
+          {additionalSelections && (
+            <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+              <strong>Opciones:</strong> {additionalSelections}
             </div>
           )}
 

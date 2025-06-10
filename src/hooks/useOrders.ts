@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { CartItem, AppliedPromotion } from '@/types';
@@ -34,6 +33,7 @@ export interface SupabaseOrder {
     original_price?: number;
     quantity: number;
     applied_promotions?: any;
+    additional_selections?: string;
   }[];
 }
 
@@ -105,6 +105,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
         original_price: item.originalPrice || item.price,
         quantity: item.quantity,
         applied_promotions: JSON.stringify(item.appliedPromotions || []),
+        additional_selections: item.additionalSelections || null,
         variant_options: JSON.stringify({}), // Por ahora vacío, se llenará con las opciones seleccionadas
       }));
 
@@ -127,6 +128,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
           original_price: item.original_price,
           quantity: item.quantity,
           applied_promotions: item.applied_promotions,
+          additional_selections: item.additional_selections,
         }))
       };
 

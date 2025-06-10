@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -91,8 +90,8 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
     },
   });
 
-  const handleAddToCart = (productId: string, categoryId: string, variantId: string, sku: string, productName: string, variantName: string, price: number) => {
-    console.log('ProductGrid - Adding to cart:', { productId, categoryId, variantId, sku, productName, variantName, price });
+  const handleAddToCart = (productId: string, categoryId: string, variantId: string, sku: string, productName: string, variantName: string, price: number, additionalSelections?: string) => {
+    console.log('ProductGrid - Adding to cart:', { productId, categoryId, variantId, sku, productName, variantName, price, additionalSelections });
     
     const appliedPromotions = calculateItemPromotions(productId, categoryId, price);
     
@@ -105,6 +104,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
       variantId,
       categoryId,
       appliedPromotions,
+      additionalSelections,
     };
 
     console.log('ProductGrid - Cart item created:', cartItem);
@@ -155,6 +155,7 @@ export const ProductGrid = ({ onAddToCart }: ProductGridProps) => {
                         categoryId={product.categoryId || ''}
                         variants={product.variants}
                         options={product.options}
+                        additionalOptions={product.additional_options || []}
                         productName={product.name}
                         onAddToCart={handleAddToCart}
                         calculateItemPromotions={calculateItemPromotions}
