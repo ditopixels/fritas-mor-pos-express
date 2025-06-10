@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -69,9 +70,18 @@ export const useOptimizedPOSData = () => {
 
       if (productsError) throw productsError;
 
+      // Fetch promotions
+      const { data: promotions, error: promotionsError } = await supabase
+        .from('promotions')
+        .select('*')
+        .eq('is_active', true);
+
+      if (promotionsError) throw promotionsError;
+
       return {
         categories: categories || [],
-        products: products || []
+        products: products || [],
+        promotions: promotions || []
       };
     },
     staleTime: 1000 * 60 * 5, // 5 minutes

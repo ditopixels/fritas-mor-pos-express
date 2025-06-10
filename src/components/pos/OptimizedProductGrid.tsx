@@ -19,7 +19,7 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
 
   // Load categories
   const { data: posData, isLoading: posLoading } = useOptimizedPOSData();
-  const categories = posData.categories || [];
+  const categories = posData?.categories || [];
 
   // Load ALL products once
   const { data: allProducts = [], isLoading: productsLoading } = useAllProductsOnce();

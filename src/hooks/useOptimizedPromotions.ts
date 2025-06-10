@@ -6,7 +6,7 @@ import { CartItem, Promotion, AppliedPromotion } from '@/types';
 
 export const useOptimizedPromotionCalculator = () => {
   const { data: posData } = useOptimizedPOSData();
-  const promotions = posData.promotions || [];
+  const promotions = posData?.promotions || [];
 
   // Cache local para promociones activas
   const { data: activePromotions } = useLocalCache(
