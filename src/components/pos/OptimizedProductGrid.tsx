@@ -99,7 +99,7 @@ export const OptimizedProductGrid = ({ onAddToCart }: OptimizedProductGridProps)
         </Tabs>
       </div>
 
-      <div className="flex-1 min-h-0 px-2 sm:px-0">
+      <div className="flex-1 min-h-0 px-2 sm:px-0 overflow-y-auto max-h-[880px]">
         <ScrollArea className="h-full">
           <div className="space-y-3 sm:space-y-4 pb-4 pr-2">
             {filteredProducts.map((product) => (
