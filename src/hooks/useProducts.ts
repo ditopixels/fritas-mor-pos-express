@@ -118,10 +118,13 @@ export const useUpdateProduct = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Product> }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Omit<Product, 'options' | 'variants' | 'category'>> }) => {
+      // Filtrar campos que no existen en la tabla products
+      const { options, variants, category, ...productUpdates } = updates as any;
+      
       const { data, error } = await supabase
         .from('products')
-        .update(updates)
+        .update(productUpdates)
         .eq('id', id)
         .select()
         .single();
