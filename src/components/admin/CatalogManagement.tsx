@@ -56,6 +56,7 @@ import {
 import { ProductOptionsManager } from "./ProductOptionsManager";
 import { ProductVariantsManager } from "./ProductVariantsManager";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { supabase } from "@/integrations/supabase/client";
 
 interface Category {
   id: string;
@@ -108,6 +109,7 @@ const CatalogManagement = () => {
   const [newProductBasePrice, setNewProductBasePrice] = useState<number | undefined>(undefined);
   const [isCategoryActive, setIsCategoryActive] = useState(true);
   const [isProductActive, setIsProductActive] = useState(true);
+  const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
   const createProductMutation = useCreateProduct();
   const updateProductMutation = useUpdateProduct();
   const deleteProductMutation = useDeleteProduct();
@@ -193,6 +195,7 @@ const CatalogManagement = () => {
     setNewProductCategoryId(categoriesState[0]?.id || "");
     setNewProductBasePrice(undefined);
     setIsProductActive(true);
+    setProductOptions([]);
     setIsProductDialogOpen(true);
   };
 
@@ -211,6 +214,7 @@ const CatalogManagement = () => {
     setNewProductCategoryId(product.category_id);
     setNewProductBasePrice(product.base_price);
     setIsProductActive(product.is_active);
+    setProductOptions(product.options || []);
     setIsProductDialogOpen(true);
   };
 
@@ -322,7 +326,7 @@ const CatalogManagement = () => {
     }
 
     try {
-      await createProductMutation.mutateAsync({
+      const newProduct = await createProductMutation.mutateAsync({
         name: newProductName,
         description: newProductDescription,
         category_id: newProductCategoryId,
@@ -330,6 +334,20 @@ const CatalogManagement = () => {
         is_active: isProductActive,
         display_order: productsState.length,
       });
+
+      // Save product options separately
+      if (productOptions.length > 0) {
+        for (const option of productOptions) {
+          await supabase
+            .from('product_options')
+            .insert({
+              product_id: newProduct.id,
+              name: option.name,
+              values: option.values,
+              is_required: option.is_required,
+            });
+        }
+      }
 
       toast({
         title: "Producto creado",
@@ -358,6 +376,7 @@ const CatalogManagement = () => {
     if (!selectedProduct) return;
 
     try {
+      // Update product basic info (without options)
       await updateProductMutation.mutateAsync({
         id: selectedProduct.id,
         updates: {
@@ -366,9 +385,28 @@ const CatalogManagement = () => {
           category_id: newProductCategoryId,
           base_price: newProductBasePrice,
           is_active: isProductActive,
-          options: selectedProduct.options,
         },
       });
+
+      // Delete existing options
+      await supabase
+        .from('product_options')
+        .delete()
+        .eq('product_id', selectedProduct.id);
+
+      // Insert new options
+      if (productOptions.length > 0) {
+        for (const option of productOptions) {
+          await supabase
+            .from('product_options')
+            .insert({
+              product_id: selectedProduct.id,
+              name: option.name,
+              values: option.values,
+              is_required: option.is_required,
+            });
+        }
+      }
 
       toast({
         title: "Producto actualizado",
@@ -636,19 +674,24 @@ const CatalogManagement = () => {
           
           <Separator />
           
-          {selectedProduct && (
-            <ProductOptionsManager 
-              product={selectedProduct}
-              onUpdateOptions={(options) => {
-                setSelectedProduct(prev => prev ? { ...prev, options } : null);
-              }}
-            />
-          )}
+          {/* Product Options Manager */}
+          <ProductOptionsManager 
+            product={selectedProduct || { 
+              id: '', 
+              name: newProductName, 
+              category_id: newProductCategoryId, 
+              is_active: isProductActive, 
+              display_order: 0, 
+              created_at: '', 
+              options: productOptions 
+            }}
+            onUpdateOptions={(options) => setProductOptions(options)}
+          />
 
           {selectedProduct && (
             <ProductVariantsManager 
               product={selectedProduct}
-              options={selectedProduct.options || []}
+              options={productOptions}
               variants={selectedProduct.variants || []}
               onUpdateVariants={(variants) => {
                 setSelectedProduct(prev => prev ? { ...prev, variants } : null);
