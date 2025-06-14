@@ -19,7 +19,8 @@ export const ExpensesManagement = () => {
     amount: '',
     description: '',
   });
-  const [dateFilter, setDateFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,9 +38,13 @@ export const ExpensesManagement = () => {
   };
 
   const filteredExpenses = expenses.filter(expense => {
-    if (!dateFilter) return true;
-    const expenseDate = format(new Date(expense.created_at), 'yyyy-MM-dd');
-    return expenseDate === dateFilter;
+    const expenseDate = new Date(expense.created_at);
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate + 'T23:59:59') : null;
+    
+    if (start && expenseDate < start) return false;
+    if (end && expenseDate > end) return false;
+    return true;
   });
 
   const totalComida = filteredExpenses
@@ -88,7 +93,8 @@ export const ExpensesManagement = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Gastos');
     
-    const fileName = `gastos_${dateFilter || format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    const dateRange = startDate && endDate ? `${startDate}_${endDate}` : format(new Date(), 'yyyy-MM-dd');
+    const fileName = `gastos_${dateRange}.xlsx`;
     XLSX.writeFile(workbook, fileName);
   };
 
@@ -197,12 +203,20 @@ export const ExpensesManagement = () => {
 
         <Card>
           <CardContent className="p-4 space-y-2">
-            <Input
-              type="date"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              placeholder="Filtrar por fecha"
-            />
+            <div className="space-y-2">
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                placeholder="Fecha inicio"
+              />
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                placeholder="Fecha fin"
+              />
+            </div>
             <Button onClick={exportToExcel} variant="outline" size="sm" className="w-full">
               <Download className="h-4 w-4 mr-2" />
               Exportar Excel
@@ -216,7 +230,8 @@ export const ExpensesManagement = () => {
         <CardHeader>
           <CardTitle>Lista de Gastos</CardTitle>
           <CardDescription>
-            {filteredExpenses.length} gastos {dateFilter && `para el ${format(new Date(dateFilter), 'dd/MM/yyyy')}`}
+            {filteredExpenses.length} gastos 
+            {(startDate || endDate) && ` filtrados`}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -229,7 +244,7 @@ export const ExpensesManagement = () => {
                   <TableHead>Monto</TableHead>
                   <TableHead className="hidden sm:table-cell">Descripción</TableHead>
                   <TableHead className="hidden md:table-cell">Registrado por</TableHead>
-                  <TableHead width="50">Acciones</TableHead>
+                  <TableHead>Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

@@ -40,10 +40,15 @@ export const useExpenses = () => {
       amount: number;
       description: string;
     }) => {
+      if (!profile?.id) {
+        throw new Error('No se pudo obtener el ID del usuario');
+      }
+
       const { data, error } = await supabase
         .from('expenses')
         .insert({
           ...expense,
+          user_id: profile.id,
           created_by_name: profile?.name || 'Admin',
         })
         .select()
