@@ -1,10 +1,11 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Package, Tag } from "lucide-react";
+import { BarChart3, Package, Tag, Receipt } from "lucide-react";
 import { SalesMetrics } from "./SalesMetrics";
 import CatalogManagement from "./CatalogManagement";
 import { PromotionsManagement } from "./PromotionsManagement";
+import { ExpensesManagement } from "./ExpensesManagement";
 import { SupabaseOrder } from "@/hooks/useOrders";
 import { Order } from "@/types";
 
@@ -74,7 +75,7 @@ export const AdminDashboard = ({ orders }: AdminDashboardProps) => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6 h-auto">
+        <TabsList className="grid w-full grid-cols-4 mb-4 sm:mb-6 h-auto">
           <TabsTrigger value="metrics" className="flex flex-col sm:flex-row items-center space-y-1 sm:space-y-0 sm:space-x-2 p-2 sm:p-3 text-xs sm:text-sm">
             <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
             <span>Métricas</span>
@@ -86,6 +87,10 @@ export const AdminDashboard = ({ orders }: AdminDashboardProps) => {
           <TabsTrigger value="promotions" className="flex flex-col sm:flex-row items-center space-y-1 sm:space-y-0 sm:space-x-2 p-2 sm:p-3 text-xs sm:text-sm">
             <Tag className="h-3 w-3 sm:h-4 sm:w-4" />
             <span>Promociones</span>
+          </TabsTrigger>
+          <TabsTrigger value="expenses" className="flex flex-col sm:flex-row items-center space-y-1 sm:space-y-0 sm:space-x-2 p-2 sm:p-3 text-xs sm:text-sm">
+            <Receipt className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span>Gastos</span>
           </TabsTrigger>
         </TabsList>
 
@@ -99,6 +104,10 @@ export const AdminDashboard = ({ orders }: AdminDashboardProps) => {
 
         <TabsContent value="promotions" className="space-y-0">
           <PromotionsManagement />
+        </TabsContent>
+
+        <TabsContent value="expenses" className="space-y-0">
+          <ExpensesManagement />
         </TabsContent>
       </Tabs>
     </div>
