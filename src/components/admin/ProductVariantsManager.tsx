@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Zap } from "lucide-react";
-import { Product, ProductOption, ProductVariant } from "@/hooks/useProducts";
+import { Trash2, Plus, Zap, Save } from "lucide-react";
+import { Product, ProductOption, ProductVariant, useUpdateProductVariants } from "@/hooks/useProducts";
+import { toast } from "sonner";
 
 interface ProductVariantsManagerProps {
   product: Product;
@@ -21,6 +22,7 @@ export const ProductVariantsManager = ({
   variants, 
   onUpdateVariants 
 }: ProductVariantsManagerProps) => {
+  const [localVariants, setLocalVariants] = useState<ProductVariant[]>(variants);
   const [newVariant, setNewVariant] = useState<Partial<ProductVariant>>({
     name: '',
     sku: '',
@@ -28,6 +30,23 @@ export const ProductVariantsManager = ({
     option_values: {},
     is_active: true,
   });
+
+  const updateProductVariants = useUpdateProductVariants();
+
+  const handleSaveVariants = async () => {
+    try {
+      await updateProductVariants.mutateAsync({
+        productId: product.id,
+        variants: localVariants
+      });
+      
+      onUpdateVariants(localVariants);
+      toast.success("Variantes guardadas correctamente");
+    } catch (error) {
+      console.error('Error guardando variantes:', error);
+      toast.error("Error al guardar las variantes");
+    }
+  };
 
   const addVariant = () => {
     if (!newVariant.name || !newVariant.sku || !newVariant.price) return;
@@ -42,7 +61,8 @@ export const ProductVariantsManager = ({
       is_active: true,
     };
 
-    onUpdateVariants([...variants, variant]);
+    const updatedVariants = [...localVariants, variant];
+    setLocalVariants(updatedVariants);
     setNewVariant({
       name: '',
       sku: '',
@@ -88,13 +108,14 @@ export const ProductVariantsManager = ({
     });
 
     // Filtrar variantes que no existan ya
-    const existingCombinations = variants.map(v => JSON.stringify(v.option_values));
+    const existingCombinations = localVariants.map(v => JSON.stringify(v.option_values));
     const uniqueNewVariants = newVariants.filter(v => 
       !existingCombinations.includes(JSON.stringify(v.option_values))
     );
 
     if (uniqueNewVariants.length > 0) {
-      onUpdateVariants([...variants, ...uniqueNewVariants]);
+      const updatedVariants = [...localVariants, ...uniqueNewVariants];
+      setLocalVariants(updatedVariants);
       console.log(`✅ Se generaron ${uniqueNewVariants.length} nuevas variantes`);
     } else {
       console.log('ℹ️ Todas las combinaciones ya existen como variantes');
@@ -119,7 +140,8 @@ export const ProductVariantsManager = ({
   };
 
   const removeVariant = (variantId: string) => {
-    onUpdateVariants(variants.filter(v => v.id !== variantId));
+    const updatedVariants = localVariants.filter(v => v.id !== variantId);
+    setLocalVariants(updatedVariants);
   };
 
   const updateVariantOptionValue = (optionName: string, value: string) => {
@@ -135,7 +157,17 @@ export const ProductVariantsManager = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Variantes del Producto</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle>Variantes del Producto</CardTitle>
+          <Button
+            onClick={handleSaveVariants}
+            disabled={updateProductVariants.isPending}
+            className="flex items-center gap-2"
+          >
+            <Save className="h-4 w-4" />
+            {updateProductVariants.isPending ? 'Guardando...' : 'Guardar Variantes'}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Botón para generar todas las variaciones */}
@@ -154,7 +186,7 @@ export const ProductVariantsManager = ({
 
         {/* Lista de variantes existentes */}
         <div className="space-y-2">
-          {variants.map(variant => (
+          {localVariants.map(variant => (
             <div key={variant.id} className="flex items-center justify-between p-3 border rounded">
               <div>
                 <div className="font-medium">{variant.name}</div>
