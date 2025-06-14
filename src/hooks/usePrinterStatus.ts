@@ -218,11 +218,12 @@ export const PrinterProvider = ({ children }: { children: React.ReactNode }) => 
         printData.push('\x1D\x21\x11'); // Fuente doble tamaño
         printData.push(`${item.product_name}\n`);
         printData.push('\x1D\x21\x00'); // Volver a fuente normal
-        
-        // Variante con fuente doble
-        printData.push('\x1D\x21\x11'); // Fuente doble tamaño
-        printData.push(`  ${item.variant_name}\n`);
-        printData.push('\x1D\x21\x00'); // Volver a fuente normal
+        if(item.variant_name && `${item.variant_name}`.toLowerCase() != `estándar`) {
+          // Variante con fuente doble
+          printData.push('\x1D\x21\x11'); // Fuente doble tamaño
+          printData.push(`  ${item.variant_name}\n`);
+          printData.push('\x1D\x21\x00'); // Volver a fuente normal
+        }
         
         // Precio y cantidad en fuente normal
         printData.push(`  ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}\n`);
@@ -243,18 +244,9 @@ export const PrinterProvider = ({ children }: { children: React.ReactNode }) => 
       // Información de pago
       if (orderData.payment_method === 'cash' && orderData.cash_received) {
         printData.push(`Recibido: $${orderData.cash_received.toLocaleString()}\n`);
-        printData.push(`Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}\n`);
+        printData.push(`Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}`);
       }
 
-      // Footer reducido
-      printData.push('\x1B\x61\x01'); // Centrar
-      printData.push('================================\n');
-      if (type === 'tienda') {
-        printData.push('COPIA TIENDA\n');
-      }
-      printData.push('================================\n');
-      printData.push('\x1B\x61\x00'); // Alinear izquierda
-      printData.push('\n'); // Solo un espacio
       printData.push('\x1D\x56\x42\x03'); // Cortar papel
 
       console.log('📤 Enviando datos de impresión a QZ Tray...');
