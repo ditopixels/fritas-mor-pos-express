@@ -1,7 +1,9 @@
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 export interface Expense {
   id: string;
@@ -13,35 +15,27 @@ export interface Expense {
   created_by_name: string;
 }
 
-export const useExpenses = (startDate?: string, endDate?: string) => {
-  return useQuery({
-    queryKey: ['expenses', startDate, endDate],
+export const useExpenses = () => {
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: expenses = [], isLoading } = useQuery({
+    queryKey: ['expenses'],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from('expenses')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (startDate) {
-        query = query.gte('created_at', startDate);
-      }
-      if (endDate) {
-        query = query.lte('created_at', endDate);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return data as Expense[];
     },
+    enabled: profile?.role === 'admin',
   });
-};
 
-export const useCreateExpense = () => {
-  const queryClient = useQueryClient();
-  const { profile } = useAuth();
-
-  return useMutation({
-    mutationFn: async (expenseData: {
+  const createExpenseMutation = useMutation({
+    mutationFn: async (expense: {
       type: 'comida' | 'operativo';
       amount: number;
       description: string;
@@ -49,8 +43,8 @@ export const useCreateExpense = () => {
       const { data, error } = await supabase
         .from('expenses')
         .insert({
-          ...expenseData,
-          created_by_name: profile?.name || 'Unknown'
+          ...expense,
+          created_by_name: profile?.name || 'Admin',
         })
         .select()
         .single();
@@ -60,57 +54,53 @@ export const useCreateExpense = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      toast({
+        title: "Gasto registrado",
+        description: "El gasto se ha registrado correctamente",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "No se pudo registrar el gasto",
+        variant: "destructive",
+      });
+      console.error('Error creating expense:', error);
     },
   });
-};
 
-export const useDeleteExpense = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (id: string) => {
+  const deleteExpenseMutation = useMutation({
+    mutationFn: async (expenseId: string) => {
       const { error } = await supabase
         .from('expenses')
         .delete()
-        .eq('id', id);
+        .eq('id', expenseId);
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      toast({
+        title: "Gasto eliminado",
+        description: "El gasto se ha eliminado correctamente",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el gasto",
+        variant: "destructive",
+      });
+      console.error('Error deleting expense:', error);
     },
   });
-};
 
-export const useExpensesSummary = (startDate?: string, endDate?: string) => {
-  return useQuery({
-    queryKey: ['expenses-summary', startDate, endDate],
-    queryFn: async () => {
-      let query = supabase
-        .from('expenses')
-        .select('type, amount');
-
-      if (startDate) {
-        query = query.gte('created_at', startDate);
-      }
-      if (endDate) {
-        query = query.lte('created_at', endDate);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      const summary = data.reduce((acc, expense) => {
-        acc[expense.type] = (acc[expense.type] || 0) + Number(expense.amount);
-        acc.total = (acc.total || 0) + Number(expense.amount);
-        return acc;
-      }, {} as Record<string, number>);
-
-      return {
-        comida: summary.comida || 0,
-        operativo: summary.operativo || 0,
-        total: summary.total || 0,
-      };
-    },
-  });
+  return {
+    expenses,
+    isLoading,
+    createExpense: createExpenseMutation.mutate,
+    deleteExpense: deleteExpenseMutation.mutate,
+    isCreating: createExpenseMutation.isPending,
+    isDeleting: deleteExpenseMutation.isPending,
+  };
 };

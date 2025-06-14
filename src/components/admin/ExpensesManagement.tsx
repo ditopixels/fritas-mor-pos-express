@@ -1,116 +1,117 @@
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useExpenses } from "@/hooks/useExpenses";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Download, Trash2, Calculator } from "lucide-react";
-import { useExpenses, useCreateExpense, useDeleteExpense, useExpensesSummary } from "@/hooks/useExpenses";
-import { toast } from "sonner";
-import { format } from "date-fns";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Trash2, Download, Plus, DollarSign } from "lucide-react";
 import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
 
 export const ExpensesManagement = () => {
+  const { expenses, isLoading, createExpense, deleteExpense, isCreating } = useExpenses();
   const [newExpense, setNewExpense] = useState({
     type: '' as 'comida' | 'operativo' | '',
     amount: '',
     description: '',
   });
-  const [dateFilter, setDateFilter] = useState({
-    startDate: '',
-    endDate: '',
-  });
+  const [dateFilter, setDateFilter] = useState('');
 
-  const { data: expenses = [], isLoading } = useExpenses(
-    dateFilter.startDate || undefined,
-    dateFilter.endDate || undefined
-  );
-  const { data: summary } = useExpensesSummary(
-    dateFilter.startDate || undefined,
-    dateFilter.endDate || undefined
-  );
-  const createExpense = useCreateExpense();
-  const deleteExpense = useDeleteExpense();
-
-  const handleCreateExpense = async () => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!newExpense.type || !newExpense.amount || !newExpense.description) {
-      toast.error("Todos los campos son obligatorios");
       return;
     }
 
-    try {
-      await createExpense.mutateAsync({
-        type: newExpense.type,
-        amount: parseFloat(newExpense.amount),
-        description: newExpense.description,
-      });
+    createExpense({
+      type: newExpense.type as 'comida' | 'operativo',
+      amount: parseFloat(newExpense.amount),
+      description: newExpense.description,
+    });
 
-      setNewExpense({ type: '', amount: '', description: '' });
-      toast.success("Gasto registrado correctamente");
-    } catch (error) {
-      console.error('Error creando gasto:', error);
-      toast.error("Error al registrar el gasto");
-    }
+    setNewExpense({ type: '', amount: '', description: '' });
   };
 
-  const handleDeleteExpense = async (id: string) => {
-    try {
-      await deleteExpense.mutateAsync(id);
-      toast.success("Gasto eliminado correctamente");
-    } catch (error) {
-      console.error('Error eliminando gasto:', error);
-      toast.error("Error al eliminar el gasto");
-    }
-  };
+  const filteredExpenses = expenses.filter(expense => {
+    if (!dateFilter) return true;
+    const expenseDate = format(new Date(expense.created_at), 'yyyy-MM-dd');
+    return expenseDate === dateFilter;
+  });
+
+  const totalComida = filteredExpenses
+    .filter(expense => expense.type === 'comida')
+    .reduce((sum, expense) => sum + expense.amount, 0);
+
+  const totalOperativo = filteredExpenses
+    .filter(expense => expense.type === 'operativo')
+    .reduce((sum, expense) => sum + expense.amount, 0);
+
+  const totalGeneral = totalComida + totalOperativo;
 
   const exportToExcel = () => {
-    const worksheetData = expenses.map(expense => ({
+    const exportData = filteredExpenses.map(expense => ({
       'Fecha': format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm'),
-      'Tipo': expense.type.charAt(0).toUpperCase() + expense.type.slice(1),
+      'Tipo': expense.type === 'comida' ? 'Comida' : 'Operativo',
       'Monto': expense.amount,
       'Descripción': expense.description,
       'Registrado por': expense.created_by_name,
     }));
 
-    // Agregar resumen al final
-    worksheetData.push(
-      {},
-      { 'Fecha': 'RESUMEN', 'Tipo': '', 'Monto': '', 'Descripción': '', 'Registrado por': '' },
-      { 'Fecha': 'Total Comida', 'Tipo': '', 'Monto': summary?.comida || 0, 'Descripción': '', 'Registrado por': '' },
-      { 'Fecha': 'Total Operativo', 'Tipo': '', 'Monto': summary?.operativo || 0, 'Descripción': '', 'Registrado por': '' },
-      { 'Fecha': 'TOTAL GENERAL', 'Tipo': '', 'Monto': summary?.total || 0, 'Descripción': '', 'Registrado por': '' }
-    );
+    // Agregar totales al final
+    exportData.push({
+      'Fecha': '',
+      'Tipo': 'TOTAL COMIDA',
+      'Monto': totalComida,
+      'Descripción': '',
+      'Registrado por': '',
+    });
+    exportData.push({
+      'Fecha': '',
+      'Tipo': 'TOTAL OPERATIVO',
+      'Monto': totalOperativo,
+      'Descripción': '',
+      'Registrado por': '',
+    });
+    exportData.push({
+      'Fecha': '',
+      'Tipo': 'TOTAL GENERAL',
+      'Monto': totalGeneral,
+      'Descripción': '',
+      'Registrado por': '',
+    });
 
-    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Gastos');
-
-    const today = format(new Date(), 'yyyy-MM-dd');
-    XLSX.writeFile(workbook, `gastos_${today}.xlsx`);
+    
+    const fileName = `gastos_${dateFilter || format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
   };
 
-  const getTypeColor = (type: string) => {
-    return type === 'comida' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
-  };
+  if (isLoading) {
+    return <div className="p-4">Cargando gastos...</div>;
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Formulario para agregar nuevo gasto */}
+    <div className="space-y-4 p-2 sm:p-4">
+      {/* Formulario para agregar gastos */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5" />
             Registrar Nuevo Gasto
           </CardTitle>
+          <CardDescription>
+            Agrega un nuevo gasto al sistema
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="expense-type">Tipo de Gasto</Label>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Select
                 value={newExpense.type}
                 onValueChange={(value: 'comida' | 'operativo') => 
@@ -118,177 +119,164 @@ export const ExpensesManagement = () => {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar tipo" />
+                  <SelectValue placeholder="Tipo de gasto" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="comida">Comida</SelectItem>
                   <SelectItem value="operativo">Operativo</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
 
-            <div>
-              <Label htmlFor="expense-amount">Monto</Label>
               <Input
-                id="expense-amount"
                 type="number"
-                placeholder="0.00"
+                placeholder="Monto"
                 value={newExpense.amount}
                 onChange={(e) => setNewExpense(prev => ({ ...prev, amount: e.target.value }))}
+                min="0"
+                step="0.01"
               />
             </div>
-          </div>
 
-          <div>
-            <Label htmlFor="expense-description">Descripción</Label>
             <Textarea
-              id="expense-description"
-              placeholder="Describe el gasto..."
+              placeholder="Descripción del gasto"
               value={newExpense.description}
               onChange={(e) => setNewExpense(prev => ({ ...prev, description: e.target.value }))}
               rows={3}
             />
-          </div>
 
-          <Button 
-            onClick={handleCreateExpense}
-            disabled={createExpense.isPending}
-            className="w-full md:w-auto"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            {createExpense.isPending ? 'Registrando...' : 'Registrar Gasto'}
-          </Button>
+            <Button type="submit" disabled={isCreating} className="w-full sm:w-auto">
+              {isCreating ? 'Registrando...' : 'Registrar Gasto'}
+            </Button>
+          </form>
         </CardContent>
       </Card>
 
-      {/* Resumen de gastos */}
-      {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Comida</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    ${summary.comida.toLocaleString()}
-                  </p>
-                </div>
-                <Calculator className="h-8 w-8 text-green-600" />
+      {/* Resumen y filtros */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Comida</p>
+                <p className="text-lg font-bold text-orange-600">
+                  ${totalComida.toLocaleString()}
+                </p>
               </div>
-            </CardContent>
-          </Card>
+              <DollarSign className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Operativo</p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    ${summary.operativo.toLocaleString()}
-                  </p>
-                </div>
-                <Calculator className="h-8 w-8 text-blue-600" />
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Operativo</p>
+                <p className="text-lg font-bold text-blue-600">
+                  ${totalOperativo.toLocaleString()}
+                </p>
               </div>
-            </CardContent>
-          </Card>
+              <DollarSign className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total General</p>
-                  <p className="text-2xl font-bold">
-                    ${summary.total.toLocaleString()}
-                  </p>
-                </div>
-                <Calculator className="h-8 w-8 text-gray-600" />
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total General</p>
+                <p className="text-lg font-bold text-green-600">
+                  ${totalGeneral.toLocaleString()}
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+              <DollarSign className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Filtros y acciones */}
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <Input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              placeholder="Filtrar por fecha"
+            />
+            <Button onClick={exportToExcel} variant="outline" size="sm" className="w-full">
+              <Download className="h-4 w-4 mr-2" />
+              Exportar Excel
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Lista de gastos */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <CardTitle>Historial de Gastos</CardTitle>
-            <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  placeholder="Fecha inicio"
-                  value={dateFilter.startDate}
-                  onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
-                  className="w-full md:w-auto"
-                />
-                <Input
-                  type="date"
-                  placeholder="Fecha fin"
-                  value={dateFilter.endDate}
-                  onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
-                  className="w-full md:w-auto"
-                />
-              </div>
-              <Button onClick={exportToExcel} variant="outline" className="w-full md:w-auto">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar Excel
-              </Button>
-            </div>
-          </div>
+          <CardTitle>Lista de Gastos</CardTitle>
+          <CardDescription>
+            {filteredExpenses.length} gastos {dateFilter && `para el ${format(new Date(dateFilter), 'dd/MM/yyyy')}`}
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">Cargando gastos...</div>
-          ) : expenses.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No hay gastos registrados en el período seleccionado
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Monto</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead>Registrado por</TableHead>
-                    <TableHead>Acciones</TableHead>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Monto</TableHead>
+                  <TableHead className="hidden sm:table-cell">Descripción</TableHead>
+                  <TableHead className="hidden md:table-cell">Registrado por</TableHead>
+                  <TableHead width="50">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredExpenses.map((expense) => (
+                  <TableRow key={expense.id}>
+                    <TableCell className="text-sm">
+                      {format(new Date(expense.created_at), 'dd/MM/yy HH:mm')}
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={expense.type === 'comida' ? 'secondary' : 'outline'}
+                        className={expense.type === 'comida' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}
+                      >
+                        {expense.type === 'comida' ? 'Comida' : 'Operativo'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      ${expense.amount.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell max-w-xs truncate">
+                      {expense.description}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                      {expense.created_by_name}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteExpense(expense.id)}
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {expenses.map((expense) => (
-                    <TableRow key={expense.id}>
-                      <TableCell>
-                        {format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm')}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getTypeColor(expense.type)}>
-                          {expense.type.charAt(0).toUpperCase() + expense.type.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        ${expense.amount.toLocaleString()}
-                      </TableCell>
-                      <TableCell>{expense.description}</TableCell>
-                      <TableCell>{expense.created_by_name}</TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDeleteExpense(expense.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                ))}
+                {filteredExpenses.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      No hay gastos registrados
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
