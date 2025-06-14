@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -264,6 +263,115 @@ export const useUpdateProductOrder = () => {
       if (errors.length > 0) {
         throw new Error('Error updating product order');
       }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+};
+
+export const useCreateProductVariant = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (variantData: {
+      product_id: string;
+      name: string;
+      sku: string;
+      price: number;
+      option_values: Record<string, string>;
+      is_active: boolean;
+      stock?: number;
+    }) => {
+      const { data, error } = await supabase
+        .from('product_variants')
+        .insert(variantData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+};
+
+export const useUpdateProductVariant = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<ProductVariant> }) => {
+      const { data, error } = await supabase
+        .from('product_variants')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+};
+
+export const useDeleteProductVariant = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('product_variants')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+};
+
+export const useUpdateProductVariants = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ productId, variants }: { productId: string; variants: ProductVariant[] }) => {
+      // Primero eliminar todas las variantes existentes del producto
+      const { error: deleteError } = await supabase
+        .from('product_variants')
+        .delete()
+        .eq('product_id', productId);
+
+      if (deleteError) throw deleteError;
+
+      // Luego insertar las nuevas variantes
+      if (variants.length > 0) {
+        const variantsToInsert = variants.map(variant => ({
+          product_id: productId,
+          name: variant.name,
+          sku: variant.sku,
+          price: variant.price,
+          option_values: variant.option_values,
+          is_active: variant.is_active,
+          stock: variant.stock,
+        }));
+
+        const { data, error: insertError } = await supabase
+          .from('product_variants')
+          .insert(variantsToInsert)
+          .select();
+
+        if (insertError) throw insertError;
+        return data;
+      }
+
+      return [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
