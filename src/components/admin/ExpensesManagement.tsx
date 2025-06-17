@@ -4,11 +4,10 @@ import { useExpenses } from "@/hooks/useExpenses";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Download, Plus, DollarSign } from "lucide-react";
+import { Trash2, Download, Plus, DollarSign, Utensils, Settings } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 
@@ -117,21 +116,39 @@ export const ExpensesManagement = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Select
-                value={newExpense.type}
-                onValueChange={(value: 'comida' | 'operativo') => 
-                  setNewExpense(prev => ({ ...prev, type: value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Tipo de gasto" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="comida">Comida</SelectItem>
-                  <SelectItem value="operativo">Operativo</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-4">
+              {/* Selector de tipo con botones */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Tipo de gasto</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={newExpense.type === 'comida' ? 'default' : 'outline'}
+                    className={`h-12 flex items-center gap-2 ${
+                      newExpense.type === 'comida' 
+                        ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                        : 'border-orange-200 text-orange-600 hover:bg-orange-50'
+                    }`}
+                    onClick={() => setNewExpense(prev => ({ ...prev, type: 'comida' }))}
+                  >
+                    <Utensils className="h-4 w-4" />
+                    Comida
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={newExpense.type === 'operativo' ? 'default' : 'outline'}
+                    className={`h-12 flex items-center gap-2 ${
+                      newExpense.type === 'operativo' 
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                        : 'border-blue-200 text-blue-600 hover:bg-blue-50'
+                    }`}
+                    onClick={() => setNewExpense(prev => ({ ...prev, type: 'operativo' }))}
+                  >
+                    <Settings className="h-4 w-4" />
+                    Operativo
+                  </Button>
+                </div>
+              </div>
 
               <Input
                 type="number"
