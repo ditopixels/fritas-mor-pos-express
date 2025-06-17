@@ -1,9 +1,8 @@
-
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, Tag, Printer } from "lucide-react";
+import { Eye, Tag, Printer, RefreshCw } from "lucide-react";
 import { SupabaseOrder } from "@/hooks/useOrders";
 import { TransferViewModal } from "./TransferViewModal";
 import { usePrinterStatus } from "@/hooks/usePrinterStatus";
@@ -11,16 +10,39 @@ import { useToast } from "@/hooks/use-toast";
 
 interface OrdersHistoryProps {
   orders: SupabaseOrder[];
+  onRefresh?: () => void;
 }
 
-export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
+export const OrdersHistory = ({ orders, onRefresh }: OrdersHistoryProps) => {
   const [selectedTransfer, setSelectedTransfer] = useState<{
     imageUrl: string;
     customerName: string;
   } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const { printInvoice } = usePrinterStatus();
   const { toast } = useToast();
+
+  const handleRefresh = async () => {
+    if (!onRefresh) return;
+    
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+      toast({
+        title: "Órdenes recargadas",
+        description: "El historial de órdenes se ha actualizado exitosamente",
+      });
+    } catch (error) {
+      toast({
+        title: "Error al recargar",
+        description: "No se pudo actualizar el historial de órdenes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handlePrintOrder = async (order: SupabaseOrder) => {
     try {
@@ -75,10 +97,26 @@ export const OrdersHistory = ({ orders }: OrdersHistoryProps) => {
     <div className="space-y-4 sm:space-y-6 p-2 sm:p-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg sm:text-xl">Historial de Órdenes</CardTitle>
-          <CardDescription className="text-sm">
-            Lista completa de todas las órdenes realizadas
-          </CardDescription>
+          <div className="flex flex-col space-y-2 sm:flex-row sm:justify-between sm:items-start sm:space-y-0">
+            <div>
+              <CardTitle className="text-lg sm:text-xl">Historial de Órdenes</CardTitle>
+              <CardDescription className="text-sm">
+                Lista completa de todas las órdenes realizadas
+              </CardDescription>
+            </div>
+            {onRefresh && (
+              <Button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Recargando...' : 'Recargar'}
+              </Button>
+            )}
+          </div>
         </CardHeader>
       </Card>
 

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { OptimizedProductGrid } from "@/components/pos/OptimizedProductGrid";
 import { OrderSummary } from "@/components/pos/OrderSummary";
@@ -15,7 +14,7 @@ import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
 const Index = () => {
   const { user, profile, loading, signOut } = useAuth();
-  const { data: orders, addOrderToLocal } = useOptimizedOrders(25);
+  const { data: orders, addOrderToLocal, forceRefresh } = useOptimizedOrders(25);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("pos");
   const [currentView, setCurrentView] = useState("pos");
@@ -145,7 +144,7 @@ const Index = () => {
             </TabsContent>
             
             <TabsContent value="orders" className="space-y-0">
-              <OrdersHistory orders={orders || []} />
+              <OrdersHistory orders={orders || []} onRefresh={forceRefresh} />
             </TabsContent>
           </Tabs>
         )}
