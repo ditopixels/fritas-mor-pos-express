@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import React from 'react';
 
@@ -232,10 +231,17 @@ export const PrinterProvider = ({ children }: { children: React.ReactNode }) => 
             if (Array.isArray(sauces) && sauces.length > 0) {
               sauces.forEach((unitSauces: string[], unitIndex: number) => {
                 if (Array.isArray(unitSauces) && unitSauces.length > 0) {
+                  // Agrupar salsas de 3 en 3 por línea
+                  const groupedSauces = [];
+                  for (let i = 0; i < unitSauces.length; i += 3) {
+                    groupedSauces.push(unitSauces.slice(i, i + 3).join(', '));
+                  }
+                  const formattedSauces = groupedSauces.join('\n    ');
+                  
                   if (item.quantity > 1) {
-                    printData.push(`  Unidad ${unitIndex + 1} - Salsas: ${unitSauces.join(', ')}\n`);
+                    printData.push(`  Unidad ${unitIndex + 1} - Salsas: ${formattedSauces}\n`);
                   } else {
-                    printData.push(`  Salsas: ${unitSauces.join(', ')}\n`);
+                    printData.push(`  Salsas: ${formattedSauces}\n`);
                   }
                 }
               });
@@ -244,7 +250,7 @@ export const PrinterProvider = ({ children }: { children: React.ReactNode }) => 
             console.log('Error parsing sauces:', e);
           }
         }
-        
+
         // Precio y cantidad en fuente normal
         printData.push(`  ${item.quantity} x $${item.price.toLocaleString()} = $${(item.quantity * item.price).toLocaleString()}\n`);
       });
