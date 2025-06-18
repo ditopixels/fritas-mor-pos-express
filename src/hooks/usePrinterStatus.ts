@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import React from 'react';
 
@@ -222,6 +223,26 @@ export const PrinterProvider = ({ children }: { children: React.ReactNode }) => 
           printData.push('\x1D\x21\x11'); // Fuente doble tamaño
           printData.push(`  ${item.variant_name}\n`);
           printData.push('\x1D\x21\x00'); // Volver a fuente normal
+        }
+        
+        // Salsas seleccionadas (si existen)
+        if (item.additional_selections) {
+          try {
+            const sauces = JSON.parse(item.additional_selections);
+            if (Array.isArray(sauces) && sauces.length > 0) {
+              sauces.forEach((unitSauces: string[], unitIndex: number) => {
+                if (Array.isArray(unitSauces) && unitSauces.length > 0) {
+                  if (item.quantity > 1) {
+                    printData.push(`  Unidad ${unitIndex + 1} - Salsas: ${unitSauces.join(', ')}\n`);
+                  } else {
+                    printData.push(`  Salsas: ${unitSauces.join(', ')}\n`);
+                  }
+                }
+              });
+            }
+          } catch (e) {
+            console.log('Error parsing sauces:', e);
+          }
         }
         
         // Precio y cantidad en fuente normal

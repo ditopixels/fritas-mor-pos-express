@@ -36,6 +36,7 @@ export interface SupabaseOrder {
     original_price?: number;
     quantity: number;
     applied_promotions?: any;
+    additional_selections?: string;
   }[];
 }
 
@@ -96,7 +97,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
 
       if (orderError) throw orderError;
 
-      // Crear los items de la orden con información completa de promociones
+      // Crear los items de la orden con información completa de promociones y salsas
       const orderItems = orderData.items.map(item => ({
         order_id: order.id,
         product_id: item.id,
@@ -109,6 +110,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
         quantity: item.quantity,
         applied_promotions: JSON.stringify(item.appliedPromotions || []),
         variant_options: JSON.stringify({}), // Por ahora vacío, se llenará con las opciones seleccionadas
+        additional_selections: item.selectedSauces ? JSON.stringify(item.selectedSauces) : null,
       }));
 
       const { data: createdItems, error: itemsError } = await supabase
@@ -130,6 +132,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
           original_price: item.original_price,
           quantity: item.quantity,
           applied_promotions: item.applied_promotions,
+          additional_selections: item.additional_selections,
         }))
       };
 

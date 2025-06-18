@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { OptimizedProductGrid } from "@/components/pos/OptimizedProductGrid";
 import { OrderSummary } from "@/components/pos/OrderSummary";
@@ -38,7 +39,7 @@ const Index = () => {
             : cartItem
         );
       } else {
-        return [...prevItems, { ...item, quantity: 1 }];
+        return [...prevItems, { ...item, quantity: 1, selectedSauces: [] }];
       }
     });
   };
@@ -48,11 +49,39 @@ const Index = () => {
       setCartItems(prevItems => prevItems.filter(item => item.sku !== sku));
     } else {
       setCartItems(prevItems =>
-        prevItems.map(item =>
-          item.sku === sku ? { ...item, quantity: newQuantity } : item
-        )
+        prevItems.map(item => {
+          if (item.sku === sku) {
+            const updatedItem = { ...item, quantity: newQuantity };
+            
+            // Ajustar el array de salsas al nuevo quantity
+            if (updatedItem.selectedSauces) {
+              if (newQuantity > updatedItem.selectedSauces.length) {
+                // Agregar arrays vacíos para las nuevas unidades
+                const newSauces = [...updatedItem.selectedSauces];
+                while (newSauces.length < newQuantity) {
+                  newSauces.push([]);
+                }
+                updatedItem.selectedSauces = newSauces;
+              } else {
+                // Recortar el array si se reduce la cantidad
+                updatedItem.selectedSauces = updatedItem.selectedSauces.slice(0, newQuantity);
+              }
+            }
+            
+            return updatedItem;
+          }
+          return item;
+        })
       );
     }
+  };
+
+  const updateItemSauces = (sku: string, sauces: string[][]) => {
+    setCartItems(prevItems =>
+      prevItems.map(item =>
+        item.sku === sku ? { ...item, selectedSauces: sauces } : item
+      )
+    );
   };
 
   const removeFromCart = (sku: string) => {
@@ -138,6 +167,7 @@ const Index = () => {
                     onClearCart={clearCart}
                     onProceedToPayment={handlePayment}
                     onOrderCreated={addOrderToLocal}
+                    onUpdateItemSauces={updateItemSauces}
                   />
                 </div>
               </div>

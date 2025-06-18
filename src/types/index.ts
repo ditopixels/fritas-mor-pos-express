@@ -10,6 +10,7 @@ export interface CartItem {
   variantId?: string;
   categoryId?: string;
   appliedPromotions?: AppliedPromotion[];
+  selectedSauces?: string[][];
 }
 
 export interface Order {

@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,8 @@ import { useCreateOrder, SupabaseOrder } from "@/hooks/useOrders";
 import { useToast } from "@/hooks/use-toast";
 import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 import { usePrinterStatus } from "@/hooks/usePrinterStatus";
+import { useCategories } from "@/hooks/useCategories";
+import { SauceSelector } from "./SauceSelector";
 
 interface OrderSummaryProps {
   items: CartItem[];
@@ -21,6 +24,7 @@ interface OrderSummaryProps {
   onClearCart: () => void;
   onProceedToPayment: (paymentMethod: string, customerName: string, cashReceived?: number, photoEvidence?: File) => void;
   onOrderCreated?: (order: SupabaseOrder) => void;
+  onUpdateItemSauces?: (sku: string, sauces: string[][]) => void;
 }
 
 export const OrderSummary = ({ 
@@ -30,7 +34,8 @@ export const OrderSummary = ({
   onRemoveItem, 
   onClearCart,
   onProceedToPayment,
-  onOrderCreated 
+  onOrderCreated,
+  onUpdateItemSauces 
 }: OrderSummaryProps) => {
   const [customerName, setCustomerName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -44,11 +49,41 @@ export const OrderSummary = ({
   const { toast } = useToast();
   const { calculatePromotions } = usePromotionCalculator();
   const { printInvoice } = usePrinterStatus();
+  const { data: categories } = useCategories();
 
   // Calcular promociones aplicadas a los items del carrito
   const subtotal = items.reduce((sum, item) => sum + ((item.originalPrice || item.price) * item.quantity), 0);
   const promotionResult = calculatePromotions(items, subtotal);
   const totalWithPromotions = promotionResult.newSubtotal;
+
+  // Función para verificar si una categoría permite salsas
+  const categoryAllowsSauces = (categoryId?: string) => {
+    if (!categoryId || !categories) return false;
+    const category = categories.find(cat => cat.id === categoryId);
+    if (!category) return false;
+    
+    const allowedCategories = ["Papas", "Hamburguesas", "Chuzos y Carnes"];
+    return allowedCategories.includes(category.name);
+  };
+
+  // Función para manejar cambios en las salsas
+  const handleSaucesChange = (itemSku: string, unitIndex: number, sauces: string[]) => {
+    if (!onUpdateItemSauces) return;
+    
+    const item = items.find(i => i.sku === itemSku);
+    if (!item) return;
+    
+    const currentSauces = item.selectedSauces || [];
+    const updatedSauces = [...currentSauces];
+    
+    // Asegurar que el array tenga el tamaño correcto
+    while (updatedSauces.length < item.quantity) {
+      updatedSauces.push([]);
+    }
+    
+    updatedSauces[unitIndex] = sauces;
+    onUpdateItemSauces(itemSku, updatedSauces);
+  };
 
   console.log('OrderSummary - Items:', items);
   console.log('OrderSummary - Subtotal:', subtotal);
@@ -214,69 +249,85 @@ export const OrderSummary = ({
               <ScrollArea className="h-full">
                 <div className="space-y-3 pr-2">
                   {promotionResult.updatedItems.map((item) => (
-                    <div key={item.sku} className="flex items-start justify-between space-x-3 p-3 border rounded-lg bg-white">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.productName}</p>
-                        <p className="text-xs text-gray-500 break-words line-clamp-2">{item.variantName}</p>
-                        
-                        <div className="flex items-center space-x-2 mt-1">
-                          {item.originalPrice && item.originalPrice > item.price ? (
-                            <>
-                              <span className="text-xs text-gray-500 line-through">
-                                ${item.originalPrice.toLocaleString()}
-                              </span>
-                              <span className="text-sm font-bold text-red-600">
-                                ${item.price.toLocaleString()}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-sm font-bold">${item.price.toLocaleString()}</span>
+                    <div key={item.sku} className="border rounded-lg bg-white p-3">
+                      <div className="flex items-start justify-between space-x-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.productName}</p>
+                          <p className="text-xs text-gray-500 break-words line-clamp-2">{item.variantName}</p>
+                          
+                          <div className="flex items-center space-x-2 mt-1">
+                            {item.originalPrice && item.originalPrice > item.price ? (
+                              <>
+                                <span className="text-xs text-gray-500 line-through">
+                                  ${item.originalPrice.toLocaleString()}
+                                </span>
+                                <span className="text-sm font-bold text-red-600">
+                                  ${item.price.toLocaleString()}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-sm font-bold">${item.price.toLocaleString()}</span>
+                            )}
+                          </div>
+                          
+                          {item.appliedPromotions && item.appliedPromotions.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.appliedPromotions.map((promo, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                  <Tag className="h-2 w-2 mr-1" />
+                                  {promo.promotionName}
+                                </Badge>
+                              ))}
+                            </div>
                           )}
                         </div>
                         
-                        {item.appliedPromotions && item.appliedPromotions.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {item.appliedPromotions.map((promo, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs bg-green-100 text-green-700">
-                                <Tag className="h-2 w-2 mr-1" />
-                                {promo.promotionName}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
+                        <div className="flex items-center space-x-1 flex-shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onUpdateQuantity(item.sku, item.quantity - 1)}
+                            disabled={item.quantity <= 1}
+                            className="h-7 w-7 p-0"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          
+                          <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onUpdateQuantity(item.sku, item.quantity + 1)}
+                            className="h-7 w-7 p-0"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onRemoveItem(item.sku)}
+                            className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
-                      
-                      <div className="flex items-center space-x-1 flex-shrink-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onUpdateQuantity(item.sku, item.quantity - 1)}
-                          disabled={item.quantity <= 1}
-                          className="h-7 w-7 p-0"
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        
-                        <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
-                        
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onUpdateQuantity(item.sku, item.quantity + 1)}
-                          className="h-7 w-7 p-0"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                        
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onRemoveItem(item.sku)}
-                          className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
+
+                      {/* Selector de salsas si la categoría lo permite */}
+                      {categoryAllowsSauces(item.categoryId) && (
+                        <div className="mt-3">
+                          {Array.from({ length: item.quantity }, (_, index) => (
+                            <SauceSelector
+                              key={`${item.sku}-${index}`}
+                              unitIndex={index}
+                              selectedSauces={item.selectedSauces?.[index] || []}
+                              onSaucesChange={(unitIndex, sauces) => handleSaucesChange(item.sku, unitIndex, sauces)}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
