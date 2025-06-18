@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash2, Minus, Plus, Camera, CreditCard, DollarSign, Tag, Printer } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Trash2, Minus, Plus, Camera, CreditCard, DollarSign, Tag, Printer, Truck } from "lucide-react";
 import { CartItem } from "@/types";
 import { useCreateOrder, SupabaseOrder } from "@/hooks/useOrders";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +37,7 @@ export const OrderSummary = ({
   const [cashReceived, setCashReceived] = useState<number | undefined>();
   const [photoEvidence, setPhotoEvidence] = useState<File | undefined>();
   const [lastCreatedOrder, setLastCreatedOrder] = useState<SupabaseOrder | null>(null);
+  const [isDelivery, setIsDelivery] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const createOrderMutation = useCreateOrder(onOrderCreated);
@@ -137,6 +139,7 @@ export const OrderSummary = ({
         cash_received: paymentMethod === "cash" ? cashReceived : undefined,
         photo_evidence: photoBase64,
         items: promotionResult.updatedItems,
+        is_delivery: isDelivery,
       };
 
       console.log('Datos de la orden preparados:', orderData);
@@ -151,6 +154,7 @@ export const OrderSummary = ({
       setPaymentMethod("");
       setCashReceived(undefined);
       setPhotoEvidence(undefined);
+      setIsDelivery(false);
       onClearCart();
       onProceedToPayment(paymentMethod, customerName, cashReceived, photoEvidence);
 
@@ -337,6 +341,19 @@ export const OrderSummary = ({
                     onChange={(e) => setCustomerName(e.target.value)}
                     className="mt-1"
                   />
+                </div>
+
+                {/* Checkbox de domicilio */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="delivery"
+                    checked={isDelivery}
+                    onCheckedChange={(checked) => setIsDelivery(checked === true)}
+                  />
+                  <Label htmlFor="delivery" className="text-sm flex items-center">
+                    <Truck className="h-3 w-3 mr-1" />
+                    Para llevar / Domicilio
+                  </Label>
                 </div>
 
                 <div>

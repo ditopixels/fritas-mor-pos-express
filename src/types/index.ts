@@ -25,6 +25,7 @@ export interface Order {
   createdAt: Date;
   status: string;
   appliedPromotions?: AppliedPromotion[];
+  isDelivery?: boolean;
 }
 
 export interface User {

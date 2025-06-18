@@ -152,6 +152,7 @@ export type Database = {
           created_at: string
           customer_name: string
           id: string
+          is_delivery: boolean
           order_number: string
           payment_method: string
           photo_evidence: string | null
@@ -167,6 +168,7 @@ export type Database = {
           created_at?: string
           customer_name: string
           id?: string
+          is_delivery?: boolean
           order_number: string
           payment_method: string
           photo_evidence?: string | null
@@ -182,6 +184,7 @@ export type Database = {
           created_at?: string
           customer_name?: string
           id?: string
+          is_delivery?: boolean
           order_number?: string
           payment_method?: string
           photo_evidence?: string | null

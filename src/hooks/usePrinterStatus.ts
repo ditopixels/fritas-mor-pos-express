@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import React from 'react';
 
@@ -204,6 +203,7 @@ export const PrinterProvider = ({ children }: { children: React.ReactNode }) => 
         `Cliente: ${orderData.customer_name}\n`,
         `Fecha: ${new Date(orderData.created_at).toLocaleString('es-ES')}\n`,
         `Pago: ${orderData.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}\n`,
+        `Domicilio: ${orderData.is_delivery ? 'SÍ' : 'NO'}\n`,
         '--------------------------------\n',
         
         // Items - Productos con fuente más grande
@@ -212,7 +212,6 @@ export const PrinterProvider = ({ children }: { children: React.ReactNode }) => 
         '\x1B\x45\x00', // Negrita OFF
       ];
 
-      // Agregar items con fuente más grande para nombres de productos y opciones
       orderData.order_items.forEach((item: any) => {
         // Producto principal con fuente doble
         printData.push('\x1D\x21\x11'); // Fuente doble tamaño
@@ -244,7 +243,10 @@ export const PrinterProvider = ({ children }: { children: React.ReactNode }) => 
       // Información de pago
       if (orderData.payment_method === 'cash' && orderData.cash_received) {
         printData.push(`Recibido: $${orderData.cash_received.toLocaleString()}\n`);
-        printData.push(`Cambio: $${(orderData.cash_received - orderData.total).toLocaleString()}`);
+        const change = orderData.cash_received - orderData.total;
+        if (change > 0) {
+          printData.push(`Cambio: $${change.toLocaleString()}\n`);
+        }
       }
 
       printData.push('\x1D\x56\x42\x03'); // Cortar papel
@@ -263,7 +265,6 @@ export const PrinterProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, [initializeQZ]);
 
-  // Efecto para la verificación inicial ÚNICAMENTE
   useEffect(() => {
     console.log('🔄 Inicializando usePrinterStatus...');
     mountedRef.current = true;
