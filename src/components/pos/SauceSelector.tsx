@@ -18,7 +18,8 @@ const AVAILABLE_SAUCES = [
   'Tomate',
   'Mayonesa',
   'Mostaza',
-  'Maíz'
+  'Maíz',
+  'Todas'
 ];
 
 export const SauceSelector = ({ unitIndex, selectedSauces, onSaucesChange }: SauceSelectorProps) => {
