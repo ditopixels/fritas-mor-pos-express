@@ -6,12 +6,8 @@ import { SalesMetrics } from "./SalesMetrics";
 import CatalogManagement from "./CatalogManagement";
 import { PromotionsManagement } from "./PromotionsManagement";
 import { ExpensesManagement } from "./ExpensesManagement";
-import { SupabaseOrder } from "@/hooks/useOrders";
+import { useOrders, SupabaseOrder } from "@/hooks/useOrders";
 import { Order } from "@/types";
-
-interface AdminDashboardProps {
-  orders: SupabaseOrder[];
-}
 
 // Helper function to safely parse JSON
 const safeJsonParse = (jsonString: any): any[] => {
@@ -61,11 +57,23 @@ const transformSupabaseOrderToOrder = (supabaseOrder: SupabaseOrder): Order => {
   };
 };
 
-export const AdminDashboard = ({ orders }: AdminDashboardProps) => {
+export const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("metrics");
+  const { data: orders = [], isLoading } = useOrders();
 
   // Transformar las órdenes de Supabase al formato esperado
   const transformedOrders: Order[] = orders.map(transformSupabaseOrderToOrder);
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-2 sm:p-4 lg:p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+          <span className="ml-2">Cargando métricas...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-2 sm:p-4 lg:p-6">

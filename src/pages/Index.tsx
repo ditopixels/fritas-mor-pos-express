@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { OptimizedProductGrid } from "@/components/pos/OptimizedProductGrid";
 import { OrderSummary } from "@/components/pos/OrderSummary";
@@ -15,7 +14,7 @@ import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
 const Index = () => {
   const { user, profile, loading, signOut } = useAuth();
-  const { data: orders, addOrderToLocal, forceRefresh } = useOptimizedOrders(25);
+  const { data: orders, addOrderToLocal, forceRefresh } = useOptimizedOrders(40);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("pos");
   const [currentView, setCurrentView] = useState("pos");
@@ -135,7 +134,7 @@ const Index = () => {
       
       <div className="container mx-auto p-4">
         {currentView === 'admin' && profile.role === 'admin' ? (
-          <AdminDashboard orders={orders || []} />
+          <AdminDashboard />
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
