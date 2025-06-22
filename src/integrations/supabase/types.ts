@@ -148,6 +148,7 @@ export type Database = {
       orders: {
         Row: {
           applied_promotions: Json | null
+          cancellation_reason: string | null
           cash_received: number | null
           created_at: string
           customer_name: string
@@ -164,6 +165,7 @@ export type Database = {
         }
         Insert: {
           applied_promotions?: Json | null
+          cancellation_reason?: string | null
           cash_received?: number | null
           created_at?: string
           customer_name: string
@@ -180,6 +182,7 @@ export type Database = {
         }
         Update: {
           applied_promotions?: Json | null
+          cancellation_reason?: string | null
           cash_received?: number | null
           created_at?: string
           customer_name?: string

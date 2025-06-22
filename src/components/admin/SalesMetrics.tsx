@@ -5,6 +5,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { CalendarIcon, Download, TrendingUp, DollarSign, Package, Clock, Minus, TrendingDown, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
@@ -49,6 +51,9 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     to: new Date()
   });
 
+  // Nuevo estado para incluir/excluir órdenes canceladas
+  const [includeCancelledOrders, setIncludeCancelledOrders] = useState(false);
+
   // Estados para la grid de productos
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>('quantity');
@@ -62,15 +67,25 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   const { data: categories } = useCategories();
 
   const filteredOrders = useMemo(() => {
-    if (!dateRange.from || !dateRange.to) return orders;
-    
-    return orders.filter(order => 
-      isWithinInterval(order.createdAt, {
-        start: startOfDay(dateRange.from!),
-        end: endOfDay(dateRange.to!)
-      })
-    );
-  }, [orders, dateRange]);
+    let filtered = orders;
+
+    // Filtro por rango de fechas
+    if (dateRange.from && dateRange.to) {
+      filtered = filtered.filter(order => 
+        isWithinInterval(order.createdAt, {
+          start: startOfDay(dateRange.from!),
+          end: endOfDay(dateRange.to!)
+        })
+      );
+    }
+
+    // Filtro por estado de cancelación
+    if (!includeCancelledOrders) {
+      filtered = filtered.filter(order => order.status !== 'cancelled');
+    }
+
+    return filtered;
+  }, [orders, dateRange, includeCancelledOrders]);
 
   const filteredExpenses = useMemo(() => {
     if (!dateRange.from || !dateRange.to || !expenses) return [];
@@ -263,7 +278,6 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     };
   }, [filteredOrders, filteredExpenses]);
 
-  // Filtrar y procesar productos para mostrar
   const processedProducts = useMemo(() => {
     let filtered = productSalesData;
     // Filtrar por categoría
@@ -335,6 +349,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const summaryData = [
       ['Métrica', 'Valor'],
       ['Período', `${format(dateRange.from!, 'dd/MM/yyyy')} - ${format(dateRange.to!, 'dd/MM/yyyy')}`],
+      ['Incluye órdenes canceladas', includeCancelledOrders ? 'Sí' : 'No'],
       ['Total Ingresos', salesMetrics.totalRevenue.toString()],
       ['Total Gastos', salesMetrics.totalExpenses.toString()],
       ['Ganancia Neta', salesMetrics.netProfit.toString()],
@@ -373,7 +388,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Selector de período */}
+      {/* Selector de período y filtros */}
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
@@ -381,6 +396,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
               <CardTitle className="text-lg sm:text-xl">Métricas de Ventas</CardTitle>
               <CardDescription className="text-sm">
                 Análisis detallado del rendimiento del negocio
+                {!includeCancelledOrders && " (excluyendo órdenes canceladas)"}
               </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
@@ -423,6 +439,18 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                 <span className="text-xs sm:text-sm">Exportar Excel</span>
               </Button>
             </div>
+          </div>
+          
+          {/* Filtro para incluir órdenes canceladas */}
+          <div className="flex items-center space-x-2 pt-3 border-t">
+            <Switch
+              id="include-cancelled"
+              checked={includeCancelledOrders}
+              onCheckedChange={setIncludeCancelledOrders}
+            />
+            <Label htmlFor="include-cancelled" className="text-sm">
+              Incluir órdenes canceladas en las métricas
+            </Label>
           </div>
         </CardHeader>
       </Card>
@@ -579,7 +607,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
         </Card>
       </div>
 
-      {/* Mapa de Calor de Horarios - Nuevo componente */}
+      {/* Mapa de Calor de Horarios - usando órdenes filtradas */}
       <SalesHeatmap orders={filteredOrders} />
 
       {/* Grid de ventas por productos con tabs por categorías */}
@@ -746,8 +774,8 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
         </CardContent>
       </Card>
 
-      {/* Lista de órdenes recientes con paginación */}
-      <RecentOrdersList dateRange={dateRange} />
+      {/* Lista de órdenes recientes con paginación - pasando el filtro de canceladas */}
+      <RecentOrdersList dateRange={dateRange} includeCancelledOrders={includeCancelledOrders} />
     </div>
   );
 };

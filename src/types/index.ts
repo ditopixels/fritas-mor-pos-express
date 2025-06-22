@@ -24,9 +24,10 @@ export interface Order {
   cashReceived?: number;
   photoEvidence?: string;
   createdAt: Date;
-  status: string;
+  status: 'completed' | 'cancelled' | 'pending';
   appliedPromotions?: AppliedPromotion[];
   isDelivery?: boolean;
+  cancellationReason?: string;
 }
 
 export interface User {

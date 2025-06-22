@@ -3,10 +3,11 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Eye, Printer, Tag } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Printer, Tag, Ban } from "lucide-react";
 import { SupabaseOrder } from "@/hooks/useOrders";
 import { useIncrementalOrders } from "@/hooks/useIncrementalOrders";
 import { TransferViewModal } from "@/components/pos/TransferViewModal";
+import { CancelOrderModal } from "./CancelOrderModal";
 import { usePrinterStatus } from "@/hooks/usePrinterStatus";
 import { useToast } from "@/hooks/use-toast";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
@@ -16,30 +17,37 @@ interface RecentOrdersListProps {
     from: Date | undefined;
     to: Date | undefined;
   };
+  includeCancelledOrders?: boolean;
 }
 
-export const RecentOrdersList = ({ dateRange }: RecentOrdersListProps) => {
+export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false }: RecentOrdersListProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedTransfer, setSelectedTransfer] = useState<{
     imageUrl: string;
     customerName: string;
   } | null>(null);
+  const [orderToCancel, setOrderToCancel] = useState<SupabaseOrder | null>(null);
   
   const itemsPerPage = 25;
   const offset = (currentPage - 1) * itemsPerPage;
   
-  const { data: allOrders, isLoading } = useIncrementalOrders(1000); // Cargar más para paginar
+  const { data: allOrders, isLoading, refetch } = useIncrementalOrders(1000);
   const { printInvoice } = usePrinterStatus();
   const { toast } = useToast();
 
-  // Filtrar órdenes por rango de fechas
+  // Filtrar órdenes por rango de fechas y estado de cancelación
   const filteredOrders = allOrders?.filter(order => {
-    if (!dateRange.from || !dateRange.to) return true;
+    // Filtro por fecha
+    const dateFilter = !dateRange.from || !dateRange.to || 
+      isWithinInterval(new Date(order.created_at), {
+        start: startOfDay(dateRange.from),
+        end: endOfDay(dateRange.to)
+      });
     
-    return isWithinInterval(new Date(order.created_at), {
-      start: startOfDay(dateRange.from),
-      end: endOfDay(dateRange.to)
-    });
+    // Filtro por estado de cancelación
+    const statusFilter = includeCancelledOrders || order.status !== 'cancelled';
+    
+    return dateFilter && statusFilter;
   }) || [];
 
   // Paginar órdenes filtradas
@@ -65,6 +73,10 @@ export const RecentOrdersList = ({ dateRange }: RecentOrdersListProps) => {
     }
   };
 
+  const handleOrderCancelled = () => {
+    refetch();
+  };
+
   const getPaymentMethodBadge = (method: string) => {
     switch (method) {
       case 'cash':
@@ -73,6 +85,19 @@ export const RecentOrdersList = ({ dateRange }: RecentOrdersListProps) => {
         return <Badge variant="outline" className="bg-blue-50 text-blue-700 text-xs">Transferencia</Badge>;
       default:
         return <Badge variant="outline" className="text-xs">{method}</Badge>;
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">Completada</Badge>;
+      case 'cancelled':
+        return <Badge variant="outline" className="bg-red-50 text-red-700 text-xs">Cancelada</Badge>;
+      case 'pending':
+        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 text-xs">Pendiente</Badge>;
+      default:
+        return <Badge variant="outline" className="text-xs">{status}</Badge>;
     }
   };
 
@@ -115,6 +140,7 @@ export const RecentOrdersList = ({ dateRange }: RecentOrdersListProps) => {
               <CardTitle className="text-lg">Órdenes Recientes</CardTitle>
               <CardDescription className="text-sm">
                 {filteredOrders.length} órdenes encontradas - Página {currentPage} de {totalPages}
+                {!includeCancelledOrders && " (excluyendo canceladas)"}
               </CardDescription>
             </div>
             <div className="flex items-center space-x-2">
@@ -153,13 +179,21 @@ export const RecentOrdersList = ({ dateRange }: RecentOrdersListProps) => {
           </Card>
         ) : (
           paginatedOrders.map((order) => (
-            <Card key={order.id} className="overflow-hidden">
+            <Card key={order.id} className={`overflow-hidden ${order.status === 'cancelled' ? 'bg-red-50 border-red-200' : ''}`}>
               <CardHeader className="pb-2">
                 <div className="flex flex-col space-y-2 sm:flex-row sm:justify-between sm:items-start sm:space-y-0">
                   <div className="min-w-0 flex-1">
-                    <CardTitle className="text-base sm:text-lg">{order.order_number}</CardTitle>
+                    <div className="flex items-center gap-2 mb-1">
+                      <CardTitle className="text-base sm:text-lg">{order.order_number}</CardTitle>
+                      {getStatusBadge(order.status)}
+                    </div>
                     <CardDescription className="text-xs sm:text-sm">
                       Cliente: <span className="font-medium">{order.customer_name}</span> • {formatDate(order.created_at)}
+                      {order.status === 'cancelled' && order.cancellation_reason && (
+                        <div className="text-red-600 mt-1">
+                          <span className="font-medium">Razón de cancelación:</span> {order.cancellation_reason}
+                        </div>
+                      )}
                     </CardDescription>
                   </div>
                   <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2 shrink-0">
@@ -184,10 +218,22 @@ export const RecentOrdersList = ({ dateRange }: RecentOrdersListProps) => {
                         variant="outline"
                         onClick={() => handlePrintOrder(order)}
                         className="text-xs"
+                        disabled={order.status === 'cancelled'}
                       >
                         <Printer className="h-3 w-3 mr-1" />
                         Imprimir
                       </Button>
+                      {order.status !== 'cancelled' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setOrderToCancel(order)}
+                          className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Ban className="h-3 w-3 mr-1" />
+                          Cancelar
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -248,7 +294,7 @@ export const RecentOrdersList = ({ dateRange }: RecentOrdersListProps) => {
                   </div>
                   
                   <div className="space-y-2 text-sm">
-                    <div className="bg-gray-50 p-3 rounded space-y-2">
+                    <div className={`p-3 rounded space-y-2 ${order.status === 'cancelled' ? 'bg-red-50' : 'bg-gray-50'}`}>
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
                         <span className="font-medium">${order.subtotal.toLocaleString()}</span>
@@ -264,7 +310,9 @@ export const RecentOrdersList = ({ dateRange }: RecentOrdersListProps) => {
                       )}
                       <div className="flex justify-between font-bold text-base border-t pt-2">
                         <span>Total:</span>
-                        <span className="text-green-600">${order.total.toLocaleString()}</span>
+                        <span className={order.status === 'cancelled' ? 'text-red-600' : 'text-green-600'}>
+                          ${order.total.toLocaleString()}
+                        </span>
                       </div>
                       {order.cash_received && (
                         <>
@@ -297,6 +345,13 @@ export const RecentOrdersList = ({ dateRange }: RecentOrdersListProps) => {
           customerName={selectedTransfer.customerName}
         />
       )}
+
+      <CancelOrderModal
+        isOpen={!!orderToCancel}
+        onClose={() => setOrderToCancel(null)}
+        order={orderToCancel}
+        onOrderCancelled={handleOrderCancelled}
+      />
     </div>
   );
 };
