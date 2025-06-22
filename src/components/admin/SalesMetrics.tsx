@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -668,8 +667,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                       <TableCell className={`text-center font-semibold ${product.quantity === 0 ? 'text-gray-400' : ''}`}>
                         {product.quantity}
                       </TableCell>
-                      <TableCell className={`text-right font-semibold ${product.quantity === 0 ? '
-                        ' : 'text-green-600'}`}>
+                      <TableCell className={`text-right font-semibold ${product.quantity === 0 ? 'text-gray-400' : 'text-green-600'}`}>
                         ${product.revenue.toLocaleString()}
                       </TableCell>
                     </TableRow>
