@@ -18,7 +18,7 @@ const AVAILABLE_SAUCES = [
   'Tomate',
   'Mayonesa',
   'Mostaza',
-  'Maíz',
+  'Maiz',
   'Todas'
 ];
 

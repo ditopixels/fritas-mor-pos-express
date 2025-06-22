@@ -95,16 +95,18 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
 
     filteredOrders.forEach(order => {
       order.items.forEach(item => {
+        
+        // Si tiene variantId, usar eso, sino usar el productId
+        const key = item.sku.split("-default")[0]
+        
         console.log('Processing item:', {
           productId: item.id,
-          variantId: item.variantId,
+          variantId: item.sku,
           quantity: item.quantity,
-          price: item.price
+          price: item.price,
+          item,
+          key
         });
-
-        // Si tiene variantId, usar eso, sino usar el productId
-        const key = item.variantId || item.id;
-        
         if (!salesMap.has(key)) {
           salesMap.set(key, { quantity: 0, revenue: 0 });
         }
@@ -130,7 +132,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       if (product.variants && product.variants.length > 0) {
         // Producto con variantes
         product.variants.forEach(variant => {
-          const salesData = salesMap.get(variant.id);
+          const salesData = salesMap.get(variant.sku);
           const quantity = salesData?.quantity || 0;
           const revenue = salesData?.revenue || 0;
 
@@ -138,7 +140,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
           totalRevenue += revenue;
 
           variants.push({
-            variantId: variant.id,
+            variantId: variant.sku,
             variantName: variant.name,
             quantity,
             revenue
@@ -263,7 +265,6 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   // Filtrar y procesar productos para mostrar
   const processedProducts = useMemo(() => {
     let filtered = productSalesData;
-
     // Filtrar por categoría
     if (selectedCategory !== "all") {
       filtered = filtered.filter(product => product.categoryId === selectedCategory);
@@ -598,7 +599,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                   className="pl-10"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 overflow-x-auto">
                 <Button
                   variant={showZeroSales ? 'default' : 'outline'}
                   size="sm"
