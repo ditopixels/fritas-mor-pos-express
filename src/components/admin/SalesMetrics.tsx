@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,13 +6,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarIcon, Download, TrendingUp, DollarSign, Package, Clock, Minus, TrendingDown, Search, ArrowUpDown, ArrowUp, ArrowDown, Eye, EyeOff } from "lucide-react";
+import { CalendarIcon, Download, TrendingUp, DollarSign, Package, Clock, Minus, TrendingDown, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { Order } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line, LineChart } from "recharts";
 import { useExpenses } from "@/hooks/useExpenses";
-import { useProducts } from "@/hooks/useProducts";
 import * as XLSX from "xlsx";
 
 interface SalesMetricsProps {
@@ -24,7 +24,6 @@ interface ProductSalesData {
   quantity: number;
   revenue: number;
   fullName: string; // Para búsqueda
-  hasSales: boolean; // Para identificar productos sin ventas
 }
 
 type SortField = 'quantity' | 'revenue';
@@ -44,11 +43,9 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   const [sortField, setSortField] = useState<SortField>('quantity');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [currentPage, setCurrentPage] = useState(1);
-  const [showProductsWithoutSales, setShowProductsWithoutSales] = useState(true);
   const itemsPerPage = 10;
 
   const { expenses } = useExpenses();
-  const { data: products } = useProducts();
 
   const filteredOrders = useMemo(() => {
     if (!dateRange.from || !dateRange.to) return orders;
@@ -85,61 +82,26 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const netProfit = totalRevenue - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
-    // Crear lista base de todos los productos y variantes
-    const allProductVariants: Record<string, ProductSalesData> = {};
-    
-    if (products) {
-      products.forEach(product => {
-        if (product.variants && product.variants.length > 0) {
-          product.variants.forEach(variant => {
-            const key = `${product.name}|||${variant.name}`;
-            allProductVariants[key] = {
-              productName: product.name,
-              variantName: variant.name,
-              quantity: 0,
-              revenue: 0,
-              fullName: `${product.name} - ${variant.name}`,
-              hasSales: false
-            };
-          });
-        } else {
-          // Producto sin variantes
-          const key = `${product.name}|||Sin variación`;
-          allProductVariants[key] = {
-            productName: product.name,
-            variantName: 'Sin variación',
-            quantity: 0,
-            revenue: 0,
-            fullName: `${product.name} - Sin variación`,
-            hasSales: false
-          };
-        }
-      });
-    }
-
-    // Ventas por productos - actualizar con datos reales
-    filteredOrders.forEach(order => {
+    // Ventas por productos - TODOS los productos con diferenciación de variantes
+    const productSales = filteredOrders.reduce((acc, order) => {
       order.items.forEach(item => {
         const key = `${item.productName}|||${item.variantName}`;
-        if (allProductVariants[key]) {
-          allProductVariants[key].quantity += item.quantity;
-          allProductVariants[key].revenue += item.price * item.quantity;
-          allProductVariants[key].hasSales = true;
-        } else {
-          // Producto que existe en ventas pero no en catálogo actual
-          allProductVariants[key] = {
+        if (!acc[key]) {
+          acc[key] = { 
             productName: item.productName,
             variantName: item.variantName,
-            quantity: item.quantity,
-            revenue: item.price * item.quantity,
-            fullName: `${item.productName} - ${item.variantName}`,
-            hasSales: true
+            quantity: 0, 
+            revenue: 0,
+            fullName: `${item.productName} - ${item.variantName}`
           };
         }
+        acc[key].quantity += item.quantity;
+        acc[key].revenue += item.price * item.quantity;
       });
-    });
+      return acc;
+    }, {} as Record<string, ProductSalesData>);
 
-    const allProductSales = Object.values(allProductVariants);
+    const allProductSales = Object.values(productSales);
 
     // Ingresos por día
     const dailyRevenue = filteredOrders.reduce((acc, order) => {
@@ -209,16 +171,11 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       expensesByType: Object.values(expensesByType),
       paymentMethods: Object.values(paymentMethods)
     };
-  }, [filteredOrders, filteredExpenses, products]);
+  }, [filteredOrders, filteredExpenses]);
 
   // Lógica para filtrar, ordenar y paginar productos
   const processedProductSales = useMemo(() => {
     let filtered = metrics.allProductSales;
-
-    // Filtrar productos sin ventas si está deshabilitado
-    if (!showProductsWithoutSales) {
-      filtered = filtered.filter(product => product.hasSales);
-    }
 
     // Filtrar por término de búsqueda
     if (searchTerm) {
@@ -227,13 +184,8 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       );
     }
 
-    // Ordenar - productos con ventas primero cuando se ordena por cantidad/ingresos desc
+    // Ordenar
     filtered.sort((a, b) => {
-      // Si ordenamos por cantidad o ingresos descendente, productos con ventas van primero
-      if (sortDirection === 'desc' && a.hasSales !== b.hasSales) {
-        return a.hasSales ? -1 : 1;
-      }
-      
       const aValue = a[sortField];
       const bValue = b[sortField];
       const multiplier = sortDirection === 'asc' ? 1 : -1;
@@ -241,7 +193,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     });
 
     return filtered;
-  }, [metrics.allProductSales, searchTerm, sortField, sortDirection, showProductsWithoutSales]);
+  }, [metrics.allProductSales, searchTerm, sortField, sortDirection]);
 
   // Paginación
   const totalPages = Math.ceil(processedProductSales.length / itemsPerPage);
@@ -316,22 +268,22 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const expensesSheet = XLSX.utils.aoa_to_sheet(expensesData);
     XLSX.utils.book_append_sheet(workbook, expensesSheet, 'Gastos');
 
-    // Hoja de productos - TODOS los productos incluyendo sin ventas
+    // Hoja de productos - COMPLETA
     const productsData = [
-      ['Producto', 'Variación', 'Cantidad Vendida', 'Ingresos', 'Tiene Ventas']
+      ['Producto', 'Variación', 'Cantidad Vendida', 'Ingresos']
     ];
     metrics.allProductSales.forEach(product => {
       productsData.push([
         product.productName,
         product.variantName,
         product.quantity.toString(),
-        product.revenue.toString(),
-        product.hasSales ? 'Sí' : 'No'
+        product.revenue.toString()
       ]);
     });
     const productsSheet = XLSX.utils.aoa_to_sheet(productsData);
-    XLSX.utils.book_append_sheet(workbook, productsSheet, 'Todos los Productos');
+    XLSX.utils.book_append_sheet(workbook, productsSheet, 'Ventas por Productos');
 
+    // Descargar archivo
     const fileName = `reporte-ventas-completo-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
     XLSX.writeFile(workbook, fileName);
   };
@@ -549,10 +501,9 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       {/* Nueva tabla completa de ventas por productos */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Análisis Completo de Productos</CardTitle>
+          <CardTitle className="text-lg">Ventas por Productos</CardTitle>
           <CardDescription>
-            Todos los productos del catálogo con análisis de ventas - {processedProductSales.length} resultados
-            {!showProductsWithoutSales && ` (${metrics.allProductSales.filter(p => !p.hasSales).length} productos sin ventas ocultos)`}
+            Análisis completo de ventas por producto y variación con {processedProductSales.length} resultados
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -571,18 +522,6 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
               />
             </div>
             <div className="flex gap-2">
-              <Button
-                variant={showProductsWithoutSales ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  setShowProductsWithoutSales(!showProductsWithoutSales);
-                  setCurrentPage(1);
-                }}
-                className="flex items-center gap-2"
-              >
-                {showProductsWithoutSales ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                Sin ventas
-              </Button>
               <Button
                 variant={sortField === 'quantity' && sortDirection === 'desc' ? 'default' : 'outline'}
                 size="sm"
@@ -643,23 +582,22 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                 {paginatedProducts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8 text-gray-500">
-                      {searchTerm ? 'No se encontraron productos que coincidan con la búsqueda' : 'No hay datos de productos'}
+                      {searchTerm ? 'No se encontraron productos que coincidan con la búsqueda' : 'No hay datos de productos vendidos'}
                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedProducts.map((product, index) => (
                     <TableRow key={`${product.productName}-${product.variantName}`} className="hover:bg-gray-50">
-                      <TableCell className={`font-medium ${!product.hasSales ? 'text-gray-500' : ''}`}>
+                      <TableCell className="font-medium">
                         {product.productName}
                       </TableCell>
-                      <TableCell className={`${!product.hasSales ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <TableCell className="text-gray-600">
                         {product.variantName}
                       </TableCell>
-                      <TableCell className={`text-center font-semibold ${!product.hasSales ? 'text-gray-400' : ''}`}>
+                      <TableCell className="text-center font-semibold">
                         {product.quantity}
-                        {!product.hasSales && <span className="text-xs text-gray-400 ml-1">(sin ventas)</span>}
                       </TableCell>
-                      <TableCell className={`text-right font-semibold ${product.hasSales ? 'text-green-600' : 'text-gray-400'}`}>
+                      <TableCell className="text-right font-semibold text-green-600">
                         ${product.revenue.toLocaleString()}
                       </TableCell>
                     </TableRow>
