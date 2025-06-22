@@ -12,6 +12,7 @@ import { es } from "date-fns/locale";
 import { Order } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line, LineChart } from "recharts";
 import { useExpenses } from "@/hooks/useExpenses";
+import { useProducts } from "@/hooks/useProducts";
 import * as XLSX from "xlsx";
 
 interface SalesMetricsProps {
@@ -19,11 +20,14 @@ interface SalesMetricsProps {
 }
 
 interface ProductSalesData {
+  productId: string;
   productName: string;
+  variantId: string;
   variantName: string;
   quantity: number;
   revenue: number;
   fullName: string; // Para búsqueda
+  hasVariants: boolean;
 }
 
 type SortField = 'quantity' | 'revenue';
@@ -43,9 +47,11 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   const [sortField, setSortField] = useState<SortField>('quantity');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showZeroSales, setShowZeroSales] = useState(false);
   const itemsPerPage = 10;
 
   const { expenses } = useExpenses();
+  const { data: products } = useProducts();
 
   const filteredOrders = useMemo(() => {
     if (!dateRange.from || !dateRange.to) return orders;
@@ -69,7 +75,77 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     );
   }, [expenses, dateRange]);
 
-  const metrics = useMemo(() => {
+  // Crear grilla base del catálogo
+  const catalogGrid = useMemo(() => {
+    if (!products) return [];
+
+    const grid: ProductSalesData[] = [];
+
+    products.forEach(product => {
+      if (product.variants && product.variants.length > 0) {
+        // Producto con variantes
+        product.variants.forEach(variant => {
+          grid.push({
+            productId: product.id,
+            productName: product.name,
+            variantId: variant.id,
+            variantName: variant.name,
+            quantity: 0,
+            revenue: 0,
+            fullName: `${product.name} - ${variant.name}`,
+            hasVariants: true
+          });
+        });
+      } else {
+        // Producto sin variantes
+        grid.push({
+          productId: product.id,
+          productName: product.name,
+          variantId: product.id, // Usar el mismo ID del producto
+          variantName: "Sin variación",
+          quantity: 0,
+          revenue: 0,
+          fullName: `${product.name} - Sin variación`,
+          hasVariants: false
+        });
+      }
+    });
+
+    return grid;
+  }, [products]);
+
+  // Calcular métricas de ventas y poblar la grilla
+  const salesMetrics = useMemo(() => {
+    // Crear mapa de ventas por producto/variante
+    const salesMap = new Map<string, { quantity: number; revenue: number }>();
+
+    filteredOrders.forEach(order => {
+      order.items.forEach(item => {
+        // Crear clave única - usar variantId o productId si no hay variante
+        const key = item.variantId || item.id;
+        
+        if (!salesMap.has(key)) {
+          salesMap.set(key, { quantity: 0, revenue: 0 });
+        }
+        
+        const currentSales = salesMap.get(key)!;
+        currentSales.quantity += item.quantity;
+        currentSales.revenue += item.price * item.quantity;
+      });
+    });
+
+    // Poblar la grilla del catálogo con datos de ventas
+    const populatedGrid = catalogGrid.map(catalogItem => {
+      const salesData = salesMap.get(catalogItem.variantId);
+      
+      return {
+        ...catalogItem,
+        quantity: salesData?.quantity || 0,
+        revenue: salesData?.revenue || 0
+      };
+    });
+
+    // Calcular otras métricas
     const totalRevenue = filteredOrders.reduce((sum, order) => sum + order.total, 0);
     const totalOrders = filteredOrders.length;
     const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
@@ -81,27 +157,6 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
     const netProfit = totalRevenue - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
-
-    // Ventas por productos - TODOS los productos con diferenciación de variantes
-    const productSales = filteredOrders.reduce((acc, order) => {
-      order.items.forEach(item => {
-        const key = `${item.productName}|||${item.variantName}`;
-        if (!acc[key]) {
-          acc[key] = { 
-            productName: item.productName,
-            variantName: item.variantName,
-            quantity: 0, 
-            revenue: 0,
-            fullName: `${item.productName} - ${item.variantName}`
-          };
-        }
-        acc[key].quantity += item.quantity;
-        acc[key].revenue += item.price * item.quantity;
-      });
-      return acc;
-    }, {} as Record<string, ProductSalesData>);
-
-    const allProductSales = Object.values(productSales);
 
     // Ingresos por día
     const dailyRevenue = filteredOrders.reduce((acc, order) => {
@@ -166,16 +221,21 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       totalExpenses,
       netProfit,
       profitMargin,
-      allProductSales,
+      productSales: populatedGrid,
       dailyComparison,
       expensesByType: Object.values(expensesByType),
       paymentMethods: Object.values(paymentMethods)
     };
-  }, [filteredOrders, filteredExpenses]);
+  }, [catalogGrid, filteredOrders, filteredExpenses]);
 
   // Lógica para filtrar, ordenar y paginar productos
   const processedProductSales = useMemo(() => {
-    let filtered = metrics.allProductSales;
+    let filtered = salesMetrics.productSales;
+
+    // Filtrar productos sin ventas si está deshabilitado
+    if (!showZeroSales) {
+      filtered = filtered.filter(product => product.quantity > 0);
+    }
 
     // Filtrar por término de búsqueda
     if (searchTerm) {
@@ -193,7 +253,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     });
 
     return filtered;
-  }, [metrics.allProductSales, searchTerm, sortField, sortDirection]);
+  }, [salesMetrics.productSales, searchTerm, sortField, sortDirection, showZeroSales]);
 
   // Paginación
   const totalPages = Math.ceil(processedProductSales.length / itemsPerPage);
@@ -224,13 +284,13 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const summaryData = [
       ['Métrica', 'Valor'],
       ['Período', `${format(dateRange.from!, 'dd/MM/yyyy')} - ${format(dateRange.to!, 'dd/MM/yyyy')}`],
-      ['Total Ingresos', metrics.totalRevenue.toString()],
-      ['Total Gastos', metrics.totalExpenses.toString()],
-      ['Ganancia Neta', metrics.netProfit.toString()],
-      ['Margen de Ganancia (%)', metrics.profitMargin.toFixed(2)],
-      ['Total Órdenes', metrics.totalOrders.toString()],
-      ['Ticket Promedio', metrics.averageTicket.toString()],
-      ['Total Productos Vendidos', metrics.totalProducts.toString()]
+      ['Total Ingresos', salesMetrics.totalRevenue.toString()],
+      ['Total Gastos', salesMetrics.totalExpenses.toString()],
+      ['Ganancia Neta', salesMetrics.netProfit.toString()],
+      ['Margen de Ganancia (%)', salesMetrics.profitMargin.toFixed(2)],
+      ['Total Órdenes', salesMetrics.totalOrders.toString()],
+      ['Ticket Promedio', salesMetrics.averageTicket.toString()],
+      ['Total Productos Vendidos', salesMetrics.totalProducts.toString()]
     ];
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen');
@@ -272,7 +332,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const productsData = [
       ['Producto', 'Variación', 'Cantidad Vendida', 'Ingresos']
     ];
-    metrics.allProductSales.forEach(product => {
+    salesMetrics.productSales.forEach(product => {
       productsData.push([
         product.productName,
         product.variantName,
@@ -354,7 +414,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
             <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-2xl font-bold text-green-600">${metrics.totalRevenue.toLocaleString()}</div>
+            <div className="text-lg sm:text-2xl font-bold text-green-600">${salesMetrics.totalRevenue.toLocaleString()}</div>
           </CardContent>
         </Card>
 
@@ -364,7 +424,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
             <Minus className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-2xl font-bold text-red-600">${metrics.totalExpenses.toLocaleString()}</div>
+            <div className="text-lg sm:text-2xl font-bold text-red-600">${salesMetrics.totalExpenses.toLocaleString()}</div>
           </CardContent>
         </Card>
 
@@ -374,8 +434,8 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-lg sm:text-2xl font-bold ${metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${metrics.netProfit.toLocaleString()}
+            <div className={`text-lg sm:text-2xl font-bold ${salesMetrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ${salesMetrics.netProfit.toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -386,8 +446,8 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
             <TrendingDown className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-lg sm:text-2xl font-bold ${metrics.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {metrics.profitMargin.toFixed(1)}%
+            <div className={`text-lg sm:text-2xl font-bold ${salesMetrics.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {salesMetrics.profitMargin.toFixed(1)}%
             </div>
           </CardContent>
         </Card>
@@ -398,7 +458,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-2xl font-bold">{metrics.totalOrders}</div>
+            <div className="text-lg sm:text-2xl font-bold">{salesMetrics.totalOrders}</div>
           </CardContent>
         </Card>
 
@@ -408,7 +468,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
             <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-2xl font-bold">${Math.round(metrics.averageTicket).toLocaleString()}</div>
+            <div className="text-lg sm:text-2xl font-bold">${Math.round(salesMetrics.averageTicket).toLocaleString()}</div>
           </CardContent>
         </Card>
       </div>
@@ -422,7 +482,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <ComposedChart data={metrics.dailyComparison}>
+              <ComposedChart data={salesMetrics.dailyComparison}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
@@ -450,7 +510,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
-                  data={metrics.expensesByType}
+                  data={salesMetrics.expensesByType}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -459,7 +519,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {metrics.expensesByType.map((entry, index) => (
+                  {salesMetrics.expensesByType.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -478,7 +538,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
-                  data={metrics.paymentMethods}
+                  data={salesMetrics.paymentMethods}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -487,7 +547,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {metrics.paymentMethods.map((entry, index) => (
+                  {salesMetrics.paymentMethods.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -503,7 +563,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
         <CardHeader>
           <CardTitle className="text-lg">Ventas por Productos</CardTitle>
           <CardDescription>
-            Análisis completo de ventas por producto y variación con {processedProductSales.length} resultados
+            Análisis completo de ventas por producto y variación ({processedProductSales.length} de {salesMetrics.productSales.length} productos)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -522,6 +582,17 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
               />
             </div>
             <div className="flex gap-2">
+              <Button
+                variant={showZeroSales ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  setShowZeroSales(!showZeroSales);
+                  setCurrentPage(1);
+                }}
+                className="flex items-center gap-2"
+              >
+                {showZeroSales ? 'Ocultar sin ventas' : 'Mostrar sin ventas'}
+              </Button>
               <Button
                 variant={sortField === 'quantity' && sortDirection === 'desc' ? 'default' : 'outline'}
                 size="sm"
@@ -582,22 +653,23 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                 {paginatedProducts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8 text-gray-500">
-                      {searchTerm ? 'No se encontraron productos que coincidan con la búsqueda' : 'No hay datos de productos vendidos'}
+                      {searchTerm ? 'No se encontraron productos que coincidan con la búsqueda' : 'No hay datos de productos'}
                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedProducts.map((product, index) => (
-                    <TableRow key={`${product.productName}-${product.variantName}`} className="hover:bg-gray-50">
+                    <TableRow key={`${product.productId}-${product.variantId}`} className="hover:bg-gray-50">
                       <TableCell className="font-medium">
                         {product.productName}
                       </TableCell>
-                      <TableCell className="text-gray-600">
+                      <TableCell className={`${product.quantity === 0 ? 'text-gray-400' : 'text-gray-600'}`}>
                         {product.variantName}
                       </TableCell>
-                      <TableCell className="text-center font-semibold">
+                      <TableCell className={`text-center font-semibold ${product.quantity === 0 ? 'text-gray-400' : ''}`}>
                         {product.quantity}
                       </TableCell>
-                      <TableCell className="text-right font-semibold text-green-600">
+                      <TableCell className={`text-right font-semibold ${product.quantity === 0 ? '
+                        ' : 'text-green-600'}`}>
                         ${product.revenue.toLocaleString()}
                       </TableCell>
                     </TableRow>
