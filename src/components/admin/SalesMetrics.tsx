@@ -14,6 +14,7 @@ import { useExpenses } from "@/hooks/useExpenses";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { RecentOrdersList } from "./RecentOrdersList";
+import { SalesHeatmap } from "./SalesHeatmap";
 import * as XLSX from "xlsx";
 
 interface SalesMetricsProps {
@@ -577,6 +578,9 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Mapa de Calor de Horarios - Nuevo componente */}
+      <SalesHeatmap orders={filteredOrders} />
 
       {/* Grid de ventas por productos con tabs por categorías */}
       <Card>
