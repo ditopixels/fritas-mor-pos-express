@@ -5,27 +5,34 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { SupabaseOrder } from './useOrders';
 
-// Hook optimizado para órdenes con estado local
-export const useOptimizedOrders = (limit: number = 25) => {
+// Hook optimizado para órdenes de las últimas 14 horas
+export const useOptimizedOrders = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [localOrders, setLocalOrders] = useState<SupabaseOrder[]>([]);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
 
+  // Calcular fecha de hace 14 horas
+  const fourteenHoursAgo = new Date(Date.now() - 14 * 60 * 60 * 1000);
+
   // Consulta inicial solo una vez y solo si está autenticado
   const query = useQuery({
-    queryKey: ['orders', 'optimized'],
+    queryKey: ['orders', 'optimized', 'last14hours'],
     queryFn: async () => {
+      console.log('📅 Cargando órdenes de las últimas 14 horas desde:', fourteenHoursAgo.toISOString());
+      
       const { data, error } = await supabase
         .from('orders')
         .select(`
           *,
           order_items(*)
         `)
-        .order('created_at', { ascending: false })
-        .limit(limit);
+        .gte('created_at', fourteenHoursAgo.toISOString())
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
+      console.log('📦 Órdenes cargadas:', data?.length || 0);
       
       // Actualizar estado local con datos iniciales
       if (!hasInitialLoad) {
@@ -36,8 +43,8 @@ export const useOptimizedOrders = (limit: number = 25) => {
       return data as SupabaseOrder[];
     },
     enabled: !!user, // Solo ejecutar si hay usuario autenticado
-    staleTime: Infinity, // No refetch automático
-    gcTime: Infinity, // Mantener en cache indefinidamente
+    staleTime: 2 * 60 * 1000, // 2 minutos
+    gcTime: 5 * 60 * 1000, // 5 minutos en cache
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
@@ -50,7 +57,7 @@ export const useOptimizedOrders = (limit: number = 25) => {
   // Función para forzar recarga si es necesario
   const forceRefresh = useCallback(() => {
     setHasInitialLoad(false);
-    queryClient.invalidateQueries({ queryKey: ['orders', 'optimized'] });
+    queryClient.invalidateQueries({ queryKey: ['orders', 'optimized', 'last14hours'] });
   }, [queryClient]);
 
   return {

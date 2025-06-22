@@ -14,7 +14,7 @@ import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
 
 const Index = () => {
   const { user, profile, loading, signOut } = useAuth();
-  const { data: orders, addOrderToLocal, forceRefresh } = useOptimizedOrders(40);
+  const { data: orders, addOrderToLocal, forceRefresh } = useOptimizedOrders();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("pos");
   const [currentView, setCurrentView] = useState("pos");
@@ -142,7 +142,7 @@ const Index = () => {
                 Punto de Venta
               </TabsTrigger>
               <TabsTrigger value="orders" className="text-lg font-semibold">
-                Órdenes ({orders?.length || 0})
+                Órdenes - Últimas 14h ({orders?.length || 0})
               </TabsTrigger>
             </TabsList>
             

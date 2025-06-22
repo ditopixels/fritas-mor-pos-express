@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useExpenses } from "@/hooks/useExpenses";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
+import { RecentOrdersList } from "./RecentOrdersList";
 import * as XLSX from "xlsx";
 
 interface SalesMetricsProps {
@@ -742,33 +742,8 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
         </CardContent>
       </Card>
 
-      {/* Lista de órdenes */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Últimas Órdenes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 sm:space-y-4">
-            {filteredOrders.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No hay órdenes en el período seleccionado</p>
-            ) : (
-              filteredOrders.slice(0, 10).map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-3 sm:p-4 border rounded">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm sm:text-base">ORD-{order.id.slice(-8)}</p>
-                    <p className="text-xs sm:text-sm text-gray-500 truncate">{order.customerName}</p>
-                    <p className="text-xs text-gray-400">{format(order.createdAt, 'dd/MM/yyyy HH:mm')}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-sm sm:text-base">${order.total.toLocaleString()}</p>
-                    <p className="text-xs sm:text-sm text-gray-500">{order.items.length} productos</p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Lista de órdenes recientes con paginación */}
+      <RecentOrdersList dateRange={dateRange} />
     </div>
   );
 };
