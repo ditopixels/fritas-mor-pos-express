@@ -212,11 +212,6 @@ export const RecentOrdersList = ({ dateRange }: RecentOrdersListProps) => {
                                   {item.product_name}
                                 </div>
                                 <div className="text-xs text-gray-600 ml-6">{item.variant_name}</div>
-                                {item.additional_selections && (
-                                  <div className="text-xs text-gray-500 ml-6 italic">
-                                    Salsas: {item.additional_selections}
-                                  </div>
-                                )}
                               </div>
                               <div className="text-right shrink-0">
                                 {hasDiscount ? (
