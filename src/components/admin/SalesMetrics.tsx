@@ -1,17 +1,19 @@
+
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarIcon, Download, TrendingUp, DollarSign, Package, Clock, Minus, TrendingDown, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CalendarIcon, Download, TrendingUp, DollarSign, Package, Clock, Minus, TrendingDown, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { Order } from "@/types";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line, LineChart } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart } from "recharts";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
 import * as XLSX from "xlsx";
 
 interface SalesMetricsProps {
@@ -21,15 +23,20 @@ interface SalesMetricsProps {
 interface ProductSalesData {
   productId: string;
   productName: string;
-  variantId: string;
-  variantName: string;
-  quantity: number;
-  revenue: number;
-  fullName: string; // Para búsqueda
+  categoryId: string;
+  categoryName: string;
+  totalQuantity: number;
+  totalRevenue: number;
+  variants: {
+    variantId: string;
+    variantName: string;
+    quantity: number;
+    revenue: number;
+  }[];
   hasVariants: boolean;
 }
 
-type SortField = 'quantity' | 'revenue';
+type SortField = 'name' | 'quantity' | 'revenue';
 type SortDirection = 'asc' | 'desc';
 
 export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
@@ -41,16 +48,17 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     to: new Date()
   });
 
-  // Estados para la tabla de productos
+  // Estados para la grid de productos
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>('quantity');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [currentPage, setCurrentPage] = useState(1);
   const [showZeroSales, setShowZeroSales] = useState(false);
-  const itemsPerPage = 10;
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
 
   const { expenses } = useExpenses();
   const { data: products } = useProducts();
+  const { data: categories } = useCategories();
 
   const filteredOrders = useMemo(() => {
     if (!dateRange.from || !dateRange.to) return orders;
@@ -74,53 +82,27 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     );
   }, [expenses, dateRange]);
 
-  // Crear grilla base del catálogo
-  const catalogGrid = useMemo(() => {
+  // Crear datos de ventas por producto
+  const productSalesData = useMemo(() => {
     if (!products) return [];
 
-    const grid: ProductSalesData[] = [];
+    console.log('Processing product sales data...');
+    console.log('Products:', products.length);
+    console.log('Filtered orders:', filteredOrders.length);
 
-    products.forEach(product => {
-      if (product.variants && product.variants.length > 0) {
-        // Producto con variantes
-        product.variants.forEach(variant => {
-          grid.push({
-            productId: product.id,
-            productName: product.name,
-            variantId: variant.id,
-            variantName: variant.name,
-            quantity: 0,
-            revenue: 0,
-            fullName: `${product.name} - ${variant.name}`,
-            hasVariants: true
-          });
-        });
-      } else {
-        // Producto sin variantes
-        grid.push({
-          productId: product.id,
-          productName: product.name,
-          variantId: product.id, // Usar el mismo ID del producto
-          variantName: "Sin variación",
-          quantity: 0,
-          revenue: 0,
-          fullName: `${product.name} - Sin variación`,
-          hasVariants: false
-        });
-      }
-    });
-
-    return grid;
-  }, [products]);
-
-  // Calcular métricas de ventas y poblar la grilla
-  const salesMetrics = useMemo(() => {
     // Crear mapa de ventas por producto/variante
     const salesMap = new Map<string, { quantity: number; revenue: number }>();
 
     filteredOrders.forEach(order => {
       order.items.forEach(item => {
-        // Crear clave única - usar variantId o productId si no hay variante
+        console.log('Processing item:', {
+          productId: item.id,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          price: item.price
+        });
+
+        // Si tiene variantId, usar eso, sino usar el productId
         const key = item.variantId || item.id;
         
         if (!salesMap.has(key)) {
@@ -133,18 +115,70 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       });
     });
 
-    // Poblar la grilla del catálogo con datos de ventas
-    const populatedGrid = catalogGrid.map(catalogItem => {
-      const salesData = salesMap.get(catalogItem.variantId);
+    console.log('Sales map:', Array.from(salesMap.entries()));
+
+    // Procesar cada producto del catálogo
+    const productSales: ProductSalesData[] = [];
+
+    products.forEach(product => {
+      const category = categories?.find(cat => cat.id === product.category_id);
       
-      return {
-        ...catalogItem,
-        quantity: salesData?.quantity || 0,
-        revenue: salesData?.revenue || 0
-      };
+      let totalQuantity = 0;
+      let totalRevenue = 0;
+      const variants: ProductSalesData['variants'] = [];
+
+      if (product.variants && product.variants.length > 0) {
+        // Producto con variantes
+        product.variants.forEach(variant => {
+          const salesData = salesMap.get(variant.id);
+          const quantity = salesData?.quantity || 0;
+          const revenue = salesData?.revenue || 0;
+
+          totalQuantity += quantity;
+          totalRevenue += revenue;
+
+          variants.push({
+            variantId: variant.id,
+            variantName: variant.name,
+            quantity,
+            revenue
+          });
+        });
+      } else {
+        // Producto sin variantes
+        const salesData = salesMap.get(product.id);
+        const quantity = salesData?.quantity || 0;
+        const revenue = salesData?.revenue || 0;
+
+        totalQuantity = quantity;
+        totalRevenue = revenue;
+
+        variants.push({
+          variantId: product.id,
+          variantName: "Sin variación",
+          quantity,
+          revenue
+        });
+      }
+
+      productSales.push({
+        productId: product.id,
+        productName: product.name,
+        categoryId: product.category_id || '',
+        categoryName: category?.name || 'Sin categoría',
+        totalQuantity,
+        totalRevenue,
+        variants,
+        hasVariants: product.variants && product.variants.length > 0
+      });
     });
 
-    // Calcular otras métricas
+    console.log('Final product sales:', productSales);
+    return productSales;
+  }, [products, categories, filteredOrders]);
+
+  // Calcular métricas generales
+  const salesMetrics = useMemo(() => {
     const totalRevenue = filteredOrders.reduce((sum, order) => sum + order.total, 0);
     const totalOrders = filteredOrders.length;
     const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
@@ -220,60 +254,76 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       totalExpenses,
       netProfit,
       profitMargin,
-      productSales: populatedGrid,
       dailyComparison,
       expensesByType: Object.values(expensesByType),
       paymentMethods: Object.values(paymentMethods)
     };
-  }, [catalogGrid, filteredOrders, filteredExpenses]);
+  }, [filteredOrders, filteredExpenses]);
 
-  // Lógica para filtrar, ordenar y paginar productos
-  const processedProductSales = useMemo(() => {
-    let filtered = salesMetrics.productSales;
+  // Filtrar y procesar productos para mostrar
+  const processedProducts = useMemo(() => {
+    let filtered = productSalesData;
+
+    // Filtrar por categoría
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter(product => product.categoryId === selectedCategory);
+    }
 
     // Filtrar productos sin ventas si está deshabilitado
     if (!showZeroSales) {
-      filtered = filtered.filter(product => product.quantity > 0);
+      filtered = filtered.filter(product => product.totalQuantity > 0);
     }
 
     // Filtrar por término de búsqueda
     if (searchTerm) {
       filtered = filtered.filter(product => 
-        product.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+        product.productName.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Ordenar
     filtered.sort((a, b) => {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
-      const multiplier = sortDirection === 'asc' ? 1 : -1;
-      return (aValue - bValue) * multiplier;
+      let aValue: number | string;
+      let bValue: number | string;
+
+      switch (sortField) {
+        case 'name':
+          aValue = a.productName;
+          bValue = b.productName;
+          break;
+        case 'quantity':
+          aValue = a.totalQuantity;
+          bValue = b.totalQuantity;
+          break;
+        case 'revenue':
+          aValue = a.totalRevenue;
+          bValue = b.totalRevenue;
+          break;
+        default:
+          aValue = a.totalQuantity;
+          bValue = b.totalQuantity;
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        const multiplier = sortDirection === 'asc' ? 1 : -1;
+        return aValue.localeCompare(bValue) * multiplier;
+      } else {
+        const multiplier = sortDirection === 'asc' ? 1 : -1;
+        return ((aValue as number) - (bValue as number)) * multiplier;
+      }
     });
 
     return filtered;
-  }, [salesMetrics.productSales, searchTerm, sortField, sortDirection, showZeroSales]);
+  }, [productSalesData, selectedCategory, showZeroSales, searchTerm, sortField, sortDirection]);
 
-  // Paginación
-  const totalPages = Math.ceil(processedProductSales.length / itemsPerPage);
-  const paginatedProducts = processedProductSales.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+  const toggleProductExpansion = (productId: string) => {
+    const newExpanded = new Set(expandedProducts);
+    if (newExpanded.has(productId)) {
+      newExpanded.delete(productId);
     } else {
-      setSortField(field);
-      setSortDirection('desc');
+      newExpanded.add(productId);
     }
-    setCurrentPage(1);
-  };
-
-  const getSortIcon = (field: SortField) => {
-    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
-    return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+    setExpandedProducts(newExpanded);
   };
 
   const exportToExcel = () => {
@@ -294,56 +344,26 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen');
 
-    // Hoja de órdenes detalladas
-    const ordersData = [
-      ['Fecha', 'Número de Orden', 'Cliente', 'Método de Pago', 'Productos', 'Total']
-    ];
-    filteredOrders.forEach(order => {
-      ordersData.push([
-        format(order.createdAt, 'dd/MM/yyyy HH:mm'),
-        `ORD-${order.id.slice(-8)}`,
-        order.customerName,
-        order.paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia',
-        order.items.length.toString(),
-        order.total.toString()
-      ]);
-    });
-    const ordersSheet = XLSX.utils.aoa_to_sheet(ordersData);
-    XLSX.utils.book_append_sheet(workbook, ordersSheet, 'Órdenes');
-
-    // Hoja de gastos
-    const expensesData = [
-      ['Fecha', 'Tipo', 'Descripción', 'Monto', 'Creado por']
-    ];
-    filteredExpenses.forEach(expense => {
-      expensesData.push([
-        format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm'),
-        expense.type === 'comida' ? 'Comida' : 'Operativo',
-        expense.description,
-        expense.amount.toString(),
-        expense.created_by_name
-      ]);
-    });
-    const expensesSheet = XLSX.utils.aoa_to_sheet(expensesData);
-    XLSX.utils.book_append_sheet(workbook, expensesSheet, 'Gastos');
-
-    // Hoja de productos - COMPLETA
+    // Hoja de ventas por productos
     const productsData = [
-      ['Producto', 'Variación', 'Cantidad Vendida', 'Ingresos']
+      ['Producto', 'Categoría', 'Variación', 'Cantidad Vendida', 'Ingresos']
     ];
-    salesMetrics.productSales.forEach(product => {
-      productsData.push([
-        product.productName,
-        product.variantName,
-        product.quantity.toString(),
-        product.revenue.toString()
-      ]);
+    productSalesData.forEach(product => {
+      product.variants.forEach(variant => {
+        productsData.push([
+          product.productName,
+          product.categoryName,
+          variant.variantName,
+          variant.quantity.toString(),
+          variant.revenue.toString()
+        ]);
+      });
     });
     const productsSheet = XLSX.utils.aoa_to_sheet(productsData);
     XLSX.utils.book_append_sheet(workbook, productsSheet, 'Ventas por Productos');
 
     // Descargar archivo
-    const fileName = `reporte-ventas-completo-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    const fileName = `reporte-ventas-productos-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
     XLSX.writeFile(workbook, fileName);
   };
 
@@ -557,178 +577,167 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
         </Card>
       </div>
 
-      {/* Nueva tabla completa de ventas por productos */}
+      {/* Grid de ventas por productos con tabs por categorías */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Ventas por Productos</CardTitle>
           <CardDescription>
-            Análisis completo de ventas por producto y variación ({processedProductSales.length} de {salesMetrics.productSales.length} productos)
+            Análisis de ventas por producto y variación ({processedProducts.length} productos)
           </CardDescription>
         </CardHeader>
         <CardContent>
           {/* Controles de búsqueda y filtros */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Buscar producto o variación..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant={showZeroSales ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  setShowZeroSales(!showZeroSales);
-                  setCurrentPage(1);
-                }}
-                className="flex items-center gap-2"
-              >
-                {showZeroSales ? 'Ocultar sin ventas' : 'Mostrar sin ventas'}
-              </Button>
-              <Button
-                variant={sortField === 'quantity' && sortDirection === 'desc' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => handleSort('quantity')}
-                className="flex items-center gap-2"
-              >
-                {getSortIcon('quantity')}
-                Por Cantidad
-              </Button>
-              <Button
-                variant={sortField === 'revenue' && sortDirection === 'desc' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => handleSort('revenue')}
-                className="flex items-center gap-2"
-              >
-                {getSortIcon('revenue')}
-                Por Ingresos
-              </Button>
-            </div>
-          </div>
-
-          {/* Tabla de productos */}
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => handleSort('quantity')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Producto
-                      {sortField === 'quantity' && getSortIcon('quantity')}
-                    </div>
-                  </TableHead>
-                  <TableHead>Variación</TableHead>
-                  <TableHead 
-                    className="text-center cursor-pointer hover:bg-gray-50"
-                    onClick={() => handleSort('quantity')}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      Cantidad
-                      {sortField === 'quantity' && getSortIcon('quantity')}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="text-right cursor-pointer hover:bg-gray-50"
-                    onClick={() => handleSort('revenue')}
-                  >
-                    <div className="flex items-center justify-end gap-2">
-                      Ingresos
-                      {sortField === 'revenue' && getSortIcon('revenue')}
-                    </div>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedProducts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-gray-500">
-                      {searchTerm ? 'No se encontraron productos que coincidan con la búsqueda' : 'No hay datos de productos'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedProducts.map((product, index) => (
-                    <TableRow key={`${product.productId}-${product.variantId}`} className="hover:bg-gray-50">
-                      <TableCell className="font-medium">
-                        {product.productName}
-                      </TableCell>
-                      <TableCell className={`${product.quantity === 0 ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {product.variantName}
-                      </TableCell>
-                      <TableCell className={`text-center font-semibold ${product.quantity === 0 ? 'text-gray-400' : ''}`}>
-                        {product.quantity}
-                      </TableCell>
-                      <TableCell className={`text-right font-semibold ${product.quantity === 0 ? 'text-gray-400' : 'text-green-600'}`}>
-                        ${product.revenue.toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Controles de paginación */}
-          {totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
-              <div className="text-sm text-gray-600">
-                Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, processedProductSales.length)} de {processedProductSales.length} productos
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Buscar producto..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex gap-2">
                 <Button
-                  variant="outline"
+                  variant={showZeroSales ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
+                  onClick={() => setShowZeroSales(!showZeroSales)}
                 >
-                  Anterior
+                  {showZeroSales ? 'Ocultar sin ventas' : 'Mostrar sin ventas'}
                 </Button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={currentPage === pageNum ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCurrentPage(pageNum)}
-                        className="w-8 h-8 p-0"
-                      >
-                        {pageNum}
-                      </Button>
-                    );
-                  })}
+                <Button
+                  variant={sortField === 'quantity' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setSortField('quantity');
+                    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                  }}
+                >
+                  Por Cantidad
+                </Button>
+                <Button
+                  variant={sortField === 'revenue' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setSortField('revenue');
+                    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                  }}
+                >
+                  Por Ingresos
+                </Button>
+                <Button
+                  variant={sortField === 'name' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setSortField('name');
+                    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                  }}
+                >
+                  Por Nombre
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs por categorías */}
+          <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 mb-6">
+              <TabsTrigger value="all">Todos</TabsTrigger>
+              {categories?.map((category) => (
+                <TabsTrigger key={category.id} value={category.id}>
+                  {category.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            <TabsContent value={selectedCategory} className="mt-0">
+              {/* Grid de productos */}
+              {processedProducts.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-lg font-medium">No hay productos para mostrar</p>
+                  <p className="text-sm">
+                    {searchTerm ? 'No se encontraron productos que coincidan con la búsqueda' : 
+                     !showZeroSales ? 'No hay productos con ventas en este período' : 
+                     'No hay productos en esta categoría'}
+                  </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  Siguiente
-                </Button>
-              </div>
-            </div>
-          )}
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {processedProducts.map((product) => (
+                    <Card key={product.productId} className={`${product.totalQuantity === 0 ? 'opacity-60' : ''}`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <CardTitle className="text-base line-clamp-2">{product.productName}</CardTitle>
+                          {product.hasVariants && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleProductExpansion(product.productId)}
+                              className="h-8 w-8 p-0 flex-shrink-0"
+                            >
+                              {expandedProducts.has(product.productId) ? 
+                                <ChevronUp className="h-4 w-4" /> : 
+                                <ChevronDown className="h-4 w-4" />
+                              }
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">{product.categoryName}</p>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        {/* Totales del producto */}
+                        <div className="space-y-2 mb-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Cantidad Total:</span>
+                            <span className={`font-semibold ${product.totalQuantity === 0 ? 'text-gray-400' : 'text-blue-600'}`}>
+                              {product.totalQuantity}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Ingresos Total:</span>
+                            <span className={`font-semibold ${product.totalQuantity === 0 ? 'text-gray-400' : 'text-green-600'}`}>
+                              ${product.totalRevenue.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Desglose de variantes */}
+                        {product.hasVariants && expandedProducts.has(product.productId) && (
+                          <div className="border-t pt-3 space-y-2">
+                            <p className="text-xs font-medium text-gray-700 mb-2">Desglose por variantes:</p>
+                            {product.variants.map((variant) => (
+                              <div key={variant.variantId} className="bg-gray-50 p-2 rounded text-xs">
+                                <div className="font-medium mb-1">{variant.variantName}</div>
+                                <div className="flex justify-between">
+                                  <span>Cantidad: <span className="font-semibold">{variant.quantity}</span></span>
+                                  <span>Ingresos: <span className="font-semibold text-green-600">${variant.revenue.toLocaleString()}</span></span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Para productos sin variantes pero expandido */}
+                        {!product.hasVariants && expandedProducts.has(product.productId) && (
+                          <div className="border-t pt-3">
+                            <div className="bg-gray-50 p-2 rounded text-xs">
+                              <div className="font-medium mb-1">{product.variants[0]?.variantName}</div>
+                              <div className="flex justify-between">
+                                <span>Cantidad: <span className="font-semibold">{product.variants[0]?.quantity}</span></span>
+                                <span>Ingresos: <span className="font-semibold text-green-600">${product.variants[0]?.revenue.toLocaleString()}</span></span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
