@@ -4,7 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Download, TrendingUp, DollarSign, Package, Clock, Minus, TrendingDown } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CalendarIcon, Download, TrendingUp, DollarSign, Package, Clock, Minus, TrendingDown, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { Order } from "@/types";
@@ -16,6 +18,17 @@ interface SalesMetricsProps {
   orders: Order[];
 }
 
+interface ProductSalesData {
+  productName: string;
+  variantName: string;
+  quantity: number;
+  revenue: number;
+  fullName: string; // Para búsqueda
+}
+
+type SortField = 'quantity' | 'revenue';
+type SortDirection = 'asc' | 'desc';
+
 export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   const [dateRange, setDateRange] = useState<{
     from: Date | undefined;
@@ -24,6 +37,13 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     to: new Date()
   });
+
+  // Estados para la tabla de productos
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortField, setSortField] = useState<SortField>('quantity');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const { expenses } = useExpenses();
 
@@ -62,27 +82,26 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const netProfit = totalRevenue - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
-    // Productos más vendidos por cantidad
+    // Ventas por productos - TODOS los productos con diferenciación de variantes
     const productSales = filteredOrders.reduce((acc, order) => {
       order.items.forEach(item => {
-        const key = `${item.productName} - ${item.variantName}`;
+        const key = `${item.productName}|||${item.variantName}`;
         if (!acc[key]) {
-          acc[key] = { name: key, quantity: 0, revenue: 0 };
+          acc[key] = { 
+            productName: item.productName,
+            variantName: item.variantName,
+            quantity: 0, 
+            revenue: 0,
+            fullName: `${item.productName} - ${item.variantName}`
+          };
         }
         acc[key].quantity += item.quantity;
         acc[key].revenue += item.price * item.quantity;
       });
       return acc;
-    }, {} as Record<string, { name: string; quantity: number; revenue: number }>);
+    }, {} as Record<string, ProductSalesData>);
 
-    const topProductsByQuantity = Object.values(productSales)
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 5);
-
-    // Productos que más dinero generan
-    const topProductsByRevenue = Object.values(productSales)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
+    const allProductSales = Object.values(productSales);
 
     // Ingresos por día
     const dailyRevenue = filteredOrders.reduce((acc, order) => {
@@ -147,13 +166,56 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       totalExpenses,
       netProfit,
       profitMargin,
-      topProductsByQuantity,
-      topProductsByRevenue,
+      allProductSales,
       dailyComparison,
       expensesByType: Object.values(expensesByType),
       paymentMethods: Object.values(paymentMethods)
     };
   }, [filteredOrders, filteredExpenses]);
+
+  // Lógica para filtrar, ordenar y paginar productos
+  const processedProductSales = useMemo(() => {
+    let filtered = metrics.allProductSales;
+
+    // Filtrar por término de búsqueda
+    if (searchTerm) {
+      filtered = filtered.filter(product => 
+        product.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Ordenar
+    filtered.sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      const multiplier = sortDirection === 'asc' ? 1 : -1;
+      return (aValue - bValue) * multiplier;
+    });
+
+    return filtered;
+  }, [metrics.allProductSales, searchTerm, sortField, sortDirection]);
+
+  // Paginación
+  const totalPages = Math.ceil(processedProductSales.length / itemsPerPage);
+  const paginatedProducts = processedProductSales.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
+    return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+  };
 
   const exportToExcel = () => {
     const workbook = XLSX.utils.book_new();
@@ -206,25 +268,20 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const expensesSheet = XLSX.utils.aoa_to_sheet(expensesData);
     XLSX.utils.book_append_sheet(workbook, expensesSheet, 'Gastos');
 
-    // Hoja de productos más vendidos
+    // Hoja de productos - COMPLETA
     const productsData = [
-      ['Producto', 'Cantidad Vendida', 'Ingresos']
+      ['Producto', 'Variación', 'Cantidad Vendida', 'Ingresos']
     ];
-    metrics.topProductsByQuantity.forEach(product => {
-      productsData.push([product.name, product.quantity.toString(), product.revenue.toString()]);
+    metrics.allProductSales.forEach(product => {
+      productsData.push([
+        product.productName,
+        product.variantName,
+        product.quantity.toString(),
+        product.revenue.toString()
+      ]);
     });
     const productsSheet = XLSX.utils.aoa_to_sheet(productsData);
-    XLSX.utils.book_append_sheet(workbook, productsSheet, 'Productos Más Vendidos');
-
-    // Hoja de productos que más dinero generan
-    const revenueProductsData = [
-      ['Producto', 'Ingresos', 'Cantidad Vendida']
-    ];
-    metrics.topProductsByRevenue.forEach(product => {
-      revenueProductsData.push([product.name, product.revenue.toString(), product.quantity.toString()]);
-    });
-    const revenueProductsSheet = XLSX.utils.aoa_to_sheet(revenueProductsData);
-    XLSX.utils.book_append_sheet(workbook, revenueProductsSheet, 'Top Productos por Ingresos');
+    XLSX.utils.book_append_sheet(workbook, productsSheet, 'Ventas por Productos');
 
     // Descargar archivo
     const fileName = `reporte-ventas-completo-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
@@ -441,68 +498,169 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
         </Card>
       </div>
 
-      {/* Análisis de productos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* Productos más vendidos por cantidad */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Productos Más Vendidos (Cantidad)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {metrics.topProductsByQuantity.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No hay datos de productos vendidos</p>
-              ) : (
-                metrics.topProductsByQuantity.map((product, index) => (
-                  <div key={product.name} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3 min-w-0 flex-1">
-                      <span className="text-xl sm:text-2xl font-bold text-gray-400 flex-shrink-0">#{index + 1}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm sm:text-base truncate">{product.name}</p>
-                        <p className="text-xs sm:text-sm text-gray-500">{product.quantity} unidades vendidas</p>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-sm sm:text-base">${product.revenue.toLocaleString()}</p>
-                      <p className="text-xs sm:text-sm text-gray-500">en ingresos</p>
-                    </div>
-                  </div>
-                ))
-              )}
+      {/* Nueva tabla completa de ventas por productos */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Ventas por Productos</CardTitle>
+          <CardDescription>
+            Análisis completo de ventas por producto y variación con {processedProductSales.length} resultados
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Controles de búsqueda y filtros */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Buscar producto o variación..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="pl-10"
+              />
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex gap-2">
+              <Button
+                variant={sortField === 'quantity' && sortDirection === 'desc' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleSort('quantity')}
+                className="flex items-center gap-2"
+              >
+                {getSortIcon('quantity')}
+                Por Cantidad
+              </Button>
+              <Button
+                variant={sortField === 'revenue' && sortDirection === 'desc' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleSort('revenue')}
+                className="flex items-center gap-2"
+              >
+                {getSortIcon('revenue')}
+                Por Ingresos
+              </Button>
+            </div>
+          </div>
 
-        {/* Productos que más dinero generan */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Top Productos por Ingresos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {metrics.topProductsByRevenue.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No hay datos de productos</p>
-              ) : (
-                metrics.topProductsByRevenue.map((product, index) => (
-                  <div key={product.name} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3 min-w-0 flex-1">
-                      <span className="text-xl sm:text-2xl font-bold text-green-600 flex-shrink-0">#{index + 1}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm sm:text-base truncate">{product.name}</p>
-                        <p className="text-xs sm:text-sm text-gray-500">{product.quantity} unidades vendidas</p>
-                      </div>
+          {/* Tabla de productos */}
+          <div className="border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-50"
+                    onClick={() => handleSort('quantity')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Producto
+                      {sortField === 'quantity' && getSortIcon('quantity')}
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-sm sm:text-base text-green-600">${product.revenue.toLocaleString()}</p>
-                      <p className="text-xs sm:text-sm text-gray-500">ingresos totales</p>
+                  </TableHead>
+                  <TableHead>Variación</TableHead>
+                  <TableHead 
+                    className="text-center cursor-pointer hover:bg-gray-50"
+                    onClick={() => handleSort('quantity')}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      Cantidad
+                      {sortField === 'quantity' && getSortIcon('quantity')}
                     </div>
-                  </div>
-                ))
-              )}
+                  </TableHead>
+                  <TableHead 
+                    className="text-right cursor-pointer hover:bg-gray-50"
+                    onClick={() => handleSort('revenue')}
+                  >
+                    <div className="flex items-center justify-end gap-2">
+                      Ingresos
+                      {sortField === 'revenue' && getSortIcon('revenue')}
+                    </div>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedProducts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                      {searchTerm ? 'No se encontraron productos que coincidan con la búsqueda' : 'No hay datos de productos vendidos'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedProducts.map((product, index) => (
+                    <TableRow key={`${product.productName}-${product.variantName}`} className="hover:bg-gray-50">
+                      <TableCell className="font-medium">
+                        {product.productName}
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        {product.variantName}
+                      </TableCell>
+                      <TableCell className="text-center font-semibold">
+                        {product.quantity}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-green-600">
+                        ${product.revenue.toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Controles de paginación */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+              <div className="text-sm text-gray-600">
+                Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, processedProductSales.length)} de {processedProductSales.length} productos
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Anterior
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Siguiente
+                </Button>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Lista de órdenes */}
       <Card>
