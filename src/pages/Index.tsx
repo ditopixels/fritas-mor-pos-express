@@ -142,7 +142,7 @@ const Index = () => {
                 Punto de Venta
               </TabsTrigger>
               <TabsTrigger value="orders" className="text-lg font-semibold">
-                Órdenes - Últimas 14h ({orders?.length || 0})
+                Órdenes
               </TabsTrigger>
             </TabsList>
             
