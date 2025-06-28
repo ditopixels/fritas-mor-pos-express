@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -455,8 +456,8 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
         </CardHeader>
       </Card>
 
-      {/* Tarjetas de métricas principales */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-6">
+      {/* Tarjetas de métricas principales - CAMBIO: 3 columnas principales en desktop, 1 en mobile */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs sm:text-sm font-medium">Ingresos Totales</CardTitle>
@@ -488,7 +489,10 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
             </div>
           </CardContent>
         </Card>
+      </div>
 
+      {/* Cards secundarias - mantener como estaba */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs sm:text-sm font-medium">Margen (%)</CardTitle>

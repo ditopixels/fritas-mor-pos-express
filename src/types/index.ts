@@ -1,3 +1,4 @@
+
 export interface CartItem {
   id: string;
   productName: string;
@@ -130,4 +131,19 @@ export interface SalesMetrics {
     revenue: number;
     orders: number;
   }>;
+}
+
+// Interfaces for expense form items
+export interface ExpenseItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitValue: number;
+  subtotal: number;
+}
+
+export interface DynamicExpenseForm {
+  type: 'comida' | 'operativo' | '';
+  items: ExpenseItem[];
+  total: number;
 }
