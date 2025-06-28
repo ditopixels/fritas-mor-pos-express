@@ -424,31 +424,38 @@ export const ExpensesManagement = () => {
                     <TableCell className="font-medium">
                       ${expense.amount.toLocaleString()}
                     </TableCell>
-                    <TableCell className="min-w-0 max-w-xs">
+                    <TableCell className="min-w-0">
                       {/* Mobile: descripción collapsible */}
-                      <div className="md:hidden">
-                        <div className={`text-sm break-words ${
-                          expandedRows.has(expense.id) ? '' : 'line-clamp-2'
-                        }`}>
-                          {expense.description}
-                        </div>
-                        {expense.description.length > 50 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleRowExpansion(expense.id)}
-                            className="h-6 px-2 mt-1 text-xs text-blue-600"
-                          >
-                            {expandedRows.has(expense.id) ? 
-                              <>Ver menos <ChevronUp className="h-3 w-3 ml-1" /></> : 
-                              <>Ver más <ChevronDown className="h-3 w-3 ml-1" /></>
+                      <div className="sm:hidden">
+                        <div className="flex items-center gap-2">
+                          <div className={`${
+                            expandedRows.has(expense.id) ? '' : 'truncate'
+                          } text-sm`}>
+                            {expandedRows.has(expense.id) 
+                              ? expense.description 
+                              : expense.description.length > 30 
+                                ? expense.description.substring(0, 30) + '...'
+                                : expense.description
                             }
-                          </Button>
-                        )}
+                          </div>
+                          {expense.description.length > 30 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleRowExpansion(expense.id)}
+                              className="h-6 w-6 p-0 flex-shrink-0"
+                            >
+                              {expandedRows.has(expense.id) ? 
+                                <ChevronUp className="h-3 w-3" /> : 
+                                <ChevronDown className="h-3 w-3" />
+                              }
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       
                       {/* Desktop: descripción completa */}
-                      <div className="hidden md:block text-sm break-words">
+                      <div className="hidden sm:block text-sm break-words">
                         {expense.description}
                       </div>
                     </TableCell>
