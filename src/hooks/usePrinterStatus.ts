@@ -202,15 +202,15 @@ export const PrinterProvider = ({ children }: { children: React.ReactNode }) => 
         `Orden: ${orderData.order_number}\n`,
         `Cliente: ${orderData.customer_name}\n`,
         `Fecha: ${new Date(orderData.created_at).toLocaleString('es-ES')}\n`,
-        `Pago: ${orderData.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}\n`,
-        `Domicilio: ${orderData.is_delivery ? 'SÍ' : 'NO'}\n`,
-        '--------------------------------\n',
-        
-        // Items - Productos con fuente más grande
-        '\x1B\x45\x01', // Negrita ON
-        'PRODUCTOS:\n',
-        '\x1B\x45\x00', // Negrita OFF
+        `Pago: ${orderData.payment_method === 'cash' ? 'Efectivo' : 'Transferencia'}\n`
       ];
+      if(orderData.is_delivery) printData.push(`Para llevar\n`)
+      printData.push('--------------------------------\n')
+
+      // Items - Productos con fuente más grande
+      printData.push('\x1B\x45\x01')
+      printData.push('PRODUCTOS:\n')
+      printData.push('\x1B\x45\x00')
 
       orderData.order_items.forEach((item: any) => {
         // Producto principal con fuente doble

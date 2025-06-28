@@ -8,7 +8,7 @@ import { CartItem } from "@/types";
 import { useOptimizedPOSData } from "@/hooks/useOptimizedQueries";
 import { useAllProductsOnce, useFilteredProducts } from "@/hooks/useAllProductsOnce";
 import { usePromotionCalculator } from "@/hooks/usePromotionCalculator";
-import { Pizza, Beef, Coffee, Utensils, Plus } from "lucide-react";
+import { Bean, Beef, Coffee, Utensils, Plus } from "lucide-react";
 
 interface OptimizedProductGridProps {
   onAddToCart: (item: Omit<CartItem, "quantity">) => void;
@@ -17,10 +17,10 @@ interface OptimizedProductGridProps {
 // Función para obtener el icono según el nombre de la categoría
 const getCategoryIcon = (categoryName: string) => {
   const name = categoryName.toLowerCase();
-  if (name.includes('papa')) return Pizza;
-  if (name.includes('hamburguesa')) return Beef;
+  if (name.includes('papa')) return Bean;
+  if (name.includes('hamburguesa')) return () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-hamburger-icon lucide-hamburger"><path d="M12 16H4a2 2 0 1 1 0-4h16a2 2 0 1 1 0 4h-4.25"/><path d="M5 12a2 2 0 0 1-2-2 9 7 0 0 1 18 0 2 2 0 0 1-2 2"/><path d="M5 16a2 2 0 0 0-2 2 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 2 2 0 0 0-2-2q0 0 0 0"/><path d="m6.67 12 6.13 4.6a2 2 0 0 0 2.8-.4l3.15-4.2"/></svg>;
   if (name.includes('bebida')) return Coffee;
-  if (name.includes('chuzo') || name.includes('carne')) return Utensils;
+  if (name.includes('chuzo') || name.includes('carne')) return Beef;
   if (name.includes('adicion')) return Plus;
   return Utensils; // icono por defecto
 };
