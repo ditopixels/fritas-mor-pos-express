@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Download, TrendingUp, DollarSign, Package, Clock, Minus, TrendingDown, Search, ChevronDown, ChevronUp } from "lucide-react";
+import { CalendarIcon, Download, TrendingUp, DollarSign, Package, Clock, Minus, TrendingDown, Search, ChevronDown, ChevronUp, User } from "lucide-react";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { Order } from "@/types";
@@ -55,6 +54,9 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   // Nuevo estado para incluir/excluir órdenes canceladas
   const [includeCancelledOrders, setIncludeCancelledOrders] = useState(false);
 
+  // Nuevo estado para filtro por nombre de cliente
+  const [customerNameFilter, setCustomerNameFilter] = useState("");
+
   // Estados para la grid de productos
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>('quantity');
@@ -85,8 +87,15 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       filtered = filtered.filter(order => order.status !== 'cancelled');
     }
 
+    // Filtro por nombre de cliente
+    if (customerNameFilter.trim()) {
+      filtered = filtered.filter(order => 
+        order.customerName.toLowerCase().includes(customerNameFilter.toLowerCase().trim())
+      );
+    }
+
     return filtered;
-  }, [orders, dateRange, includeCancelledOrders]);
+  }, [orders, dateRange, includeCancelledOrders, customerNameFilter]);
 
   const filteredExpenses = useMemo(() => {
     if (!dateRange.from || !dateRange.to || !expenses) return [];
@@ -99,7 +108,6 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     );
   }, [expenses, dateRange]);
 
-  // Crear datos de ventas por producto
   const productSalesData = useMemo(() => {
     if (!products) return [];
 
@@ -196,7 +204,6 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     return productSales;
   }, [products, categories, filteredOrders]);
 
-  // Calcular métricas generales
   const salesMetrics = useMemo(() => {
     const totalRevenue = filteredOrders.reduce((sum, order) => sum + order.total, 0);
     const totalOrders = filteredOrders.length;
@@ -351,6 +358,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       ['Métrica', 'Valor'],
       ['Período', `${format(dateRange.from!, 'dd/MM/yyyy')} - ${format(dateRange.to!, 'dd/MM/yyyy')}`],
       ['Incluye órdenes canceladas', includeCancelledOrders ? 'Sí' : 'No'],
+      ['Filtro por cliente', customerNameFilter.trim() || 'Sin filtro'],
       ['Total Ingresos', salesMetrics.totalRevenue.toString()],
       ['Total Gastos', salesMetrics.totalExpenses.toString()],
       ['Ganancia Neta', salesMetrics.netProfit.toString()],
@@ -380,6 +388,32 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const productsSheet = XLSX.utils.aoa_to_sheet(productsData);
     XLSX.utils.book_append_sheet(workbook, productsSheet, 'Ventas por Productos');
 
+    // Nueva hoja: Órdenes Filtradas
+    const ordersData = [
+      ['Fecha y Hora', 'Número de Orden', 'Nombre del Cliente', 'Método de Pago', 'Estado', 'Subtotal', 'Descuento', 'Total', 'Items']
+    ];
+    
+    filteredOrders.forEach(order => {
+      const itemsDescription = order.items.map(item => 
+        `${item.productName} (${item.variantName}) x${item.quantity}`
+      ).join('; ');
+      
+      ordersData.push([
+        format(order.createdAt, 'dd/MM/yyyy HH:mm'),
+        order.id.slice(-8), // Últimos 8 caracteres del ID como número de orden
+        order.customerName,
+        order.paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia',
+        order.status === 'completed' ? 'Completada' : order.status === 'cancelled' ? 'Cancelada' : 'Pendiente',
+        order.subtotal.toString(),
+        order.totalDiscount.toString(),
+        order.total.toString(),
+        itemsDescription
+      ]);
+    });
+    
+    const ordersSheet = XLSX.utils.aoa_to_sheet(ordersData);
+    XLSX.utils.book_append_sheet(workbook, ordersSheet, 'Órdenes Filtradas');
+
     // Descargar archivo
     const fileName = `reporte-ventas-productos-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
     XLSX.writeFile(workbook, fileName);
@@ -398,6 +432,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
               <CardDescription className="text-sm">
                 Análisis detallado del rendimiento del negocio
                 {!includeCancelledOrders && " (excluyendo órdenes canceladas)"}
+                {customerNameFilter.trim() && ` - Cliente: "${customerNameFilter}"`}
               </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
@@ -442,16 +477,37 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
             </div>
           </div>
           
-          {/* Filtro para incluir órdenes canceladas */}
-          <div className="flex items-center space-x-2 pt-3 border-t">
-            <Switch
-              id="include-cancelled"
-              checked={includeCancelledOrders}
-              onCheckedChange={setIncludeCancelledOrders}
-            />
-            <Label htmlFor="include-cancelled" className="text-sm">
-              Incluir órdenes canceladas en las métricas
-            </Label>
+          {/* Filtros */}
+          <div className="flex flex-col space-y-3 pt-3 border-t">
+            {/* Filtro para incluir órdenes canceladas */}
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="include-cancelled"
+                checked={includeCancelledOrders}
+                onCheckedChange={setIncludeCancelledOrders}
+              />
+              <Label htmlFor="include-cancelled" className="text-sm">
+                Incluir órdenes canceladas en las métricas
+              </Label>
+            </div>
+            
+            {/* Nuevo filtro por nombre de cliente */}
+            <div className="flex items-center space-x-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="customer-filter" className="text-sm font-medium">
+                Filtrar por cliente:
+              </Label>
+              <div className="relative flex-1 max-w-xs">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="customer-filter"
+                  placeholder="Nombre del cliente..."
+                  value={customerNameFilter}
+                  onChange={(e) => setCustomerNameFilter(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
           </div>
         </CardHeader>
       </Card>
