@@ -25,7 +25,7 @@ export interface Order {
   cashReceived?: number;
   photoEvidence?: string;
   createdAt: Date;
-  status: 'completed' | 'cancelled' | 'pending';
+  status: string;
   appliedPromotions?: AppliedPromotion[];
   isDelivery?: boolean;
   cancellationReason?: string;

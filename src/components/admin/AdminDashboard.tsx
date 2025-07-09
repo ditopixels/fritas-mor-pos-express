@@ -53,6 +53,7 @@ const transformSupabaseOrderToOrder = (supabaseOrder: SupabaseOrder): Order => {
     photoEvidence: supabaseOrder.photo_evidence,
     createdAt: new Date(supabaseOrder.created_at),
     status: supabaseOrder.status,
+    cancellationReason: supabaseOrder.cancellation_reason,
     appliedPromotions: safeJsonParse(supabaseOrder.applied_promotions)
   };
 };

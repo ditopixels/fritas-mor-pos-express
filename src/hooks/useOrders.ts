@@ -27,6 +27,7 @@ export interface SupabaseOrder {
   photo_evidence?: string;
   applied_promotions?: any;
   is_delivery?: boolean;
+  cancellation_reason?: string;
   order_items?: {
     id: string;
     product_name: string;

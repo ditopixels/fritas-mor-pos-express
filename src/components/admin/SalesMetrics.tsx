@@ -217,6 +217,60 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const netProfit = totalRevenue - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
+    // Calcular promedios por día de la semana
+    const weeklyRevenue = new Map<number, { total: number; days: Set<string>; dailyTotals: { date: string; revenue: number }[] }>();
+    
+    // Inicializar todos los días de la semana
+    for (let i = 0; i < 7; i++) {
+      weeklyRevenue.set(i, { total: 0, days: new Set(), dailyTotals: [] });
+    }
+
+    // Agrupar órdenes por día de la semana
+    filteredOrders.forEach(order => {
+      const date = new Date(order.createdAt);
+      const dayOfWeek = date.getDay();
+      const dateString = format(date, 'yyyy-MM-dd');
+      
+      const weekData = weeklyRevenue.get(dayOfWeek)!;
+      weekData.total += order.total;
+      weekData.days.add(dateString);
+      
+      // Buscar si ya existe la fecha en dailyTotals
+      const existingDay = weekData.dailyTotals.find(d => d.date === dateString);
+      if (existingDay) {
+        existingDay.revenue += order.total;
+      } else {
+        weekData.dailyTotals.push({ date: dateString, revenue: order.total });
+      }
+    });
+
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    
+    const weeklyAverages = Array.from(weeklyRevenue.entries()).map(([dayNum, data]) => {
+      const totalDays = data.days.size;
+      const averageRevenue = totalDays > 0 ? data.total / totalDays : 0;
+      
+      // Encontrar el mejor y peor día específico
+      const sortedDays = data.dailyTotals.sort((a, b) => b.revenue - a.revenue);
+      const bestDay = sortedDays[0];
+      const worstDay = sortedDays[sortedDays.length - 1];
+      
+      return {
+        dayOfWeek: dayNames[dayNum],
+        dayNumber: dayNum,
+        averageRevenue,
+        totalDays,
+        totalRevenue: data.total,
+        bestDay: bestDay || { date: '', revenue: 0 },
+        worstDay: worstDay || { date: '', revenue: 0 }
+      };
+    });
+
+    // Encontrar el día con mejor promedio
+    const bestAverageDay = weeklyAverages.reduce((best, current) => 
+      current.averageRevenue > best.averageRevenue ? current : best
+    , weeklyAverages[0]);
+
     // Ingresos por día
     const dailyRevenue = filteredOrders.reduce((acc, order) => {
       const date = format(order.createdAt, 'yyyy-MM-dd');
@@ -282,7 +336,9 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       profitMargin,
       dailyComparison,
       expensesByType: Object.values(expensesByType),
-      paymentMethods: Object.values(paymentMethods)
+      paymentMethods: Object.values(paymentMethods),
+      weeklyAverages,
+      bestAverageDay
     };
   }, [filteredOrders, filteredExpenses]);
 
@@ -414,6 +470,27 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     const ordersSheet = XLSX.utils.aoa_to_sheet(ordersData);
     XLSX.utils.book_append_sheet(workbook, ordersSheet, 'Órdenes Filtradas');
 
+    // Hoja de promedios semanales
+    const weeklyData = [
+      ['Día de la Semana', 'Promedio de Ingresos', 'Total de Días', 'Ingresos Totales', 'Mejor Día (Fecha)', 'Mejor Día (Ingresos)', 'Día Más Bajo (Fecha)', 'Día Más Bajo (Ingresos)']
+    ];
+    
+    salesMetrics.weeklyAverages.forEach(day => {
+      weeklyData.push([
+        day.dayOfWeek,
+        day.averageRevenue.toFixed(2),
+        day.totalDays.toString(),
+        day.totalRevenue.toString(),
+        day.bestDay?.date ? format(new Date(day.bestDay.date), 'dd/MM/yyyy') : 'N/A',
+        day.bestDay?.revenue?.toString() || '0',
+        day.worstDay?.date ? format(new Date(day.worstDay.date), 'dd/MM/yyyy') : 'N/A',
+        day.worstDay?.revenue?.toString() || '0'
+      ]);
+    });
+    
+    const weeklySheet = XLSX.utils.aoa_to_sheet(weeklyData);
+    XLSX.utils.book_append_sheet(workbook, weeklySheet, 'Promedios Semanales');
+
     // Descargar archivo
     const fileName = `reporte-ventas-productos-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
     XLSX.writeFile(workbook, fileName);
@@ -512,8 +589,8 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
         </CardHeader>
       </Card>
 
-      {/* Tarjetas de métricas principales - CAMBIO: 3 columnas principales en desktop, 1 en mobile */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6">
+      {/* Tarjetas de métricas principales - CAMBIO: 4 columnas principales en desktop, 1 en mobile */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs sm:text-sm font-medium">Ingresos Totales</CardTitle>
@@ -543,6 +620,21 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
             <div className={`text-lg sm:text-2xl font-bold ${salesMetrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               ${salesMetrics.netProfit.toLocaleString()}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Mejor Día Promedio</CardTitle>
+            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg sm:text-2xl font-bold text-blue-600">
+              ${Math.round(salesMetrics.bestAverageDay?.averageRevenue || 0).toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {salesMetrics.bestAverageDay?.dayOfWeek}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -666,6 +758,59 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Nuevo gráfico de promedios semanales */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Ingresos Promedio por Día de la Semana</CardTitle>
+          <CardDescription>
+            Análisis de patrones semanales de ventas
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart data={salesMetrics.weeklyAverages} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="dayOfWeek" 
+                tick={{ fontSize: 12 }}
+                angle={-45}
+                textAnchor="end"
+                height={80}
+              />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip 
+                formatter={(value: number, name: string, props: any) => {
+                  const data = props.payload;
+                  return [
+                    <div key="tooltip" className="space-y-1">
+                      <div>Promedio: ${value.toLocaleString()}</div>
+                      <div className="text-xs text-gray-600">Días incluidos: {data.totalDays}</div>
+                      <div className="text-xs text-gray-600">Revenue total: ${data.totalRevenue.toLocaleString()}</div>
+                      {data.bestDay?.date && (
+                        <div className="text-xs text-green-600">
+                          Mejor día: {format(new Date(data.bestDay.date), 'dd/MM/yyyy')} - ${data.bestDay.revenue.toLocaleString()}
+                        </div>
+                      )}
+                      {data.worstDay?.date && data.totalDays > 1 && (
+                        <div className="text-xs text-red-600">
+                          Día más bajo: {format(new Date(data.worstDay.date), 'dd/MM/yyyy')} - ${data.worstDay.revenue.toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  ];
+                }}
+                labelStyle={{ display: 'none' }}
+              />
+              <Bar 
+                dataKey="averageRevenue" 
+                fill="#3b82f6"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
       {/* Mapa de Calor de Horarios - usando órdenes filtradas */}
       <SalesHeatmap orders={filteredOrders} />
