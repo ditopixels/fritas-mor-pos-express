@@ -626,7 +626,6 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs sm:text-sm font-medium">Mejor Día Promedio</CardTitle>
-            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-lg sm:text-2xl font-bold text-blue-600">
