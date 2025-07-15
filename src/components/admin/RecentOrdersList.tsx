@@ -18,9 +18,10 @@ interface RecentOrdersListProps {
     to: Date | undefined;
   };
   includeCancelledOrders?: boolean;
+  customerNameFilter?: string;
 }
 
-export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false }: RecentOrdersListProps) => {
+export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false, customerNameFilter = "" }: RecentOrdersListProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedTransfer, setSelectedTransfer] = useState<{
     imageUrl: string;
@@ -35,7 +36,7 @@ export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false }: 
   const { printInvoice } = usePrinterStatus();
   const { toast } = useToast();
 
-  // Filtrar órdenes por rango de fechas y estado de cancelación
+  // Filtrar órdenes por rango de fechas, estado de cancelación y nombre de cliente
   const filteredOrders = allOrders?.filter(order => {
     // Filtro por fecha
     const dateFilter = !dateRange.from || !dateRange.to || 
@@ -47,7 +48,11 @@ export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false }: 
     // Filtro por estado de cancelación
     const statusFilter = includeCancelledOrders || order.status !== 'cancelled';
     
-    return dateFilter && statusFilter;
+    // Filtro por nombre de cliente
+    const customerFilter = !customerNameFilter.trim() || 
+      order.customer_name.toLowerCase().includes(customerNameFilter.toLowerCase().trim());
+    
+    return dateFilter && statusFilter && customerFilter;
   }) || [];
 
   // Paginar órdenes filtradas

@@ -978,8 +978,8 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
         </CardContent>
       </Card>
 
-      {/* Lista de órdenes recientes con paginación - pasando el filtro de canceladas */}
-      <RecentOrdersList dateRange={dateRange} includeCancelledOrders={includeCancelledOrders} />
+      {/* Lista de órdenes recientes con paginación - pasando los filtros */}
+      <RecentOrdersList dateRange={dateRange} includeCancelledOrders={includeCancelledOrders} customerNameFilter={customerNameFilter} />
     </div>
   );
 };
