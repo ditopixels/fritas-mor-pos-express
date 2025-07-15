@@ -240,7 +240,7 @@ export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false, cu
                           Marcar Pagado
                         </Button>
                       )}
-                      {order.status !== 'cancelled' && order.status !== 'completed' && (
+                      {order.status !== 'cancelled' && (
                         <Button
                           size="sm"
                           variant="outline"
