@@ -101,6 +101,8 @@ export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false, cu
         return <Badge variant="outline" className="bg-red-50 text-red-700 text-xs">Cancelada</Badge>;
       case 'pending':
         return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 text-xs">Pendiente</Badge>;
+      case 'payment-pending':
+        return <Badge variant="outline" className="bg-orange-50 text-orange-700 text-xs">Pago Pendiente</Badge>;
       default:
         return <Badge variant="outline" className="text-xs">{status}</Badge>;
     }
@@ -228,7 +230,17 @@ export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false, cu
                         <Printer className="h-3 w-3 mr-1" />
                         Imprimir
                       </Button>
-                      {order.status !== 'cancelled' && (
+                      {order.status === 'payment-pending' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {/* TODO: Implementar marcar como pagado */}}
+                          className="text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                        >
+                          Marcar Pagado
+                        </Button>
+                      )}
+                      {order.status !== 'cancelled' && order.status !== 'completed' && (
                         <Button
                           size="sm"
                           variant="outline"

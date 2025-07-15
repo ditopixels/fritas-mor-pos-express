@@ -11,13 +11,14 @@ interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   total: number;
-  onConfirmPayment: (paymentMethod: string, cashReceived?: number) => void;
+  onConfirmPayment: (paymentMethod: string, cashReceived?: number, isPending?: boolean) => void;
 }
 
 export const PaymentModal = ({ isOpen, onClose, total, onConfirmPayment }: PaymentModalProps) => {
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [cashReceived, setCashReceived] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPendingPayment, setIsPendingPayment] = useState(false);
 
   const totalWithTax = total * 1.19;
 
@@ -41,11 +42,12 @@ export const PaymentModal = ({ isOpen, onClose, total, onConfirmPayment }: Payme
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     const cashAmount = paymentMethod === "cash" ? parseFloat(cashReceived) : undefined;
-    onConfirmPayment(paymentMethod, cashAmount);
+    onConfirmPayment(paymentMethod, cashAmount, isPendingPayment);
     
     // Reset state
     setPaymentMethod("");
     setCashReceived("");
+    setIsPendingPayment(false);
     setIsProcessing(false);
   };
 
@@ -155,6 +157,28 @@ export const PaymentModal = ({ isOpen, onClose, total, onConfirmPayment }: Payme
                   </span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Casilla para marcar como pendiente de pago */}
+          <div className="flex items-center space-x-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <input
+              type="checkbox"
+              id="pending-payment"
+              checked={isPendingPayment}
+              onChange={(e) => setIsPendingPayment(e.target.checked)}
+              className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+            />
+            <Label htmlFor="pending-payment" className="text-sm text-yellow-800">
+              Marcar como pendiente de pago
+            </Label>
+          </div>
+
+          {isPendingPayment && (
+            <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-3">
+              <p className="text-sm text-yellow-800">
+                <strong>Nota:</strong> Esta orden se guardará como pendiente de pago y podrá ser completada desde el módulo de administración.
+              </p>
             </div>
           )}
 

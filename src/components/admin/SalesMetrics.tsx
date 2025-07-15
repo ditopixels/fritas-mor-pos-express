@@ -271,35 +271,37 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       current.averageRevenue > best.averageRevenue ? current : best
     , weeklyAverages[0]);
 
-    // Ingresos por día
+    // Ingresos por día con formato correcto de fecha
     const dailyRevenue = filteredOrders.reduce((acc, order) => {
-      const date = format(order.createdAt, 'yyyy-MM-dd');
-      if (!acc[date]) {
-        acc[date] = { date: format(order.createdAt, 'dd/MM', { locale: es }), revenue: 0, orders: 0, expenses: 0 };
+      const dateKey = format(order.createdAt, 'yyyy-MM-dd');
+      const displayDate = format(order.createdAt, 'dd/MM', { locale: es });
+      if (!acc[dateKey]) {
+        acc[dateKey] = { date: displayDate, revenue: 0, orders: 0, expenses: 0 };
       }
-      acc[date].revenue += order.total;
-      acc[date].orders += 1;
+      acc[dateKey].revenue += order.total;
+      acc[dateKey].orders += 1;
       return acc;
     }, {} as Record<string, { date: string; revenue: number; orders: number; expenses: number }>);
 
-    // Gastos por día
+    // Gastos por día con formato correcto de fecha
     filteredExpenses.forEach(expense => {
-      const date = format(new Date(expense.created_at), 'yyyy-MM-dd');
-      if (!dailyRevenue[date]) {
-        dailyRevenue[date] = { 
-          date: format(new Date(expense.created_at), 'dd/MM', { locale: es }), 
+      const dateKey = format(new Date(expense.created_at), 'yyyy-MM-dd');
+      const displayDate = format(new Date(expense.created_at), 'dd/MM', { locale: es });
+      if (!dailyRevenue[dateKey]) {
+        dailyRevenue[dateKey] = { 
+          date: displayDate, 
           revenue: 0, 
           orders: 0, 
           expenses: 0 
         };
       }
-      dailyRevenue[date].expenses += expense.amount;
+      dailyRevenue[dateKey].expenses += expense.amount;
     });
 
-    // Agregar ganancia neta diaria
-    const dailyComparison = Object.values(dailyRevenue)
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map(day => ({
+    // Agregar ganancia neta diaria y ordenar por fecha (yyyy-MM-dd)
+    const dailyComparison = Object.entries(dailyRevenue)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([_, day]) => ({
         ...day,
         netProfit: day.revenue - day.expenses
       }));

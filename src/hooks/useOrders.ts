@@ -10,6 +10,7 @@ export interface CreateOrderData {
   photo_evidence?: string;
   items: CartItem[];
   is_delivery?: boolean;
+  is_pending_payment?: boolean;
 }
 
 // Definir el tipo que viene de Supabase
@@ -77,7 +78,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
       }, 0);
       const total = subtotal - total_discount;
 
-      // Crear la orden con promociones aplicadas y campo is_delivery
+      // Crear la orden con promociones aplicadas, campo is_delivery y status pendiente si aplica
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -92,6 +93,7 @@ export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) 
           photo_evidence: orderData.photo_evidence,
           applied_promotions: JSON.stringify(orderData.items.flatMap(item => item.appliedPromotions || [])),
           is_delivery: orderData.is_delivery || false,
+          status: orderData.is_pending_payment ? 'payment-pending' : 'completed',
         })
         .select()
         .single();

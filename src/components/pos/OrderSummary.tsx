@@ -43,6 +43,7 @@ export const OrderSummary = ({
   const [photoEvidence, setPhotoEvidence] = useState<File | undefined>();
   const [lastCreatedOrder, setLastCreatedOrder] = useState<SupabaseOrder | null>(null);
   const [isDelivery, setIsDelivery] = useState(false);
+  const [isPendingPayment, setIsPendingPayment] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const createOrderMutation = useCreateOrder(onOrderCreated);
@@ -175,6 +176,7 @@ export const OrderSummary = ({
         photo_evidence: photoBase64,
         items: promotionResult.updatedItems,
         is_delivery: isDelivery,
+        is_pending_payment: isPendingPayment,
       };
 
       console.log('Datos de la orden preparados:', orderData);
@@ -190,6 +192,7 @@ export const OrderSummary = ({
       setCashReceived(undefined);
       setPhotoEvidence(undefined);
       setIsDelivery(false);
+      setIsPendingPayment(false);
       onClearCart();
       onProceedToPayment(paymentMethod, customerName, cashReceived, photoEvidence);
 
@@ -406,6 +409,26 @@ export const OrderSummary = ({
                     Para llevar / Domicilio
                   </Label>
                 </div>
+
+                {/* Checkbox de pendiente de pago */}
+                <div className="flex items-center space-x-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <Checkbox
+                    id="pending-payment"
+                    checked={isPendingPayment}
+                    onCheckedChange={(checked) => setIsPendingPayment(checked === true)}
+                  />
+                  <Label htmlFor="pending-payment" className="text-sm text-yellow-800">
+                    Marcar como pendiente de pago
+                  </Label>
+                </div>
+
+                {isPendingPayment && (
+                  <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-3">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Nota:</strong> Esta orden se guardará como pendiente de pago y podrá ser completada desde el módulo de administración.
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <Label className="text-sm">Método de Pago</Label>
