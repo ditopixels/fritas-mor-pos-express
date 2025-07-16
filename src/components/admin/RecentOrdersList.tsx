@@ -11,6 +11,7 @@ import { CancelOrderModal } from "./CancelOrderModal";
 import { usePrinterStatus } from "@/hooks/usePrinterStatus";
 import { useToast } from "@/hooks/use-toast";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 
 interface RecentOrdersListProps {
   dateRange: {
@@ -80,6 +81,31 @@ export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false, cu
 
   const handleOrderCancelled = () => {
     refetch();
+  };
+
+  const handleMarkAsPaid = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'completed' })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Orden marcada como pagada",
+        description: "La orden ha sido marcada como completada exitosamente",
+      });
+
+      refetch();
+    } catch (error) {
+      console.error('Error al marcar orden como pagada:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo marcar la orden como pagada",
+        variant: "destructive",
+      });
+    }
   };
 
   const getPaymentMethodBadge = (method: string) => {
@@ -234,7 +260,7 @@ export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false, cu
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => {/* TODO: Implementar marcar como pagado */}}
+                          onClick={() => handleMarkAsPaid(order.id)}
                           className="text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
                         >
                           Marcar Pagado

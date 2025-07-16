@@ -81,7 +81,7 @@ export const ExpensesManagement = () => {
     if (!description.trim()) return;
 
     createExpense({
-      type: newExpense.type as 'comida' | 'operativo',
+      type: newExpense.type as 'comida' | 'operativo' | 'mejoras',
       amount: newExpense.total,
       description: description,
     });
@@ -117,12 +117,16 @@ export const ExpensesManagement = () => {
     .filter(expense => expense.type === 'operativo')
     .reduce((sum, expense) => sum + expense.amount, 0);
 
-  const totalGeneral = totalComida + totalOperativo;
+  const totalMejoras = filteredExpenses
+    .filter(expense => expense.type === 'mejoras')
+    .reduce((sum, expense) => sum + expense.amount, 0);
+
+  const totalGeneral = totalComida + totalOperativo + totalMejoras;
 
   const exportToExcel = () => {
     const exportData = filteredExpenses.map(expense => ({
       'Fecha': format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm'),
-      'Tipo': expense.type === 'comida' ? 'Comida' : 'Operativo',
+      'Tipo': expense.type === 'comida' ? 'Comida' : expense.type === 'mejoras' ? 'Mejoras' : 'Operativo',
       'Monto': expense.amount,
       'Descripción': expense.description,
       'Registrado por': expense.created_by_name,
@@ -140,6 +144,13 @@ export const ExpensesManagement = () => {
       'Fecha': '',
       'Tipo': 'TOTAL OPERATIVO',
       'Monto': totalOperativo,
+      'Descripción': '',
+      'Registrado por': '',
+    });
+    exportData.push({
+      'Fecha': '',
+      'Tipo': 'TOTAL MEJORAS',
+      'Monto': totalMejoras,
       'Descripción': '',
       'Registrado por': '',
     });
@@ -192,7 +203,7 @@ export const ExpensesManagement = () => {
             {/* Selector de tipo con botones */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Tipo de gasto</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <Button
                   type="button"
                   variant={newExpense.type === 'comida' ? 'default' : 'outline'}
@@ -218,6 +229,19 @@ export const ExpensesManagement = () => {
                 >
                   <Settings className="h-4 w-4" />
                   Operativo
+                </Button>
+                <Button
+                  type="button"
+                  variant={newExpense.type === 'mejoras' ? 'default' : 'outline'}
+                  className={`h-12 flex items-center gap-2 ${
+                    newExpense.type === 'mejoras' 
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                      : 'border-purple-200 text-purple-600 hover:bg-purple-50'
+                  }`}
+                  onClick={() => setNewExpense(prev => ({ ...prev, type: 'mejoras' }))}
+                >
+                  <Settings className="h-4 w-4" />
+                  Mejoras
                 </Button>
               </div>
             </div>
@@ -318,7 +342,7 @@ export const ExpensesManagement = () => {
       </Card>
 
       {/* Resumen y filtros */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -343,6 +367,20 @@ export const ExpensesManagement = () => {
                 </p>
               </div>
               <DollarSign className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Mejoras</p>
+                <p className="text-lg font-bold text-purple-600">
+                  ${totalMejoras.toLocaleString()}
+                </p>
+              </div>
+              <DollarSign className="h-8 w-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
@@ -416,9 +454,13 @@ export const ExpensesManagement = () => {
                     <TableCell>
                       <Badge 
                         variant={expense.type === 'comida' ? 'secondary' : 'outline'}
-                        className={expense.type === 'comida' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}
+                        className={
+                          expense.type === 'comida' ? 'bg-orange-100 text-orange-800' : 
+                          expense.type === 'mejoras' ? 'bg-purple-100 text-purple-800' : 
+                          'bg-blue-100 text-blue-800'
+                        }
                       >
-                        {expense.type === 'comida' ? 'Comida' : 'Operativo'}
+                        {expense.type === 'comida' ? 'Comida' : expense.type === 'mejoras' ? 'Mejoras' : 'Operativo'}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium">

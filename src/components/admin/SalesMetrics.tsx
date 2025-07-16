@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Download, TrendingUp, DollarSign, Package, Clock, Minus, TrendingDown, Search, ChevronDown, ChevronUp, User } from "lucide-react";
+import { CalendarIcon, Download, TrendingUp, DollarSign, Package, Clock, Minus, TrendingDown, Search, ChevronDown, ChevronUp, User, Filter } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { Order } from "@/types";
@@ -57,6 +58,9 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   // Nuevo estado para filtro por nombre de cliente
   const [customerNameFilter, setCustomerNameFilter] = useState("");
 
+  // Nuevo estado para filtro por status
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
   // Estados para la grid de productos
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>('quantity');
@@ -94,8 +98,13 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       );
     }
 
+    // Filtro por status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(order => order.status === statusFilter);
+    }
+
     return filtered;
-  }, [orders, dateRange, includeCancelledOrders, customerNameFilter]);
+  }, [orders, dateRange, includeCancelledOrders, customerNameFilter, statusFilter]);
 
   const filteredExpenses = useMemo(() => {
     if (!dateRange.from || !dateRange.to || !expenses) return [];
@@ -308,7 +317,13 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
 
     // Gastos por tipo
     const expensesByType = filteredExpenses.reduce((acc, expense) => {
-      const type = expense.type === 'comida' ? 'Comida' : 'Operativo';
+      let type = 'Operativo';
+      if (expense.type === 'comida') {
+        type = 'Comida';
+      } else if (expense.type === 'mejoras') {
+        type = 'Mejoras';
+      }
+      
       if (!acc[type]) {
         acc[type] = { name: type, value: 0, count: 0 };
       }
@@ -586,6 +601,25 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                   className="pl-10"
                 />
               </div>
+            </div>
+
+            {/* Nuevo filtro por status */}
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="status-filter" className="text-sm font-medium">
+                Filtrar por estado:
+              </Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Seleccionar estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  <SelectItem value="completed">Completadas</SelectItem>
+                  <SelectItem value="payment-pending">Pago Pendiente</SelectItem>
+                  <SelectItem value="cancelled">Canceladas</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>

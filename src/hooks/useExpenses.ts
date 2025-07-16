@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 export interface Expense {
   id: string;
   user_id: string;
-  type: 'comida' | 'operativo';
+  type: 'comida' | 'operativo' | 'mejoras';
   amount: number;
   description: string;
   created_at: string;
@@ -36,7 +36,7 @@ export const useExpenses = () => {
 
   const createExpenseMutation = useMutation({
     mutationFn: async (expense: {
-      type: 'comida' | 'operativo';
+      type: 'comida' | 'operativo' | 'mejoras';
       amount: number;
       description: string;
     }) => {

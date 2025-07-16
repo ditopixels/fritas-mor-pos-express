@@ -143,7 +143,7 @@ export interface ExpenseItem {
 }
 
 export interface DynamicExpenseForm {
-  type: 'comida' | 'operativo' | '';
+  type: 'comida' | 'operativo' | 'mejoras' | '';
   items: ExpenseItem[];
   total: number;
 }
