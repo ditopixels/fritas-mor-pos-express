@@ -63,16 +63,29 @@ export const ProductVariantsManager = ({
     setEditingValues({name: '', price: 0});
   };
 
-  const saveVariantEdit = (variantId: string) => {
+  const saveVariantEdit = async (variantId: string) => {
     const updatedVariants = localVariants.map(variant => 
       variant.id === variantId 
         ? { ...variant, name: editingValues.name, price: editingValues.price }
         : variant
     );
     setLocalVariants(updatedVariants);
+    
+    try {
+      await updateProductVariants.mutateAsync({
+        productId: product.id,
+        variants: updatedVariants
+      });
+      
+      onUpdateVariants(updatedVariants);
+      toast.success("Variante guardada correctamente");
+    } catch (error) {
+      console.error('Error guardando variante:', error);
+      toast.error("Error al guardar la variante");
+    }
+    
     setEditingVariant(null);
     setEditingValues({name: '', price: 0});
-    toast.success("Variante actualizada");
   };
 
   const updateEditingValue = (field: 'name' | 'price', value: string | number) => {
