@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Zap, Save } from "lucide-react";
+import { Trash2, Plus, Zap, Save, Edit, X, Check } from "lucide-react";
 import { Product, ProductOption, ProductVariant, useUpdateProductVariants } from "@/hooks/useProducts";
 import { toast } from "sonner";
 
@@ -23,6 +23,8 @@ export const ProductVariantsManager = ({
   onUpdateVariants 
 }: ProductVariantsManagerProps) => {
   const [localVariants, setLocalVariants] = useState<ProductVariant[]>(variants);
+  const [editingVariant, setEditingVariant] = useState<string | null>(null);
+  const [editingValues, setEditingValues] = useState<{name: string; price: number}>({name: '', price: 0});
   const [newVariant, setNewVariant] = useState<Partial<ProductVariant>>({
     name: '',
     sku: '',
@@ -46,6 +48,38 @@ export const ProductVariantsManager = ({
       console.error('Error guardando variantes:', error);
       toast.error("Error al guardar las variantes");
     }
+  };
+
+  const startEditingVariant = (variant: ProductVariant) => {
+    setEditingVariant(variant.id);
+    setEditingValues({
+      name: variant.name,
+      price: variant.price
+    });
+  };
+
+  const cancelEditingVariant = () => {
+    setEditingVariant(null);
+    setEditingValues({name: '', price: 0});
+  };
+
+  const saveVariantEdit = (variantId: string) => {
+    const updatedVariants = localVariants.map(variant => 
+      variant.id === variantId 
+        ? { ...variant, name: editingValues.name, price: editingValues.price }
+        : variant
+    );
+    setLocalVariants(updatedVariants);
+    setEditingVariant(null);
+    setEditingValues({name: '', price: 0});
+    toast.success("Variante actualizada");
+  };
+
+  const updateEditingValue = (field: 'name' | 'price', value: string | number) => {
+    setEditingValues(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const addVariant = () => {
@@ -188,29 +222,99 @@ export const ProductVariantsManager = ({
         <div className="space-y-2">
           {localVariants.map(variant => (
             <div key={variant.id} className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <div className="font-medium">{variant.name}</div>
-                <div className="text-sm text-gray-500">
-                  SKU: {variant.sku} • Precio: ${variant.price.toLocaleString()}
-                </div>
-                {Object.keys(variant.option_values).length > 0 && (
-                  <div className="flex gap-1 mt-1">
-                    {Object.entries(variant.option_values).map(([key, value]) => (
-                      <Badge key={key} variant="outline" className="text-xs">
-                        {key}: {value}
-                      </Badge>
-                    ))}
+              <div className="flex-1">
+                {editingVariant === variant.id ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-sm">Nombre</Label>
+                        <Input
+                          value={editingValues.name}
+                          onChange={(e) => updateEditingValue('name', e.target.value)}
+                          className="text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm">Precio</Label>
+                        <Input
+                          type="number"
+                          value={editingValues.price}
+                          onChange={(e) => updateEditingValue('price', Number(e.target.value))}
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      SKU: {variant.sku}
+                    </div>
+                    {Object.keys(variant.option_values).length > 0 && (
+                      <div className="flex gap-1 mt-1">
+                        {Object.entries(variant.option_values).map(([key, value]) => (
+                          <Badge key={key} variant="outline" className="text-xs">
+                            {key}: {value}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <div className="font-medium">{variant.name}</div>
+                    <div className="text-sm text-gray-500">
+                      SKU: {variant.sku} • Precio: ${variant.price.toLocaleString()}
+                    </div>
+                    {Object.keys(variant.option_values).length > 0 && (
+                      <div className="flex gap-1 mt-1">
+                        {Object.entries(variant.option_values).map(([key, value]) => (
+                          <Badge key={key} variant="outline" className="text-xs">
+                            {key}: {value}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => removeVariant(variant.id)}
-                className="text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              
+              <div className="flex items-center gap-2 ml-4">
+                {editingVariant === variant.id ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => saveVariantEdit(variant.id)}
+                      className="text-green-600 hover:text-green-700"
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={cancelEditingVariant}
+                      className="text-gray-600 hover:text-gray-700"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => startEditingVariant(variant)}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => removeVariant(variant.id)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>
