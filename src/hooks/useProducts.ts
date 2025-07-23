@@ -342,17 +342,72 @@ export const useUpdateProductVariants = () => {
 
   return useMutation({
     mutationFn: async ({ productId, variants }: { productId: string; variants: ProductVariant[] }) => {
-      // Primero eliminar todas las variantes existentes del producto
-      const { error: deleteError } = await supabase
+      // Obtener variantes existentes
+      const { data: existingVariants, error: fetchError } = await supabase
         .from('product_variants')
-        .delete()
+        .select('*')
         .eq('product_id', productId);
 
-      if (deleteError) throw deleteError;
+      if (fetchError) throw fetchError;
 
-      // Luego insertar las nuevas variantes
-      if (variants.length > 0) {
-        const variantsToInsert = variants.map(variant => ({
+      const existingVariantIds = existingVariants?.map(v => v.id) || [];
+      const newVariantIds = variants.filter(v => !v.id.startsWith('temp-')).map(v => v.id);
+
+      // Eliminar solo las variantes que ya no están en la lista y que no están referenciadas
+      const variantsToDelete = existingVariantIds.filter(id => !newVariantIds.includes(id));
+      
+      if (variantsToDelete.length > 0) {
+        // Verificar si alguna variante está siendo usada en órdenes
+        const { data: referencedVariants, error: checkError } = await supabase
+          .from('order_items')
+          .select('variant_id')
+          .in('variant_id', variantsToDelete);
+
+        if (checkError) throw checkError;
+
+        const referencedVariantIds = referencedVariants?.map(item => item.variant_id).filter(Boolean) || [];
+        const safeToDelete = variantsToDelete.filter(id => !referencedVariantIds.includes(id));
+
+        if (safeToDelete.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('product_variants')
+            .delete()
+            .in('id', safeToDelete);
+
+          if (deleteError) throw deleteError;
+        }
+      }
+
+      // Separar variantes para actualizar y crear
+      const variantsToUpdate = variants.filter(v => !v.id.startsWith('temp-') && existingVariantIds.includes(v.id));
+      const variantsToCreate = variants.filter(v => v.id.startsWith('temp-'));
+
+      // Actualizar variantes existentes
+      const updatePromises = variantsToUpdate.map(variant => 
+        supabase
+          .from('product_variants')
+          .update({
+            name: variant.name,
+            sku: variant.sku,
+            price: variant.price,
+            option_values: variant.option_values,
+            is_active: variant.is_active,
+            stock: variant.stock,
+          })
+          .eq('id', variant.id)
+      );
+
+      if (updatePromises.length > 0) {
+        const updateResults = await Promise.all(updatePromises);
+        const updateErrors = updateResults.filter(result => result.error);
+        if (updateErrors.length > 0) {
+          throw new Error('Error updating variants');
+        }
+      }
+
+      // Crear nuevas variantes
+      if (variantsToCreate.length > 0) {
+        const variantsToInsert = variantsToCreate.map(variant => ({
           product_id: productId,
           name: variant.name,
           sku: variant.sku,
@@ -362,13 +417,13 @@ export const useUpdateProductVariants = () => {
           stock: variant.stock,
         }));
 
-        const { data, error: insertError } = await supabase
+        const { data: newVariants, error: insertError } = await supabase
           .from('product_variants')
           .insert(variantsToInsert)
           .select();
 
         if (insertError) throw insertError;
-        return data;
+        return newVariants;
       }
 
       return [];
