@@ -7,13 +7,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Download, Plus, DollarSign, Utensils, Settings, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Trash2, Download, Plus, DollarSign, Utensils, Settings, X, ChevronDown, ChevronUp, Edit, Calendar } from "lucide-react";
 import * as XLSX from 'xlsx';
-import { format } from 'date-fns';
+import { format, isSameMonth, startOfMonth, endOfMonth } from 'date-fns';
 import { ExpenseItem, DynamicExpenseForm } from '@/types';
+import { Expense } from '@/hooks/useExpenses';
 
 export const ExpensesManagement = () => {
-  const { expenses, isLoading, createExpense, deleteExpense, isCreating } = useExpenses();
+  const { expenses, isLoading, createExpense, updateExpense, deleteExpense, isCreating, isUpdating, isCurrentMonth } = useExpenses();
   const [newExpense, setNewExpense] = useState<DynamicExpenseForm>({
     type: '',
     items: [{
@@ -25,9 +27,20 @@ export const ExpensesManagement = () => {
     }],
     total: 0
   });
+  const [expenseDate, setExpenseDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editForm, setEditForm] = useState<{
+    type: 'comida' | 'operativo' | 'mejoras';
+    amount: number;
+    description: string;
+  }>({
+    type: 'comida',
+    amount: 0,
+    description: ''
+  });
 
   const updateItemSubtotal = (itemId: string, quantity: number, unitValue: number) => {
     const subtotal = quantity * unitValue;
@@ -71,9 +84,21 @@ export const ExpensesManagement = () => {
       .join(', ');
   };
 
+  const isDateInCurrentMonth = (dateString: string) => {
+    const selectedDate = new Date(dateString);
+    const currentDate = new Date();
+    return isSameMonth(selectedDate, currentDate);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newExpense.type || newExpense.items.length === 0 || newExpense.total === 0) {
+      return;
+    }
+
+    // Verificar que la fecha seleccionada sea del mes actual
+    if (!isDateInCurrentMonth(expenseDate)) {
+      alert('Solo puedes registrar gastos del mes actual');
       return;
     }
 
@@ -84,6 +109,7 @@ export const ExpensesManagement = () => {
       type: newExpense.type as 'comida' | 'operativo' | 'mejoras',
       amount: newExpense.total,
       description: description,
+      created_at: expenseDate + 'T' + format(new Date(), 'HH:mm:ss') + '.000Z',
     });
 
     setNewExpense({
@@ -97,6 +123,41 @@ export const ExpensesManagement = () => {
       }],
       total: 0
     });
+    setExpenseDate(format(new Date(), 'yyyy-MM-dd'));
+  };
+
+  const handleEdit = (expense: Expense) => {
+    setEditingExpense(expense);
+    setEditForm({
+      type: expense.type,
+      amount: expense.amount,
+      description: expense.description
+    });
+  };
+
+  const handleUpdateExpense = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExpense) return;
+
+    updateExpense({
+      id: editingExpense.id,
+      type: editForm.type,
+      amount: editForm.amount,
+      description: editForm.description,
+    });
+
+    setEditingExpense(null);
+  };
+
+  const handleDelete = (expense: Expense) => {
+    if (!isCurrentMonth(expense.created_at)) {
+      alert('Solo puedes eliminar gastos del mes actual');
+      return;
+    }
+    
+    if (confirm('¿Estás seguro de que quieres eliminar este gasto?')) {
+      deleteExpense(expense.id);
+    }
   };
 
   const filteredExpenses = expenses.filter(expense => {
@@ -200,6 +261,25 @@ export const ExpensesManagement = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Selector de fecha */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Fecha del gasto
+              </label>
+              <Input
+                type="date"
+                value={expenseDate}
+                onChange={(e) => setExpenseDate(e.target.value)}
+                max={format(endOfMonth(new Date()), 'yyyy-MM-dd')}
+                min={format(startOfMonth(new Date()), 'yyyy-MM-dd')}
+                className={`${!isDateInCurrentMonth(expenseDate) ? 'border-red-500' : ''}`}
+              />
+              {!isDateInCurrentMonth(expenseDate) && (
+                <p className="text-sm text-red-600">Solo puedes registrar gastos del mes actual</p>
+              )}
+            </div>
+
             {/* Selector de tipo con botones */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Tipo de gasto</label>
@@ -504,16 +584,33 @@ export const ExpensesManagement = () => {
                     <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                       {expense.created_by_name}
                     </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deleteExpense(expense.id)}
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+                     <TableCell>
+                       <div className="flex items-center gap-1">
+                         {isCurrentMonth(expense.created_at) && (
+                           <>
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={() => handleEdit(expense)}
+                               className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800"
+                             >
+                               <Edit className="h-4 w-4" />
+                             </Button>
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={() => handleDelete(expense)}
+                               className="h-8 w-8 p-0 text-red-600 hover:text-red-800"
+                             >
+                               <Trash2 className="h-4 w-4" />
+                             </Button>
+                           </>
+                         )}
+                         {!isCurrentMonth(expense.created_at) && (
+                           <span className="text-xs text-gray-400">Mes anterior</span>
+                         )}
+                       </div>
+                     </TableCell>
                   </TableRow>
                 ))}
                 {filteredExpenses.length === 0 && (
@@ -528,6 +625,99 @@ export const ExpensesManagement = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal de edición */}
+      <Dialog open={!!editingExpense} onOpenChange={() => setEditingExpense(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Gasto</DialogTitle>
+            <DialogDescription>
+              Modifica los detalles del gasto seleccionado
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateExpense} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tipo de gasto</label>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  type="button"
+                  variant={editForm.type === 'comida' ? 'default' : 'outline'}
+                  className={`h-12 flex items-center gap-2 ${
+                    editForm.type === 'comida' 
+                      ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                      : 'border-orange-200 text-orange-600 hover:bg-orange-50'
+                  }`}
+                  onClick={() => setEditForm(prev => ({ ...prev, type: 'comida' }))}
+                >
+                  <Utensils className="h-4 w-4" />
+                  Comida
+                </Button>
+                <Button
+                  type="button"
+                  variant={editForm.type === 'operativo' ? 'default' : 'outline'}
+                  className={`h-12 flex items-center gap-2 ${
+                    editForm.type === 'operativo' 
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                      : 'border-blue-200 text-blue-600 hover:bg-blue-50'
+                  }`}
+                  onClick={() => setEditForm(prev => ({ ...prev, type: 'operativo' }))}
+                >
+                  <Settings className="h-4 w-4" />
+                  Operativo
+                </Button>
+                <Button
+                  type="button"
+                  variant={editForm.type === 'mejoras' ? 'default' : 'outline'}
+                  className={`h-12 flex items-center gap-2 ${
+                    editForm.type === 'mejoras' 
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                      : 'border-purple-200 text-purple-600 hover:bg-purple-50'
+                  }`}
+                  onClick={() => setEditForm(prev => ({ ...prev, type: 'mejoras' }))}
+                >
+                  <Settings className="h-4 w-4" />
+                  Mejoras
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Monto</label>
+              <Input
+                type="number"
+                value={editForm.amount}
+                onChange={(e) => setEditForm(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Descripción</label>
+              <Textarea
+                value={editForm.description}
+                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+                required
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={() => setEditingExpense(null)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isUpdating}>
+                {isUpdating ? 'Actualizando...' : 'Actualizar Gasto'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

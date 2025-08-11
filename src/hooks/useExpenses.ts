@@ -39,6 +39,7 @@ export const useExpenses = () => {
       type: 'comida' | 'operativo' | 'mejoras';
       amount: number;
       description: string;
+      created_at?: string;
     }) => {
       if (!profile?.id) {
         throw new Error('No se pudo obtener el ID del usuario');
@@ -47,9 +48,12 @@ export const useExpenses = () => {
       const { data, error } = await supabase
         .from('expenses')
         .insert({
-          ...expense,
+          type: expense.type,
+          amount: expense.amount,
+          description: expense.description,
           user_id: profile.id,
           created_by_name: profile?.name || 'Admin',
+          ...(expense.created_at && { created_at: expense.created_at }),
         })
         .select()
         .single();
@@ -71,6 +75,44 @@ export const useExpenses = () => {
         variant: "destructive",
       });
       console.error('Error creating expense:', error);
+    },
+  });
+
+  const updateExpenseMutation = useMutation({
+    mutationFn: async (expense: {
+      id: string;
+      type: 'comida' | 'operativo' | 'mejoras';
+      amount: number;
+      description: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('expenses')
+        .update({
+          type: expense.type,
+          amount: expense.amount,
+          description: expense.description,
+        })
+        .eq('id', expense.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      toast({
+        title: "Gasto actualizado",
+        description: "El gasto se ha actualizado correctamente",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el gasto",
+        variant: "destructive",
+      });
+      console.error('Error updating expense:', error);
     },
   });
 
@@ -100,12 +142,23 @@ export const useExpenses = () => {
     },
   });
 
+  // Función para verificar si una fecha está en el mes actual
+  const isCurrentMonth = (date: string | Date) => {
+    const expenseDate = new Date(date);
+    const currentDate = new Date();
+    return expenseDate.getMonth() === currentDate.getMonth() && 
+           expenseDate.getFullYear() === currentDate.getFullYear();
+  };
+
   return {
     expenses,
     isLoading,
     createExpense: createExpenseMutation.mutate,
+    updateExpense: updateExpenseMutation.mutate,
     deleteExpense: deleteExpenseMutation.mutate,
     isCreating: createExpenseMutation.isPending,
+    isUpdating: updateExpenseMutation.isPending,
     isDeleting: deleteExpenseMutation.isPending,
+    isCurrentMonth,
   };
 };
