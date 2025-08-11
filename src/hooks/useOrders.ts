@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { CartItem, AppliedPromotion } from '@/types';
@@ -42,21 +41,46 @@ export interface SupabaseOrder {
   }[];
 }
 
+// Función para obtener todas las órdenes con paginación
+const fetchAllOrders = async (): Promise<SupabaseOrder[]> => {
+  let allOrders: SupabaseOrder[] = [];
+  let from = 0;
+  const limit = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        order_items(*)
+      `)
+      .order('created_at', { ascending: false })
+      .range(from, from + limit - 1);
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      allOrders = [...allOrders, ...data as SupabaseOrder[]];
+      from += limit;
+      
+      // Si recibimos menos registros que el límite, no hay más datos
+      hasMore = data.length === limit;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  console.log(`📦 Total órdenes cargadas: ${allOrders.length}`);
+  return allOrders;
+};
+
 export const useOrders = () => {
   return useQuery({
     queryKey: ['orders'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items(*)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data as SupabaseOrder[];
-    },
+    queryFn: fetchAllOrders,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000, // 10 minutos en cache
   });
 };
 
