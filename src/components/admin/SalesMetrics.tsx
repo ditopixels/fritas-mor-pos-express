@@ -16,6 +16,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useExpenses } from "@/hooks/useExpenses";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
+import { useCashFlow } from "@/hooks/useCashFlow";
+import { useOrdersWithDateRange } from "@/hooks/useOrdersWithDateRange";
 import { RecentOrdersList } from "./RecentOrdersList";
 import { SalesHeatmap } from "./SalesHeatmap";
 import * as XLSX from "xlsx";
@@ -79,9 +81,46 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   const { expenses } = useExpenses();
   const { data: products } = useProducts();
   const { data: categories } = useCategories();
+  const { cashFlow, isLoading: cashFlowLoading } = useCashFlow();
+  
+  // Hook para obtener órdenes con rango de fechas cuando sea necesario
+  const { data: dateRangeOrders, isLoading: dateRangeLoading } = useOrdersWithDateRange({
+    startDate: dateRange.from,
+    endDate: dateRange.to,
+    enabled: !!dateRange.from && !!dateRange.to
+  });
+
+  // Usar órdenes del rango de fechas si están disponibles, sino usar las órdenes por defecto
+  const ordersToUse = (dateRange.from && dateRange.to && dateRangeOrders) ? dateRangeOrders.map(order => ({
+    id: order.id,
+    orderNumber: order.order_number,
+    customerName: order.customer_name,
+    total: order.total,
+    paymentMethod: order.payment_method,
+    createdAt: new Date(order.created_at),
+    status: order.status,
+    subtotal: order.subtotal,
+    totalDiscount: order.total_discount,
+    cashReceived: order.cash_received,
+    photoEvidence: order.photo_evidence,
+    isDelivery: order.is_delivery,
+    cancellationReason: order.cancellation_reason,
+    appliedPromotions: order.applied_promotions ? JSON.parse(order.applied_promotions as string) : [],
+    items: order.order_items?.map(item => ({
+      id: item.id,
+      productName: item.product_name,
+      variantName: item.variant_name,
+      sku: item.sku,
+      price: item.price,
+      originalPrice: item.original_price || item.price,
+      quantity: item.quantity,
+      additionalSelections: item.additional_selections,
+      appliedPromotions: item.applied_promotions ? JSON.parse(item.applied_promotions as string) : []
+    })) || []
+  })) : orders;
 
   const filteredOrders = useMemo(() => {
-    let filtered = orders;
+    let filtered = ordersToUse;
 
     // Filtro por rango de fechas
     if (dateRange.from && dateRange.to) {
@@ -111,7 +150,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     }
 
     return filtered;
-  }, [orders, dateRange, includeCancelledOrders, customerNameFilter, statusFilter]);
+  }, [ordersToUse, dateRange, includeCancelledOrders, customerNameFilter, statusFilter]);
 
   const filteredExpenses = useMemo(() => {
     if (!dateRange.from || !dateRange.to || !expenses) return [];
@@ -673,8 +712,23 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
         </CardHeader>
       </Card>
 
-      {/* Tarjetas de métricas principales - CAMBIO: 4 columnas principales en desktop, 1 en mobile */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-6">
+      {/* Tarjetas de métricas principales - CAMBIO: incluir dinero en caja */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 sm:gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Dinero en Caja</CardTitle>
+            <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-lg sm:text-2xl font-bold ${cashFlowLoading ? 'text-gray-400' : (cashFlow?.cashInHand || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {cashFlowLoading ? 'Cargando...' : `$${(cashFlow?.cashInHand || 0).toLocaleString()}`}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total histórico
+            </p>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs sm:text-sm font-medium">Ingresos Totales</CardTitle>

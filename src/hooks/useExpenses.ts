@@ -153,20 +153,26 @@ export const useExpenses = () => {
   // Función para verificar si una fecha está en el mes actual y permitir edición
   const isCurrentMonth = (date: string | Date) => {
     const expenseDate = new Date(date);
-    const currentDate = new Date();
     const today = new Date();
     
-    // Si estamos en los primeros 3 días del mes, permitir gastos del mes anterior
+    // No permitir fechas futuras
+    if (expenseDate > today) return false;
+    
+    // Si estamos en los primeros 3 días del mes, permitir gastos solo del último día del mes anterior
     if (today.getDate() <= 3) {
-      const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-      const isLastMonth = expenseDate.getMonth() === lastMonth.getMonth() && 
-                         expenseDate.getFullYear() === lastMonth.getFullYear();
-      if (isLastMonth) return true;
+      const lastDayOfPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      
+      if (expenseDate.getFullYear() === lastDayOfPrevMonth.getFullYear() && 
+          expenseDate.getMonth() === lastDayOfPrevMonth.getMonth() &&
+          expenseDate.getDate() === lastDayOfPrevMonth.getDate()) {
+        return true;
+      }
     }
     
-    // Permitir gastos del mes actual
-    return expenseDate.getMonth() === currentDate.getMonth() && 
-           expenseDate.getFullYear() === currentDate.getFullYear();
+    // Permitir gastos solo del mes actual (hasta hoy)
+    return expenseDate.getMonth() === today.getMonth() && 
+           expenseDate.getFullYear() === today.getFullYear() &&
+           expenseDate <= today;
   };
 
   // Función para verificar si una fecha es válida para crear gastos
@@ -177,21 +183,21 @@ export const useExpenses = () => {
     // No permitir fechas futuras
     if (expenseDate > today) return false;
     
-    // Si estamos en los primeros 3 días del mes, permitir gastos del mes anterior (último día)
+    // Si estamos en los primeros 3 días del mes, permitir gastos solo del último día del mes anterior
     if (today.getDate() <= 3) {
-      const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1);
       const lastDayOfPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
       
-      if (expenseDate.getMonth() === lastMonth.getMonth() && 
-          expenseDate.getFullYear() === lastMonth.getFullYear() &&
+      if (expenseDate.getFullYear() === lastDayOfPrevMonth.getFullYear() && 
+          expenseDate.getMonth() === lastDayOfPrevMonth.getMonth() &&
           expenseDate.getDate() === lastDayOfPrevMonth.getDate()) {
         return true;
       }
     }
     
-    // Permitir gastos del mes actual (hasta hoy)
+    // Permitir gastos solo del mes actual (hasta hoy)
     return expenseDate.getMonth() === today.getMonth() && 
-           expenseDate.getFullYear() === today.getFullYear();
+           expenseDate.getFullYear() === today.getFullYear() &&
+           expenseDate <= today;
   };
 
   return {
