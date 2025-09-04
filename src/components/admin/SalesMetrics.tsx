@@ -19,6 +19,8 @@ import { useCategories } from "@/hooks/useCategories";
 import { useCashFlow } from "@/hooks/useCashFlow";
 import { useOrdersWithDateRange } from "@/hooks/useOrdersWithDateRange";
 import { useExpensesWithDateRange } from "@/hooks/useExpensesWithDateRange";
+import { useOrdersCurrentMonth } from "@/hooks/useOrdersCurrentMonth";
+import { SupabaseOrder } from "@/hooks/useOrders";
 import { RecentOrdersList } from "./RecentOrdersList";
 import { SalesHeatmap } from "./SalesHeatmap";
 import * as XLSX from "xlsx";
@@ -44,9 +46,7 @@ const safeJsonParse = (jsonString: any): any[] => {
   }
 };
 
-interface SalesMetricsProps {
-  orders: Order[];
-}
+interface SalesMetricsProps {}
 
 interface ProductSalesData {
   productId: string;
@@ -67,7 +67,9 @@ interface ProductSalesData {
 type SortField = 'name' | 'quantity' | 'revenue';
 type SortDirection = 'asc' | 'desc';
 
-export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
+export const SalesMetrics = ({}: SalesMetricsProps) => {
+  // Loading state inicial
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [dateRange, setDateRange] = useState<{
     from: Date | undefined;
     to: Date | undefined;
@@ -107,6 +109,9 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   const { data: categories } = useCategories();
   const { cashFlow, isLoading: cashFlowLoading } = useCashFlow();
   
+  // Hook para obtener órdenes del mes actual inicialmente
+  const { data: currentMonthOrders, isLoading: currentMonthLoading } = useOrdersCurrentMonth();
+  
   // Hook para obtener órdenes con rango de fechas cuando cambie la fecha
   const { data: dateRangeOrders, isLoading: dateRangeLoading } = useOrdersWithDateRange({
     startDate: dateRange.from,
@@ -121,7 +126,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     enabled: hasDateRangeChanged && !!dateRange.from && !!dateRange.to
   });
 
-  // Usar órdenes del rango de fechas si están disponibles, sino usar las órdenes por defecto (filtradas por mes actual)
+  // Usar órdenes del rango de fechas si están disponibles, sino usar las órdenes del mes actual
   const ordersToUse = (hasDateRangeChanged && dateRangeOrders) ? dateRangeOrders.map(order => ({
     id: order.id,
     orderNumber: order.order_number,
@@ -148,7 +153,33 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       additionalSelections: item.additional_selections,
       appliedPromotions: safeJsonParse(item.applied_promotions)
     })) || []
-  })) : orders;
+  })) : (currentMonthOrders || []).map(order => ({
+    id: order.id,
+    orderNumber: order.order_number,
+    customerName: order.customer_name,
+    total: order.total,
+    paymentMethod: order.payment_method,
+    createdAt: new Date(order.created_at),
+    status: order.status,
+    subtotal: order.subtotal,
+    totalDiscount: order.total_discount,
+    cashReceived: order.cash_received,
+    photoEvidence: order.photo_evidence,
+    isDelivery: order.is_delivery,
+    cancellationReason: order.cancellation_reason,
+    appliedPromotions: safeJsonParse(order.applied_promotions),
+    items: order.order_items?.map(item => ({
+      id: item.id,
+      productName: item.product_name,
+      variantName: item.variant_name,
+      sku: item.sku,
+      price: item.price,
+      originalPrice: item.original_price || item.price,
+      quantity: item.quantity,
+      additionalSelections: item.additional_selections,
+      appliedPromotions: safeJsonParse(item.applied_promotions)
+    })) || []
+  }));
 
   const filteredOrders = useMemo(() => {
     let filtered = ordersToUse;
@@ -603,6 +634,25 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   };
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+
+  // Loading state
+  const isLoading = currentMonthLoading || (hasDateRangeChanged && dateRangeLoading);
+
+  // Efecto para manejar la carga inicial
+  if (isInitialLoad && currentMonthOrders !== undefined) {
+    setIsInitialLoad(false);
+  }
+
+  if (isLoading || isInitialLoad) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+          <span className="ml-2">Cargando métricas...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">

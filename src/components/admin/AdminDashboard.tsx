@@ -6,75 +6,8 @@ import { SalesMetrics } from "./SalesMetrics";
 import CatalogManagement from "./CatalogManagement";
 import { PromotionsManagement } from "./PromotionsManagement";
 import { ExpensesManagement } from "./ExpensesManagement";
-import { useOrders, SupabaseOrder } from "@/hooks/useOrders";
-import { Order } from "@/types";
-
-// Helper function to safely parse JSON
-const safeJsonParse = (jsonString: any): any[] => {
-  if (!jsonString || jsonString === '' || jsonString === null || jsonString === undefined) {
-    return [];
-  }
-  
-  try {
-    if (typeof jsonString === 'string') {
-      return JSON.parse(jsonString);
-    }
-    // If it's already an object/array, return it as is
-    if (Array.isArray(jsonString) || typeof jsonString === 'object') {
-      return jsonString;
-    }
-    return [];
-  } catch (error) {
-    console.warn('Failed to parse JSON:', jsonString, error);
-    return [];
-  }
-};
-
-// Función para transformar SupabaseOrder a Order
-const transformSupabaseOrderToOrder = (supabaseOrder: SupabaseOrder): Order => {
-  return {
-    id: supabaseOrder.id,
-    items: supabaseOrder.order_items?.map(item => ({
-      id: item.id,
-      productName: item.product_name,
-      variantName: item.variant_name,
-      sku: item.sku,
-      price: item.price,
-      originalPrice: item.original_price || item.price,
-      quantity: item.quantity,
-      appliedPromotions: safeJsonParse(item.applied_promotions)
-    })) || [],
-    total: supabaseOrder.total,
-    subtotal: supabaseOrder.subtotal,
-    totalDiscount: supabaseOrder.total_discount,
-    paymentMethod: supabaseOrder.payment_method,
-    customerName: supabaseOrder.customer_name,
-    cashReceived: supabaseOrder.cash_received,
-    photoEvidence: supabaseOrder.photo_evidence,
-    createdAt: new Date(supabaseOrder.created_at),
-    status: supabaseOrder.status,
-    cancellationReason: supabaseOrder.cancellation_reason,
-    appliedPromotions: safeJsonParse(supabaseOrder.applied_promotions)
-  };
-};
-
 export const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("metrics");
-  const { data: orders = [], isLoading } = useOrders();
-
-  // Transformar las órdenes de Supabase al formato esperado
-  const transformedOrders: Order[] = orders.map(transformSupabaseOrderToOrder);
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto p-2 sm:p-4 lg:p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
-          <span className="ml-2">Cargando métricas...</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto p-2 sm:p-4 lg:p-6">
@@ -104,7 +37,7 @@ export const AdminDashboard = () => {
         </TabsList>
 
         <TabsContent value="metrics" className="space-y-0">
-          <SalesMetrics orders={transformedOrders} />
+          <SalesMetrics />
         </TabsContent>
 
         <TabsContent value="catalog" className="space-y-0">
