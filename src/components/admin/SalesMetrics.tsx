@@ -23,6 +23,27 @@ import { RecentOrdersList } from "./RecentOrdersList";
 import { SalesHeatmap } from "./SalesHeatmap";
 import * as XLSX from "xlsx";
 
+// Helper function to safely parse JSON
+const safeJsonParse = (jsonString: any): any[] => {
+  if (!jsonString || jsonString === '' || jsonString === null || jsonString === undefined) {
+    return [];
+  }
+  
+  try {
+    if (typeof jsonString === 'string') {
+      return JSON.parse(jsonString);
+    }
+    // If it's already an object/array, return it as is
+    if (Array.isArray(jsonString) || typeof jsonString === 'object') {
+      return jsonString;
+    }
+    return [];
+  } catch (error) {
+    console.warn('Failed to parse JSON:', jsonString, error);
+    return [];
+  }
+};
+
 interface SalesMetricsProps {
   orders: Order[];
 }
@@ -115,7 +136,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     photoEvidence: order.photo_evidence,
     isDelivery: order.is_delivery,
     cancellationReason: order.cancellation_reason,
-    appliedPromotions: order.applied_promotions ? JSON.parse(order.applied_promotions as string) : [],
+    appliedPromotions: safeJsonParse(order.applied_promotions),
     items: order.order_items?.map(item => ({
       id: item.id,
       productName: item.product_name,
@@ -125,7 +146,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       originalPrice: item.original_price || item.price,
       quantity: item.quantity,
       additionalSelections: item.additional_selections,
-      appliedPromotions: item.applied_promotions ? JSON.parse(item.applied_promotions as string) : []
+      appliedPromotions: safeJsonParse(item.applied_promotions)
     })) || []
   })) : orders;
 
