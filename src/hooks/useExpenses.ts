@@ -84,14 +84,22 @@ export const useExpenses = () => {
       type: 'comida' | 'operativo' | 'mejoras';
       amount: number;
       description: string;
+      created_at?: string;
     }) => {
+      const updateData: any = {
+        type: expense.type,
+        amount: expense.amount,
+        description: expense.description,
+      };
+
+      // Solo actualizar la fecha si se proporciona
+      if (expense.created_at) {
+        updateData.created_at = expense.created_at;
+      }
+
       const { data, error } = await supabase
         .from('expenses')
-        .update({
-          type: expense.type,
-          amount: expense.amount,
-          description: expense.description,
-        })
+        .update(updateData)
         .eq('id', expense.id)
         .select()
         .single();
@@ -142,12 +150,54 @@ export const useExpenses = () => {
     },
   });
 
-  // Función para verificar si una fecha está en el mes actual
+  // Función para verificar si una fecha está en el mes actual y permitir edición
   const isCurrentMonth = (date: string | Date) => {
     const expenseDate = new Date(date);
-    const currentDate = new Date();
-    return expenseDate.getMonth() === currentDate.getMonth() && 
-           expenseDate.getFullYear() === currentDate.getFullYear();
+    const today = new Date();
+    
+    // No permitir fechas futuras
+    if (expenseDate > today) return false;
+    
+    // Si estamos en los primeros 3 días del mes, permitir gastos solo del último día del mes anterior
+    if (today.getDate() <= 3) {
+      const lastDayOfPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      
+      if (expenseDate.getFullYear() === lastDayOfPrevMonth.getFullYear() && 
+          expenseDate.getMonth() === lastDayOfPrevMonth.getMonth() &&
+          expenseDate.getDate() === lastDayOfPrevMonth.getDate()) {
+        return true;
+      }
+    }
+    
+    // Permitir gastos solo del mes actual (hasta hoy)
+    return expenseDate.getMonth() === today.getMonth() && 
+           expenseDate.getFullYear() === today.getFullYear() &&
+           expenseDate <= today;
+  };
+
+  // Función para verificar si una fecha es válida para crear gastos
+  const isValidDateForExpense = (date: string | Date) => {
+    const expenseDate = new Date(date);
+    const today = new Date();
+    
+    // No permitir fechas futuras
+    if (expenseDate > today) return false;
+    
+    // Si estamos en los primeros 3 días del mes, permitir gastos solo del último día del mes anterior
+    if (today.getDate() <= 3) {
+      const lastDayOfPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      
+      if (expenseDate.getFullYear() === lastDayOfPrevMonth.getFullYear() && 
+          expenseDate.getMonth() === lastDayOfPrevMonth.getMonth() &&
+          expenseDate.getDate() === lastDayOfPrevMonth.getDate()) {
+        return true;
+      }
+    }
+    
+    // Permitir gastos solo del mes actual (hasta hoy)
+    return expenseDate.getMonth() === today.getMonth() && 
+           expenseDate.getFullYear() === today.getFullYear() &&
+           expenseDate <= today;
   };
 
   return {
@@ -160,5 +210,6 @@ export const useExpenses = () => {
     isUpdating: updateExpenseMutation.isPending,
     isDeleting: deleteExpenseMutation.isPending,
     isCurrentMonth,
+    isValidDateForExpense,
   };
 };
