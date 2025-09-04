@@ -18,6 +18,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { useCashFlow } from "@/hooks/useCashFlow";
 import { useOrdersWithDateRange } from "@/hooks/useOrdersWithDateRange";
+import { useExpensesWithDateRange } from "@/hooks/useExpensesWithDateRange";
 import { RecentOrdersList } from "./RecentOrdersList";
 import { SalesHeatmap } from "./SalesHeatmap";
 import * as XLSX from "xlsx";
@@ -54,6 +55,8 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     to: new Date()
   });
 
+  const [hasDateRangeChanged, setHasDateRangeChanged] = useState(false);
+
   // Nuevo estado para incluir/excluir órdenes canceladas
   const [includeCancelledOrders, setIncludeCancelledOrders] = useState(false);
 
@@ -83,15 +86,22 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   const { data: categories } = useCategories();
   const { cashFlow, isLoading: cashFlowLoading } = useCashFlow();
   
-  // Hook para obtener órdenes con rango de fechas cuando sea necesario
+  // Hook para obtener órdenes con rango de fechas cuando cambie la fecha
   const { data: dateRangeOrders, isLoading: dateRangeLoading } = useOrdersWithDateRange({
     startDate: dateRange.from,
     endDate: dateRange.to,
-    enabled: !!dateRange.from && !!dateRange.to
+    enabled: hasDateRangeChanged && !!dateRange.from && !!dateRange.to
   });
 
-  // Usar órdenes del rango de fechas si están disponibles, sino usar las órdenes por defecto
-  const ordersToUse = (dateRange.from && dateRange.to && dateRangeOrders) ? dateRangeOrders.map(order => ({
+  // Hook para obtener gastos con rango de fechas cuando cambie la fecha
+  const { data: dateRangeExpenses, isLoading: expensesRangeLoading } = useExpensesWithDateRange({
+    startDate: dateRange.from,
+    endDate: dateRange.to,
+    enabled: hasDateRangeChanged && !!dateRange.from && !!dateRange.to
+  });
+
+  // Usar órdenes del rango de fechas si están disponibles, sino usar las órdenes por defecto (filtradas por mes actual)
+  const ordersToUse = (hasDateRangeChanged && dateRangeOrders) ? dateRangeOrders.map(order => ({
     id: order.id,
     orderNumber: order.order_number,
     customerName: order.customer_name,
@@ -152,10 +162,13 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     return filtered;
   }, [ordersToUse, dateRange, includeCancelledOrders, customerNameFilter, statusFilter]);
 
+  // Usar gastos del rango de fechas si están disponibles, sino usar los gastos por defecto
+  const expensesToUse = (hasDateRangeChanged && dateRangeExpenses) ? dateRangeExpenses : expenses;
+
   const filteredExpenses = useMemo(() => {
-    if (!dateRange.from || !dateRange.to || !expenses) return [];
+    if (!dateRange.from || !dateRange.to || !expensesToUse) return [];
     
-    return expenses.filter(expense => {
+    return expensesToUse.filter(expense => {
       // Filtro por fecha
       const dateFilter = isWithinInterval(new Date(expense.created_at), {
         start: startOfDay(dateRange.from!),
@@ -170,7 +183,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       
       return dateFilter && typeFilter;
     });
-  }, [expenses, dateRange, expenseFilters]);
+  }, [expensesToUse, dateRange, expenseFilters]);
 
   const productSalesData = useMemo(() => {
     if (!products) return [];
@@ -603,7 +616,10 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                       <Calendar
                         mode="single"
                         selected={dateRange.from}
-                        onSelect={(date) => setDateRange(prev => ({ ...prev, from: date }))}
+                        onSelect={(date) => {
+                          setDateRange(prev => ({ ...prev, from: date }));
+                          setHasDateRangeChanged(true);
+                        }}
                         locale={es}
                       />
                     </div>
@@ -612,7 +628,10 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                       <Calendar
                         mode="single"
                         selected={dateRange.to}
-                        onSelect={(date) => setDateRange(prev => ({ ...prev, to: date }))}
+                        onSelect={(date) => {
+                          setDateRange(prev => ({ ...prev, to: date }));
+                          setHasDateRangeChanged(true);
+                        }}
                         locale={es}
                       />
                     </div>

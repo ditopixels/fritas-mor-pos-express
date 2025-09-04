@@ -14,23 +14,19 @@ export const useCashFlow = () => {
   const { data: cashFlow, isLoading } = useQuery({
     queryKey: ['cashFlow'],
     queryFn: async (): Promise<CashFlowData> => {
-      // Consulta eficiente para obtener el total de ingresos (órdenes no canceladas)
+      // Usar funciones RPC para consultas eficientes
       const { data: incomeData, error: incomeError } = await supabase
-        .from('orders')
-        .select('total')
-        .neq('status', 'cancelled');
+        .rpc('get_total_income');
 
       if (incomeError) throw incomeError;
 
-      // Consulta eficiente para obtener el total de gastos
       const { data: expensesData, error: expensesError } = await supabase
-        .from('expenses')
-        .select('amount');
+        .rpc('get_total_expenses');
 
       if (expensesError) throw expensesError;
 
-      const totalIncome = incomeData?.reduce((sum, order) => sum + Number(order.total), 0) || 0;
-      const totalExpenses = expensesData?.reduce((sum, expense) => sum + Number(expense.amount), 0) || 0;
+      const totalIncome = Number(incomeData) || 0;
+      const totalExpenses = Number(expensesData) || 0;
       const cashInHand = totalIncome - totalExpenses;
 
       return {
