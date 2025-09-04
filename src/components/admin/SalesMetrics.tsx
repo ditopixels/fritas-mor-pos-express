@@ -69,6 +69,13 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
 
+  // Nuevo estado para filtros de tipos de gastos
+  const [expenseFilters, setExpenseFilters] = useState({
+    includeComida: true,
+    includeOperativo: true,
+    includeMejoras: true
+  });
+
   const { expenses } = useExpenses();
   const { data: products } = useProducts();
   const { data: categories } = useCategories();
@@ -109,13 +116,22 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   const filteredExpenses = useMemo(() => {
     if (!dateRange.from || !dateRange.to || !expenses) return [];
     
-    return expenses.filter(expense => 
-      isWithinInterval(new Date(expense.created_at), {
+    return expenses.filter(expense => {
+      // Filtro por fecha
+      const dateFilter = isWithinInterval(new Date(expense.created_at), {
         start: startOfDay(dateRange.from!),
         end: endOfDay(dateRange.to!)
-      })
-    );
-  }, [expenses, dateRange]);
+      });
+      
+      // Filtro por tipo de gasto
+      const typeFilter = 
+        (expense.type === 'comida' && expenseFilters.includeComida) ||
+        (expense.type === 'operativo' && expenseFilters.includeOperativo) ||
+        (expense.type === 'mejoras' && expenseFilters.includeMejoras);
+      
+      return dateFilter && typeFilter;
+    });
+  }, [expenses, dateRange, expenseFilters]);
 
   const productSalesData = useMemo(() => {
     if (!products) return [];
@@ -621,6 +637,38 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Filtros de tipos de gastos */}
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-sm font-medium">Incluir gastos:</Label>
+              <div className="flex space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="include-comida"
+                    checked={expenseFilters.includeComida}
+                    onCheckedChange={(checked) => setExpenseFilters(prev => ({ ...prev, includeComida: checked }))}
+                  />
+                  <Label htmlFor="include-comida" className="text-sm text-orange-600">Comida</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="include-operativo"
+                    checked={expenseFilters.includeOperativo}
+                    onCheckedChange={(checked) => setExpenseFilters(prev => ({ ...prev, includeOperativo: checked }))}
+                  />
+                  <Label htmlFor="include-operativo" className="text-sm text-blue-600">Operativo</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="include-mejoras"
+                    checked={expenseFilters.includeMejoras}
+                    onCheckedChange={(checked) => setExpenseFilters(prev => ({ ...prev, includeMejoras: checked }))}
+                  />
+                  <Label htmlFor="include-mejoras" className="text-sm text-purple-600">Mejoras</Label>
+                </div>
+              </div>
+            </div>
           </div>
         </CardHeader>
       </Card>
@@ -1015,7 +1063,12 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       </Card>
 
       {/* Lista de órdenes recientes con paginación - pasando los filtros */}
-      <RecentOrdersList dateRange={dateRange} includeCancelledOrders={includeCancelledOrders} customerNameFilter={customerNameFilter} />
+      <RecentOrdersList 
+        dateRange={dateRange} 
+        includeCancelledOrders={includeCancelledOrders}
+        customerNameFilter={customerNameFilter}
+        statusFilter={statusFilter}
+      />
     </div>
   );
 };
