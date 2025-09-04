@@ -75,78 +75,13 @@ const fetchAllOrders = async (): Promise<SupabaseOrder[]> => {
   return allOrders;
 };
 
-// Hook optimizado para cargar órdenes del mes actual inicialmente
 export const useOrders = () => {
-  const { data: orders = [], isLoading } = useQuery({
+  return useQuery({
     queryKey: ['orders'],
-    queryFn: async () => {
-      const today = new Date();
-      const startOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      
-      // Primero traer órdenes del mes actual
-      const { data: currentMonthOrders, error: currentError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            id,
-            product_id,
-            variant_id,
-            product_name,
-            variant_name,
-            sku,
-            price,
-            original_price,
-            quantity,
-            additional_selections,
-            applied_promotions,
-            variant_options,
-            variant_attachments
-          )
-        `)
-        .gte('created_at', startOfCurrentMonth.toISOString())
-        .order('created_at', { ascending: false });
-
-      if (currentError) throw currentError;
-
-      // Si tenemos menos de 1000 órdenes del mes actual, traer más órdenes antiguas
-      if (currentMonthOrders && currentMonthOrders.length < 1000) {
-        const { data: olderOrders, error: olderError } = await supabase
-          .from('orders')
-          .select(`
-            *,
-            order_items (
-              id,
-              product_id,
-              variant_id,
-              product_name,
-              variant_name,
-              sku,
-              price,
-              original_price,
-              quantity,
-              additional_selections,
-              applied_promotions,
-              variant_options,
-              variant_attachments
-            )
-          `)
-          .lt('created_at', startOfCurrentMonth.toISOString())
-          .order('created_at', { ascending: false })
-          .limit(1000 - currentMonthOrders.length);
-
-        if (olderError) throw olderError;
-
-        return [...currentMonthOrders, ...(olderOrders || [])] as SupabaseOrder[];
-      }
-
-      return currentMonthOrders as SupabaseOrder[];
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes en cache
+    queryFn: fetchAllOrders,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000, // 10 minutos en cache
   });
-
-  return { data: orders, isLoading };
 };
 
 export const useCreateOrder = (onOrderCreated?: (order: SupabaseOrder) => void) => {

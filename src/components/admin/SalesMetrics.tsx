@@ -16,8 +16,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useExpenses } from "@/hooks/useExpenses";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
-import { useCashFlow } from "@/hooks/useCashFlow";
-import { useOrdersWithDateRange } from "@/hooks/useOrdersWithDateRange";
 import { RecentOrdersList } from "./RecentOrdersList";
 import { SalesHeatmap } from "./SalesHeatmap";
 import * as XLSX from "xlsx";
@@ -71,56 +69,12 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
 
-  // Nuevo estado para filtros de tipos de gastos
-  const [expenseFilters, setExpenseFilters] = useState({
-    includeComida: true,
-    includeOperativo: true,
-    includeMejoras: true
-  });
-
   const { expenses } = useExpenses();
   const { data: products } = useProducts();
   const { data: categories } = useCategories();
-  const { cashFlow, isLoading: cashFlowLoading } = useCashFlow();
-  
-  // Hook para obtener órdenes con rango de fechas cuando sea necesario
-  const { data: dateRangeOrders, isLoading: dateRangeLoading } = useOrdersWithDateRange({
-    startDate: dateRange.from,
-    endDate: dateRange.to,
-    enabled: !!dateRange.from && !!dateRange.to
-  });
-
-  // Usar órdenes del rango de fechas si están disponibles, sino usar las órdenes por defecto
-  const ordersToUse = (dateRange.from && dateRange.to && dateRangeOrders) ? dateRangeOrders.map(order => ({
-    id: order.id,
-    orderNumber: order.order_number,
-    customerName: order.customer_name,
-    total: order.total,
-    paymentMethod: order.payment_method,
-    createdAt: new Date(order.created_at),
-    status: order.status,
-    subtotal: order.subtotal,
-    totalDiscount: order.total_discount,
-    cashReceived: order.cash_received,
-    photoEvidence: order.photo_evidence,
-    isDelivery: order.is_delivery,
-    cancellationReason: order.cancellation_reason,
-    appliedPromotions: order.applied_promotions ? JSON.parse(order.applied_promotions as string) : [],
-    items: order.order_items?.map(item => ({
-      id: item.id,
-      productName: item.product_name,
-      variantName: item.variant_name,
-      sku: item.sku,
-      price: item.price,
-      originalPrice: item.original_price || item.price,
-      quantity: item.quantity,
-      additionalSelections: item.additional_selections,
-      appliedPromotions: item.applied_promotions ? JSON.parse(item.applied_promotions as string) : []
-    })) || []
-  })) : orders;
 
   const filteredOrders = useMemo(() => {
-    let filtered = ordersToUse;
+    let filtered = orders;
 
     // Filtro por rango de fechas
     if (dateRange.from && dateRange.to) {
@@ -150,27 +104,18 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
     }
 
     return filtered;
-  }, [ordersToUse, dateRange, includeCancelledOrders, customerNameFilter, statusFilter]);
+  }, [orders, dateRange, includeCancelledOrders, customerNameFilter, statusFilter]);
 
   const filteredExpenses = useMemo(() => {
     if (!dateRange.from || !dateRange.to || !expenses) return [];
     
-    return expenses.filter(expense => {
-      // Filtro por fecha
-      const dateFilter = isWithinInterval(new Date(expense.created_at), {
+    return expenses.filter(expense => 
+      isWithinInterval(new Date(expense.created_at), {
         start: startOfDay(dateRange.from!),
         end: endOfDay(dateRange.to!)
-      });
-      
-      // Filtro por tipo de gasto
-      const typeFilter = 
-        (expense.type === 'comida' && expenseFilters.includeComida) ||
-        (expense.type === 'operativo' && expenseFilters.includeOperativo) ||
-        (expense.type === 'mejoras' && expenseFilters.includeMejoras);
-      
-      return dateFilter && typeFilter;
-    });
-  }, [expenses, dateRange, expenseFilters]);
+      })
+    );
+  }, [expenses, dateRange]);
 
   const productSalesData = useMemo(() => {
     if (!products) return [];
@@ -676,59 +621,12 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
                 </SelectContent>
               </Select>
             </div>
-            
-            {/* Filtros de tipos de gastos */}
-            <div className="flex items-center space-x-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-sm font-medium">Incluir gastos:</Label>
-              <div className="flex space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="include-comida"
-                    checked={expenseFilters.includeComida}
-                    onCheckedChange={(checked) => setExpenseFilters(prev => ({ ...prev, includeComida: checked }))}
-                  />
-                  <Label htmlFor="include-comida" className="text-sm text-orange-600">Comida</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="include-operativo"
-                    checked={expenseFilters.includeOperativo}
-                    onCheckedChange={(checked) => setExpenseFilters(prev => ({ ...prev, includeOperativo: checked }))}
-                  />
-                  <Label htmlFor="include-operativo" className="text-sm text-blue-600">Operativo</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="include-mejoras"
-                    checked={expenseFilters.includeMejoras}
-                    onCheckedChange={(checked) => setExpenseFilters(prev => ({ ...prev, includeMejoras: checked }))}
-                  />
-                  <Label htmlFor="include-mejoras" className="text-sm text-purple-600">Mejoras</Label>
-                </div>
-              </div>
-            </div>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Tarjetas de métricas principales - CAMBIO: incluir dinero en caja */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 sm:gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Dinero en Caja</CardTitle>
-            <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-lg sm:text-2xl font-bold ${cashFlowLoading ? 'text-gray-400' : (cashFlow?.cashInHand || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {cashFlowLoading ? 'Cargando...' : `$${(cashFlow?.cashInHand || 0).toLocaleString()}`}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Total histórico
-            </p>
-          </CardContent>
-        </Card>
-
+      {/* Tarjetas de métricas principales - CAMBIO: 4 columnas principales en desktop, 1 en mobile */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs sm:text-sm font-medium">Ingresos Totales</CardTitle>
@@ -1117,12 +1015,7 @@ export const SalesMetrics = ({ orders }: SalesMetricsProps) => {
       </Card>
 
       {/* Lista de órdenes recientes con paginación - pasando los filtros */}
-      <RecentOrdersList 
-        dateRange={dateRange} 
-        includeCancelledOrders={includeCancelledOrders}
-        customerNameFilter={customerNameFilter}
-        statusFilter={statusFilter}
-      />
+      <RecentOrdersList dateRange={dateRange} includeCancelledOrders={includeCancelledOrders} customerNameFilter={customerNameFilter} />
     </div>
   );
 };

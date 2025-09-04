@@ -15,7 +15,7 @@ import { ExpenseItem, DynamicExpenseForm } from '@/types';
 import { Expense } from '@/hooks/useExpenses';
 
 export const ExpensesManagement = () => {
-  const { expenses, isLoading, createExpense, updateExpense, deleteExpense, isCreating, isUpdating, isCurrentMonth, isValidDateForExpense } = useExpenses();
+  const { expenses, isLoading, createExpense, updateExpense, deleteExpense, isCreating, isUpdating, isCurrentMonth } = useExpenses();
   const [newExpense, setNewExpense] = useState<DynamicExpenseForm>({
     type: '',
     items: [{
@@ -36,12 +36,10 @@ export const ExpensesManagement = () => {
     type: 'comida' | 'operativo' | 'mejoras';
     amount: number;
     description: string;
-    created_at: string;
   }>({
     type: 'comida',
     amount: 0,
-    description: '',
-    created_at: ''
+    description: ''
   });
 
   const updateItemSubtotal = (itemId: string, quantity: number, unitValue: number) => {
@@ -86,8 +84,10 @@ export const ExpensesManagement = () => {
       .join(', ');
   };
 
-  const isDateValid = (dateString: string) => {
-    return isValidDateForExpense(dateString);
+  const isDateInCurrentMonth = (dateString: string) => {
+    const selectedDate = new Date(dateString);
+    const currentDate = new Date();
+    return isSameMonth(selectedDate, currentDate);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -96,9 +96,9 @@ export const ExpensesManagement = () => {
       return;
     }
 
-    // Verificar que la fecha seleccionada sea válida
-    if (!isDateValid(expenseDate)) {
-      alert('Solo puedes registrar gastos del mes actual (o último día del mes anterior si estás en los primeros 3 días del mes) y no de fechas futuras');
+    // Verificar que la fecha seleccionada sea del mes actual
+    if (!isDateInCurrentMonth(expenseDate)) {
+      alert('Solo puedes registrar gastos del mes actual');
       return;
     }
 
@@ -131,8 +131,7 @@ export const ExpensesManagement = () => {
     setEditForm({
       type: expense.type,
       amount: expense.amount,
-      description: expense.description,
-      created_at: format(new Date(expense.created_at), 'yyyy-MM-dd')
+      description: expense.description
     });
   };
 
@@ -140,18 +139,11 @@ export const ExpensesManagement = () => {
     e.preventDefault();
     if (!editingExpense) return;
 
-    // Verificar que la fecha sea válida para edición
-    if (!isDateValid(editForm.created_at)) {
-      alert('Solo puedes editar gastos del mes actual (o último día del mes anterior si estás en los primeros 3 días del mes) y no de fechas futuras');
-      return;
-    }
-
     updateExpense({
       id: editingExpense.id,
       type: editForm.type,
       amount: editForm.amount,
       description: editForm.description,
-      created_at: editForm.created_at + 'T' + format(new Date(editingExpense.created_at), 'HH:mm:ss') + '.000Z',
     });
 
     setEditingExpense(null);
@@ -281,10 +273,10 @@ export const ExpensesManagement = () => {
                 onChange={(e) => setExpenseDate(e.target.value)}
                 max={format(endOfMonth(new Date()), 'yyyy-MM-dd')}
                 min={format(startOfMonth(new Date()), 'yyyy-MM-dd')}
-                className={`${!isDateValid(expenseDate) ? 'border-red-500' : ''}`}
+                className={`${!isDateInCurrentMonth(expenseDate) ? 'border-red-500' : ''}`}
               />
-              {!isDateValid(expenseDate) && (
-                <p className="text-sm text-red-600">Solo puedes registrar gastos del mes actual o último día del mes anterior (si estás en los primeros 3 días del mes). No se permiten fechas futuras.</p>
+              {!isDateInCurrentMonth(expenseDate) && (
+                <p className="text-sm text-red-600">Solo puedes registrar gastos del mes actual</p>
               )}
             </div>
 
@@ -687,24 +679,6 @@ export const ExpensesManagement = () => {
                   Mejoras
                 </Button>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Calendar className="h-4 w-4" />  
-                Fecha del gasto
-              </label>
-              <Input
-                type="date"
-                value={editForm.created_at}
-                onChange={(e) => setEditForm(prev => ({ ...prev, created_at: e.target.value }))}
-                max={format(endOfMonth(new Date()), 'yyyy-MM-dd')}
-                min={format(startOfMonth(new Date()), 'yyyy-MM-dd')}
-                className={`${!isDateValid(editForm.created_at) ? 'border-red-500' : ''}`}
-              />
-              {!isDateValid(editForm.created_at) && (
-                <p className="text-sm text-red-600">Solo puedes editar gastos del mes actual o último día del mes anterior (si estás en los primeros 3 días del mes). No se permiten fechas futuras.</p>
-              )}
             </div>
 
             <div className="space-y-2">

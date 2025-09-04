@@ -20,10 +20,9 @@ interface RecentOrdersListProps {
   };
   includeCancelledOrders?: boolean;
   customerNameFilter?: string;
-  statusFilter?: string;
 }
 
-export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false, customerNameFilter = "", statusFilter = "all" }: RecentOrdersListProps) => {
+export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false, customerNameFilter = "" }: RecentOrdersListProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedTransfer, setSelectedTransfer] = useState<{
     imageUrl: string;
@@ -38,7 +37,7 @@ export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false, cu
   const { printInvoice } = usePrinterStatus();
   const { toast } = useToast();
 
-  // Filtrar órdenes por rango de fechas, estado de cancelación, nombre de cliente y status
+  // Filtrar órdenes por rango de fechas, estado de cancelación y nombre de cliente
   const filteredOrders = allOrders?.filter(order => {
     // Filtro por fecha
     const dateFilter = !dateRange.from || !dateRange.to || 
@@ -48,16 +47,13 @@ export const RecentOrdersList = ({ dateRange, includeCancelledOrders = false, cu
       });
     
     // Filtro por estado de cancelación
-    const cancelledFilter = includeCancelledOrders || order.status !== 'cancelled';
+    const statusFilter = includeCancelledOrders || order.status !== 'cancelled';
     
     // Filtro por nombre de cliente
     const customerFilter = !customerNameFilter.trim() || 
       order.customer_name.toLowerCase().includes(customerNameFilter.toLowerCase().trim());
     
-    // Filtro por status específico
-    const specificStatusFilter = statusFilter === "all" || order.status === statusFilter;
-    
-    return dateFilter && cancelledFilter && customerFilter && specificStatusFilter;
+    return dateFilter && statusFilter && customerFilter;
   }) || [];
 
   // Paginar órdenes filtradas
